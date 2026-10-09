@@ -116,13 +116,19 @@ $PNPM = '<pnpm.mjs 路径>'
 # 构建（host 半 tsc + client 半 esbuild）
 & $NODE $PNPM run build:all
 
-# 装进 desktop profile
+# 装进 desktop profile（本机实测：**装完无需重启**）
 $DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 & $DSH plugin --profile desktop add .
 
 # 自检
 & $NODE $PNPM run gate
 ```
+
+> **装完即刻可用（本机实测）**：`dsh plugin add` 会触发 profile 热重载，
+> 本次会话里 `testkit_list` / `testkit_run` / `testkit_report` / `testkit_export`
+> **当场出现**，不必重启 DSH。
+> 客户端那半（会话视图环里的「测试」标签页）如未出现，刷新一次页面即可——
+> client bundle 由浏览器加载，不受 host 热重载影响。
 
 装好后在 DSH 里：
 
