@@ -192,7 +192,15 @@ test('flush：慢观察者会拖长 flush —— 证明宿主真的 await 了 li
   await sessionDriver.act(driverCtx, { session: { flush: {} } })
 
   const duration = Number(driverCtx.fixture.getNote('sessionFlushDurationMs'))
-  assert.ok(duration >= 40, `flush 必须等 listener 结算完，实际耗时 ${duration}ms`)
+  // 容差是必须的，不是放宽判据：`Date.now()` 起止各取整一次，`setTimeout(40)`
+  // 也可能略早于名义值触发，所以实测**可能**是 39ms（CI 上真的红过一次）。
+  // 这条用例要证的是"宿主真的 await 了 listener"，而不等待时这个值是 0–2ms——
+  // 与 40 差一个量级，5ms 容差不会让任何"没等待"的实现蒙混过关。
+  const TIMER_TOLERANCE_MS = 5
+  assert.ok(
+    duration >= 40 - TIMER_TOLERANCE_MS,
+    `flush 必须等 listener 结算完，实际耗时 ${duration}ms`,
+  )
   assert.equal(driverCtx.fixture.getNote('sessionFlushObserverDelayMs'), 40)
 })
 

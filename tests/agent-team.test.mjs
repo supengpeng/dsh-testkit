@@ -157,7 +157,10 @@ test('waitForTeammateIdle：一直 running 时按上限超时（不无限等）'
   })
   assert.equal(wait.status, 'running')
   assert.equal(wait.timedOut, true)
-  assert.ok(wait.waitedMs >= 30)
+  // 同上一条的容差理由：`Date.now()` 取整 + 定时器精度会让实测少 1–2ms。
+  // 判据仍然是"确实等到了上限附近"——不等待时这个值是 0–2ms。
+  const TIMER_TOLERANCE_MS = 5
+  assert.ok(wait.waitedMs >= 30 - TIMER_TOLERANCE_MS, `实际等待 ${wait.waitedMs}ms`)
 })
 
 test('waitForTeammateIdle：failed 也算跑完（不能让场景一直等到超时）', async () => {

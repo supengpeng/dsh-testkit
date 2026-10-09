@@ -54,6 +54,7 @@
 | 1 | `.gitignore` 第 3 行 `export/`（未锚定）连 `src/export/**` 一起忽略 | CI 轨生成器 `src/export/node-test.ts`、`write.ts` **从未入库**（`git ls-files src/export` 为空）。本地构建一切正常，**新克隆上 `pnpm run gate` 必挂**——刚加的 CI 第一跑就会红 | `.gitignore` 改为锚定的 `/export/`、`/export-all/` 并写明原因 |
 | 2 | `package.json` 的 `files` 缺 `schemas` | 新增的 `schemas/run-report.schema.json` 装了会缺件（正是 TK-0019 从 dsh-memory #48 提炼的形态） | `files` 加 `schemas`；`exports` 声明该 schema（`check-pack-files` 的必需路径由入口字段推导，这样它才查得到）；新增 `verify:pack` 进 `gate` |
 | 3 | `scripts/check-git-installable.mjs` 默认包根多跳一级 | 不带参数跑必然 exit 1，脚本等于半个残废 | 去掉那一跳；同时发现它报出的**真问题**：入口指向 `lib/` 但没有 `prepare`，git 安装得到的是没有入口的空壳 → 加 `prepare` 构建脚本，并把 `verify:git-install` 接进 `gate` |
+| 4 | **两条时序断言在 CI 上会假红**（新检出复跑时实测命中一次） | `assert.ok(duration >= 40)` / `assert.ok(waitedMs >= 30)` 与 `setTimeout` 的名义值**相等**，而 `Date.now()` 起止各取整一次 + 定时器精度会让实测少 1–2ms（实测 39 < 40）。9 个矩阵任务里迟早撞上，表现为随机红 | 两处加 5ms 容差并写明理由（要证的是"确实等了"，不等待时是 0–2ms，差一个量级）；同时这也是"失败归因 `flaky`"这条能力存在的理由 |
 
 ---
 
