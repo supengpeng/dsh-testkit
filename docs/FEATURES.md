@@ -36,7 +36,7 @@
 | `interaction` | — | 模拟人的回答与审批决策（接管 `user-questions/request` 与 `approval/request`） |
 | `session` | `commands` | 注册临时人类命令并驱动它 |
 | `resource` | — | 假 web provider（含"不可用"与"抛错"两条降级路径） |
-| `agent` | `subagents` | 派生**真实**子 agent 跑任务并断言轨迹（⚠️ 会真调模型、花 token） |
+| `agent` | `subagents` ＋ `agentTeams` | 两条通道：`one-shot` 派生**真实**子 agent；`teammate` **复用 Agent Teams** 创建 durable 队友并断言 roster（⚠️ 会真调模型、花 token） |
 | `ui` | — | 在隔离 `node:vm` 里加载 **client 半真实产物**，验证契约与 slot / 词典注册 |
 | `shell` | `subprocess` | 跑外部命令（`argv` 数组，**无 shell 解析**）并取证输出与退出码 |
 | `file` | — | 读文件 / 列目录 / **搜内容**（对应 grep）；**纯离线** |
@@ -46,7 +46,7 @@
 ## 4. 场景数据
 
 - **一案一 YAML**（`cases/TK-XXXX.yaml`），加一条场景理想情况下**只加文件、不改代码**
-- **26 条场景**，分布：`shell=6` `tool=4` `interaction=3` `file=3` `llm=2` `session=2` `resource=2` `agent=2` `prompt=1` `ui=1`
+- **27 条场景**，分布：`shell=6` `tool=4` `interaction=3` `file=3` `llm=2` `session=2` `resource=2` `agent=3` `prompt=1` `ui=1`
 - **索引** `cases/index.yaml` 由守卫自动维护，禁止手工编辑
 - **溯源**：场景可带 `source.issue`（真实 issue 派生的场景必须带）
 
@@ -60,7 +60,7 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 ```
 
 - 取值路径前缀：`fx.*`（取证）/ `env.*`（场景变量）/ 容器
-- **约 130 个取证字段**（`fx.*`），由 `verify:docs` 守卫保证"文档里写的字段一定真实存在"
+- **约 145 个取证字段**（`fx.*`），由 `verify:docs` 守卫保证"文档里写的字段一定真实存在"
 
 ## 6. 执行引擎
 
@@ -132,8 +132,10 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 ## 实测验证状态
 
 ```
-gate            276 项单测 + 20 条导出场景          全绿
-真实 DSH 全量    26 条 → 25 通过 / 1 失败 / 0 跳过    见下
+gate            297 项单测 + 20 条导出场景          全绿
+真实 DSH 全量    27 条中 26 条 active → 25 通过 / 1 失败 / 0 跳过   见下
+                （TK-0027 是 draft：团队通道留痕不可逆，按需单跑）
+team 通道        TK-0027 在独立 headless 新进程 passed（703ms，真 spawnTeammate）
 client 半       typecheck 通过，bundle 可加载
 ```
 

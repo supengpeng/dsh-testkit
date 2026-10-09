@@ -37,6 +37,8 @@ const CAPABILITY_SERVICE: Record<HostCapability, string> = {
   webServer: 'webServer',
   agentLoop: 'agentLoop',
   subagents: 'subagents',
+  // Agent Teams 协作面（实验包）；缺失即 team 通道不可用
+  agentTeams: 'agentTeams',
   storage: 'storage',
   timer: 'timer',
   // client 半的注册表

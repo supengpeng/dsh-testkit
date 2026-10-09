@@ -336,6 +336,44 @@ issue/PR（其中 238 条带最小复现 + 实测读数/验收判据）。
 
 ---
 
+## Phase 9 · 复用 Agent Teams 的 team 通道 ✅ 本轮完成
+
+**目标**：让 `agent` kind 不只复用底层 subagent provider，而是**复用 DSH 的智能体团队**
+（`ctx.agentTeams`）——把"派生一个 durable 队友"变成可断言、可回归的场景资产。
+
+| # | 交付物 | 状态 |
+|---|---|---|
+| 9.1 | `agent` kind 增 `mode: one-shot \| teammate`（缺省不变；动作级可覆盖） | ✅ |
+| 9.2 | `agentTeams` 能力探测 + Lead 身份判定（非 Lead **跳过**而不是崩） | ✅ |
+| 9.3 | teammate 唯一名生成（`tk-<caseId>-<rand>`）与非法名校验 | ✅ |
+| 9.4 | 结果取证：`session/event` 收 child 的 `assistant/message`；`waitForTeammateIdle` 等状态回落 | ✅ |
+| 9.5 | 留痕诚实化：`fx.teammateRetained` / `fx.teammateIgnoredSetup` / teardown `interrupt` | ✅ |
+| 9.6 | `TK-0027`（`status: draft`）与 21 条单测 | ✅ |
+
+**验收**：✅ **已在真实 DSH 里跑通**（独立 headless 新进程，`TK-0027 passed`，703ms）：
+
+| 取证 | 实测值 |
+|---|---|
+| `fx.teammateName` | `tk-0027-voi1`（driver 自动生成的唯一名） |
+| `fx.teammateId` / `fx.agentRunId` | `f30907a9-2c9e-4fdb-b0af-ff661be7cb2a` |
+| `fx.teammateStatus` → `fx.teammateFinalStatus` | `running` → `inactive`（`teammateWaitMs=604`，`wakeReason=change`） |
+| `fx.teammateOutputs` | `["TESTKIT_OK"]`（从 child 会话的 `assistant/message` 收集） |
+| `fx.teammateMembers` | `lead(running)` + `tk-0027-voi1(inactive)` |
+
+CLI 侧另观察到 teammate 用 `send_message` 把结果回传给 Lead——说明它拿到的是一套
+**完整可用的团队身份**，不只是被塞进 roster 的一行。
+
+> **为什么它必须是 `draft`**：团队没有删除成员的能力，`maxMembers` 在桌面组合里是 8
+> （服务内建默认 16），
+> 名字永不复用——每跑一次都**永久**消耗一个名额。走 team 通道的场景默认不进回归集，
+> 只在按 id 单跑时执行。这条限制写进了 [SCENARIO-SPEC §3.7](SCENARIO-SPEC.md)。
+
+> **两条通道的关系**：`one-shot` 调 `subagents.start()`；`teammate` 调
+> `agentTeams.spawnTeammate()`，其内部走 `subagents.startContinuable()`。
+> 底层是同一个 provider 注册表（实测 `spawn` / `fork`），团队语义只在上层。
+
+---
+
 ## 里程碑视图
 
 ```

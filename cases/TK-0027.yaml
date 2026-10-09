@@ -1,0 +1,82 @@
+# TK-0027 —— teammate 通道：复用 Agent Teams 派生一个真实队友跑最小任务
+#
+# ## 它与 TK-0014 的区别（就差在 `mode`）
+#
+# TK-0014 用 `one-shot`：`ctx.subagents.start()` 一次性运行，跑完 dispose，宿主不留痕。
+# 这一条用 `teammate`：`ctx.agentTeams.spawnTeammate()` —— 走**团队**通道，
+# 创建一个 durable 的可续接 child，并向 Lead 会话日志追加 `team/member` 记录。
+#
+# 两条通道共用同一个 subagent provider（实测 `spawn`），差别在上层：
+# 团队通道会进 roster / mailbox / 任务板，成员名**永不复用**。
+#
+# ## ⚠️ 代价（这就是它默认不跑的原因）
+#
+#   · 每次运行都会在 Lead 会话里**永久**留下一个成员记录
+#   · `maxMembers` 是组合配置项（DSH 的 Agent Teams profile bundle 设为 8，
+#     服务内建默认 16），且团队**没有删除成员**的能力——桌面组合下跑 8 次就满
+#   · 成员名不可复用，所以 driver 每次生成 `tk-0027-xxxx` 唯一名
+#
+# 因此这条场景是 `status: draft`：默认（status=active）的回归集不会选中它，
+# 只有显式按 id 跑 `testkit_run` 才会执行。见 docs/SCENARIO-SPEC.md §3.7。
+#
+# ## 它证明什么
+#
+# 「testkit 能复用 DSH 的智能体团队，而不只是复用底层 subagent provider」——
+# 即 roster 真的出现这个成员、状态真的从 running 回落到 inactive、
+# 且该成员会话的 assistant 产出能被取证（`fx.teammateOutput`）。
+#
+# 跳过条件（不是失败）：宿主没挂 `dsh-experimental-agent-team`（无 agentTeams 能力）、
+# 或当前 agent 不是 Team Lead（团队是扁平的，teammate 不能再建 teammate）。
+
+schema: 1
+id: TK-0027
+title: teammate 通道能复用团队跑完最小任务并回落为 inactive
+kind: agent
+severity: medium
+# draft = 不进默认回归集（team 成员留痕且不可删除，见头注）
+status: draft
+tags: [agent, team, manual, cost]
+
+source:
+  issue: null
+  summary: |
+    agent driver 的 team 通道自检：经 agentTeams.spawnTeammate 派生真实 teammate，
+    验证 roster 出现该成员、状态回落 inactive、并能取到它的 assistant 产出。
+
+runtime:
+  # 必须留在 testkit_run 的工具调用上限（120s）以内，否则外层先超时
+  timeoutMs: 110000
+  requires: [subagents, agentTeams]
+
+setup:
+  agent:
+    mode: teammate
+    context: fresh
+    description: dsh-testkit teammate 自检（跑完保留在 roster）
+    # 队友要跑真模型，给足等待窗口（但同样不能越过 110s 的场景上限）
+    waitMs: 60000
+
+steps:
+  - name: 经团队通道派生一个 teammate
+    act: { agent: { prompt: '请只回复这四个字符：TESTKIT_OK' } }
+    expect:
+      - { ref: fx.agentError, exists: false }
+      - { ref: fx.teammateName, exists: true }
+      - { ref: fx.teammateRole, is: teammate }
+      - { ref: fx.teammateId, exists: true }
+
+  - name: 它应当跑完并回落为 inactive
+    expect:
+      - { ref: fx.teammateFinalStatus, is: inactive }
+      - { ref: fx.teammateWaitTimedOut, is: false }
+
+  - name: 它的 assistant 产出应当被取证
+    expect:
+      - { ref: fx.teammateOutputs, lengthAtLeast: 1 }
+      # 模型是否听话由模型决定，所以这条用 soft：失败会记录但不影响判定
+      - { ref: fx.teammateOutput, soft: true, contains: TESTKIT_OK }
+
+  - name: 成员按设计保留在 roster（团队无法删除成员）
+    expect:
+      - { ref: fx.teammateRetained, is: true }
+      - { ref: fx.teammateMembers, lengthAtLeast: 2 }

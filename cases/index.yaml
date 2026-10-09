@@ -1,6 +1,6 @@
 # 由 scripts/verify-cases.mjs --write 生成；只存索引与溯源，真源是各个 case 文件。
 schema: 1
-nextId: 27
+nextId: 28
 cases:
   - id: TK-0001
     kind: tool
@@ -106,3 +106,7 @@ cases:
     kind: shell
     status: active
     issue: https://github.com/FuRongJun-1999/dsh-memory/issues/75
+  - id: TK-0027
+    kind: agent
+    status: draft
+    issue: null

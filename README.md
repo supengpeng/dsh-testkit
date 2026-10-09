@@ -25,14 +25,14 @@ issue ──提炼──▶ cases/TK-XXXX.yaml ──驱动──▶ src/kinds/*
 | **`interaction` driver** | ✅ 接管提问与审批：按声明应答、超时路径可断言 |
 | **`session` driver** | ✅ 人类命令：注册 / 驱动 / 两条失败路径（返回值 vs 抛异常） |
 | **`resource` driver** | ✅ 假 web provider：接管 providerId、截断语义、降级路径 |
-| **`agent` driver** | ✅ 派生**真实子 agent** 跑任务并断言轨迹（⚠️ 会真的调模型） |
+| **`agent` driver** | ✅ 派生**真实子 agent** 跑任务并断言轨迹——两条通道：`one-shot`（`subagents.start`）与 `teammate`（**复用 Agent Teams**，`agentTeams.spawnTeammate`）（⚠️ 会真的调模型） |
 | **`ui` driver** | ✅ 在隔离 vm 里加载**真实 client bundle**，验证产物契约与 slot / 词典注册（纯离线） |
 | **`shell` driver** | ✅ 跑外部命令（`argv` 数组）并取证退出码 / stdout / stderr（**由真实 issue 数据驱动**） |
 | **`file` driver** | ✅ 读文件 / 列目录 / **搜内容（`search`，对应 grep）**；纯离线，任何宿主都能跑（**由能力缺口分析驱动**） |
-| **Phase 1 / 2 / 4 / 5 / 6 / 7 / 8** | ✅ 全部收口——**10 个 driver** 覆盖 10 类干预点，双轨执行可用 |
-| **场景可跑通** | ✅ `cases/TK-0001..0026` 在真实 DSH 里 **25 通过 / 1 失败（预期）/ 0 跳过** |
+| **Phase 1 / 2 / 4 / 5 / 6 / 7 / 8 / 9** | ✅ 全部收口——**10 个 driver** 覆盖 10 类干预点，双轨执行可用 |
+| **场景可跑通** | ✅ `cases/TK-0001..0026` 在真实 DSH 里 **25 通过 / 1 失败（预期）/ 0 跳过**；`TK-0027`（team 通道）是 `draft`，只在按 id 单跑时执行 |
 | **组合场景（跨 kind）** | ✅ `setup` 可含多个 kind，`act` 按动作形状分派；实测证明 root 的假 provider 会穿透到子 agent |
-| 验证 | ✅ `pnpm run gate`：**276 测试** ＋ 导出的 **20 条场景**（gate 默认排除 6 条 `fixture` 场景——它们测的是外部被测对象） |
+| 验证 | ✅ `pnpm run gate`：**297 测试** ＋ 导出的 **20 条场景**（gate 默认排除 6 条 `fixture` 场景——它们测的是外部被测对象） |
 
 > 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（4 个模型工具 / 5 个子命令 /
 > 10 个 kind / 17 个断言词 / 约 130 个取证字段 / 2 个质量守卫 / 3 个通用检查器），
@@ -74,7 +74,7 @@ node --test export/scenarios.test.mjs
 
 ### 已能跑通的场景
 
-[`cases/`](cases) 下 **26 条场景**（其中 7 条源自真实 issue 数据）：
+[`cases/`](cases) 下 **27 条场景**（其中 7 条源自真实 issue 数据；`TK-0027` 为 `draft`）：
 
 | ID | kind | 测什么 |
 |---|---|---|
@@ -104,6 +104,7 @@ node --test export/scenarios.test.mjs
 | [TK-0024](cases/TK-0024.yaml) | shell | **#48 的运行时验证**：用 DSH 自带 Python 真跑 `import utf8_boot` 与 `find_spec('md_cg.mcp_server')` |
 | [TK-0025](cases/TK-0025.yaml) | shell | **#22 回归**：`_writer_session` 的三条取值口径（显式优先 / 否则取 cg.session / 都没有为 None） |
 | [TK-0026](cases/TK-0026.yaml) | shell | **#75（⚠️ 0.8.1 仍存在）**：`csre.build_index()` 因 `md_conn_or_none` 拼写笔误抛 ImportError |
+| [TK-0027](cases/TK-0027.yaml) | agent | **team 通道**：`agentTeams.spawnTeammate` 派生真实 teammate，roster 出现成员、回落 `inactive`、产出被取证（`draft`：成员留痕不可逆） |
 
 ---
 
@@ -231,6 +232,12 @@ dsh-testkit/
 - **子 agent 不能人工交互**：`ask_user_question` 在子 agent 里直接返回
   `human interaction is unavailable while the calling agent is owned by another live agent`
 - **热重载工作**：长期运行的 profile 下改 `cases/*.yaml`，无需重启即生效
+- **改 host 半代码必须重启 DSH**：`plugin_manager` 的 disable → enable 会重新 `apply()`
+  但**不打破 Node 模块缓存**（实测：重新 apply 后 `testkit_run` 仍是旧代码行为）；
+  最省事的验证是另起一个 headless 新进程
+- **team 通道真的通**：`TK-0027` 经 `agentTeams.spawnTeammate` 创建 teammate，
+  观察到 `running → inactive` 回落、child 会话产出 `TESTKIT_OK`，且该 teammate 会用
+  `send_message` 把结果回传给 Lead（实测于 2026-10-10，独立 headless 新进程）
 - 当前 DSH 版本 `0.2.0-rc.2`，profile `desktop`
 
 风险台账（R1–R10 全部结案）见 [ARCHITECTURE.md §9](docs/ARCHITECTURE.md)。

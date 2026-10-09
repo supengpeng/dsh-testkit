@@ -95,7 +95,8 @@ export function makeBridgeRoutes(deps: HttpBridgeDeps): WebRouteLike[] {
           ...(ids ? { ids } : {}),
           ...(kinds ? { kinds: kinds as never } : {}),
           ...(tags ? { tags } : {}),
-          status: ['active'],
+          // 与 testkit_run 同一条规则：显式点名可按 id 跑 draft，无选择器时只跑 active
+          ...(ids ? {} : { status: ['active'] }),
         },
         defaultTimeoutMs: deps.defaultTimeoutMs(),
       })

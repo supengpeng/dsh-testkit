@@ -446,7 +446,7 @@ await build({
 | `interaction` ✅ | `user-questions/request`、`approval/request` | 用户不答、答超时、审批拒绝、连续提问 |
 | `session` ⚠️ | `ctx.commands.register`（**已实现**）；`session/event`、`session/flush`、`ctx.goals`（**未实现**） | 命令行为、会话事件丢失、日志乱序、压缩边界 |
 | `resource` ⚠️ | `ctx.web` 的 search / fetch provider（**已实现**）；`ctx.fs`、`ctx.subprocess`（**未实现**） | 联网失败降级、文件并发写、沙箱拒绝、子进程非零退出 |
-| `agent` | `ctx.agentLoop` / `ctx.agents`（驱动真实 agent） | 端到端：模型该做什么、工具链是否走通 |
+| `agent` | `ctx.agentLoop` / `ctx.agents`（驱动真实 agent）；`ctx.subagents`（一次性派生）／`ctx.agentTeams`（**复用 Agent Teams** 的可续接队友） | 端到端：模型该做什么、工具链是否走通 |
 | `ui` | client 半 slot / `ctx.theme` | 渲染错、slot 冲突、主题 token 缺失、交互无响应 |
 
 > **状态标记**：✅ = 已实现（`src/kinds/*.ts`）。未标记的 kind 会把场景记为
@@ -503,6 +503,7 @@ issue 描述的是"界面上看到什么"吗？            → ui
 | R10 | `headless` profile 下 `userQuestions` / `subagents` **探测不到** | 会不会被误判成"宿主缺能力"而跳过场景 | ✅ **已结案**——不是宿主缺能力，而是能力探测**拍了快照**（cordis 激活是异步的）。改惰性求值后两者都可用，`TK-0007/0009/0014` 由 skipped 转为 passed（详见教训三） |
 | — | **十个 kind 是否都有 driver** | 数据层与驱动层是否自洽 | ✅ **全部落地**——`tool` / `prompt` / `llm` / `interaction` / `session` / `resource` / `agent` / `ui` / `shell` / `file`。`verify-cases` 的一致性守卫不再报任何警告 |
 | R1/R2/R3/R7 | **client 半（浏览器侧）能否在真实 web profile 里装载并与 host 半通信** | 双半插件的另一半 | ✅ **已在真实 web profile 验证**：bundle 被组合进启动图、`conversation.view` 的「测试」标签渲染、HTTP bridge 4 条路由全部可用（`/list` 返回 200 + 14 条场景）。故 R7 的 `inject` 集合合法 |
+| R11 | **复用 Agent Teams 会不会造成不可逆副作用**（`ctx.agentTeams.spawnTeammate()`） | 场景跑一次就可能污染用户的真实团队 | ✅ **已结案并落成机制**：成员记录只写进 Lead 会话日志、`maxMembers` 是组合配置（DSH 的 Agent Teams profile bundle 设为 8，服务内建默认 16）、**没有删除成员的能力**、名字永不复用。处置：team 通道的场景一律 `status: draft`（默认回归集不含）、driver 每次生成 `tk-<caseId>-<rand>` 唯一名、团队不支持的 setup 字段记入 `fx.teammateIgnoredSetup`（不静默）、teardown 对跑飞的成员 `interrupt`。详见 [SCENARIO-SPEC §3.7](SCENARIO-SPEC.md) |
 
 ### 9.2 未决项
 

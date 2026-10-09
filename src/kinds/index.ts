@@ -74,8 +74,19 @@ export {
   DEFAULT_FETCH_PROVIDER_ID,
 } from './resource.js'
 export type { ResourceSetup, WebSearchSpec, WebFetchSpec } from './resource.js'
-export { agentDriver, listProviders, resolveInitiator } from './agent.js'
-export type { AgentSetup } from './agent.js'
+export {
+  agentDriver,
+  listProviders,
+  resolveInitiator,
+  makeTeammateName,
+  assertTeammateName,
+  resolveTeamRole,
+  findMember,
+  summarizeMembers,
+  waitForTeammateIdle,
+  DEFAULT_TEAMMATE_WAIT_MS,
+} from './agent.js'
+export type { AgentSetup, AgentMode, TeammateWaitResult } from './agent.js'
 export { shellDriver, readAll, expandArgvTokens, expandTokens } from './shell.js'
 export type { ShellSetup } from './shell.js'
 export { fileDriver, matchGlob, expandPathTokens } from './file.js'

@@ -33,6 +33,8 @@ export type HostCapability =
   | 'webServer'
   | 'agentLoop'
   | 'subagents'
+  /** Agent Teams 协作面（实验包 `dsh-experimental-agent-team`）。 */
+  | 'agentTeams'
   | 'storage'
   | 'timer'
   | 'client'
@@ -109,8 +111,17 @@ export type ResourceAction =
   | { search: { query: string; maxResults?: number } }
   | { fetch: { url: string } }
 
-/** `agent` 动作：派生一个子 agent 并跑一个真实任务。 */
-export type AgentAction = { prompt: string }
+/**
+ * `agent` 动作：派生一个子 agent 并跑一个真实任务。
+ *
+ * `mode` 覆盖 `setup.agent.mode`（同一场景里两条通道可混用）；
+ * `name` 只对 `mode: teammate` 有意义（团队成员名）。
+ */
+export type AgentAction = {
+  prompt: string
+  mode?: 'one-shot' | 'teammate'
+  name?: string
+}
 
 /** `ui` 动作：在隔离环境里加载 client 半产物并驱动它。 */
 export type UiAction = { load?: boolean }

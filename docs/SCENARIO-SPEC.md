@@ -644,6 +644,19 @@ setup:
 > ⚠️ **这个 kind 与其它六个有本质区别：它会真的调模型、花 token、耗时。**
 > 其它 driver 都是「造条件」，这一个不是。
 
+它有两**条通道**，由 `setup.agent.mode` 选择（也可在动作上覆盖），缺省不改既有行为：
+
+| mode | 入口 | 语义 | 留痕 |
+|---|---|---|---|
+| `one-shot`（缺省） | `ctx.subagents.start()` | 一次性运行，父级只收最终输出 | 跑完 `dispose`，宿主不留痕 |
+| `teammate` | `ctx.agentTeams.spawnTeammate()` | **复用 Agent Teams**：durable 可续接 child，进 roster | **成员永久留在 Lead 会话日志** |
+
+两条通道共用同一个 subagent provider（实测注册名 `spawn` / `fork`），差别在**上层**：
+`teammate` 内部走 `subagents.startContinuable()` 并向 Lead 会话追加 `team/member` 记录；
+`one-shot` 只留一条 `subagent/catalog` 事实。
+
+### `mode: one-shot`（缺省）
+
 ```yaml
 kind: agent
 setup:
@@ -663,28 +676,88 @@ steps:
       - { ref: fx.agentStopReason, is: completed }
 ```
 
-**取证**：
+### `mode: teammate`（复用 Agent Teams）
+
+```yaml
+kind: agent
+status: draft                       # ← 团队留痕不可逆，默认不进回归集
+runtime:
+  # 场景上限必须留在工具调用超时（testkit_run 是 120s）以内，否则外层先超时
+  timeoutMs: 110000
+  requires: [subagents, agentTeams]
+setup:
+  agent:
+    mode: teammate
+    context: fresh                  # fresh（缺省，不带 Lead 历史）｜fork（带 Lead 已完成轮次）
+    description: 自检队友            # 进 roster 的职责描述
+    waitMs: 60000                   # 等它跑完的上限（缺省 60000）
+    #
+    # name 只影响 roster 里的名字；缺省生成 tk-<caseId>-<rand> 唯一名。
+    # ⚠️ 团队名**永不复用**（连创建失败的也保留），所以不要写死名字反复跑。
+    #
+    # 团队通道只接受 name / description / prompt / context / provider。
+    # label / model / toolFilter / persona 写了**不会生效**，driver 会把它们
+    # 记进 fx.teammateIgnoredSetup（而不是静默忽略）。
+
+steps:
+  - act: { agent: { prompt: '请只回复这四个字符：TESTKIT_OK' } }
+    expect:
+      - { ref: fx.teammateFinalStatus, is: inactive }
+      - { ref: fx.teammateOutputs, lengthAtLeast: 1 }
+```
+
+**取证（两条通道共用）**：
 
 | ref | 含义 |
 |---|---|
 | `fx.availableSubagentProviders` | 宿主注册的 provider 名单（跳过时用它解释原因） |
 | `fx.agentProvider` | 实际使用的 provider |
-| `fx.agentRunId` | 子 agent 的 session id |
-| `fx.agentStopReason` | `completed` / `aborted` / `error` / `max-tokens` / `refusal` |
-| `fx.agentOutput` | 子 agent 产出的文本 |
+| `fx.agentRunId` | 子会话 id（teammate 模式下即成员 id） |
+| `fx.agentStopReason` | 一次性通道：`completed` / `aborted` / `error` / `max-tokens` / `refusal` |
+| `fx.agentOutput` | 一次性通道：子 agent 产出的文本 |
 | `fx.agentDiagnostic` / `fx.agentStructured` | 诊断信息 / 结构化输出 |
 | `fx.agentDurationMs` | 耗时（毫秒） |
 | `fx.agentError` | 派生或运行失败时的错误描述 |
 
+**取证（`mode: teammate` 追加）**：
+
+| ref | 含义 |
+|---|---|
+| `fx.teammateName` / `fx.teammateId` / `fx.teammateRole` | roster 里的成员名 / 会话 id / 角色 |
+| `fx.teammateStatus` | `spawnTeammate` 返回时的状态（通常是 `running`） |
+| `fx.teammateFinalStatus` | 跑完后的状态——**团队没有同步 result，"跑完了"就靠它回落为 `inactive`** |
+| `fx.teammateWaitTimedOut` / `fx.teammateWaitMs` / `fx.teammateWakeReason` | 等待是否超时 / 等了多久 / 被团队变化还是轮询唤醒 |
+| `fx.teammateOutput` / `fx.teammateOutputs` | 该成员会话里的 `assistant/message` 文本（经 `session/event` 收集） |
+| `fx.teammateMembers` | 结束时的 roster 精简快照（`name` / `role` / `status`） |
+| `fx.teammateRetained` | 恒为 `true`：成员**按设计保留**（团队没有删除成员的能力） |
+| `fx.teammateIgnoredSetup` | 团队通道不支持的 setup 字段清单 |
+
+> **teammate 的代价（这就是它默认不跑的原因）**：每次运行都在 Lead 会话里
+> **永久**留下一个成员记录；`maxMembers` 是组合配置（DSH 的 Agent Teams profile bundle
+> 设为 8，服务内建默认 16）且没有任何删除能力；名字不可复用。
+> 所以走 team 通道的场景应写成 `status: draft`（默认 `active` 的回归集不含它），
+> 只在需要时按 id 单跑。样例见 [`cases/TK-0027.yaml`](../cases/TK-0027.yaml)。
+
+> **实测（2026-10-10，独立 headless 新进程）**：`TK-0027 passed`（703ms）——
+> 成员名 `tk-0027-voi1`、状态 `running → inactive`（等待 604ms）、
+> 其会话产出 `TESTKIT_OK` 进入 `fx.teammateOutputs`、成员按预期留在 roster；
+> teammate 还用 `send_message` 把结果回传给了 Lead。
+
 > **provider 名不确定时不猜。** 不同 profile 注册的 provider 名可能不同
-> （实测 headless profile 是 `spawn` / `fork`）。driver 缺省取第一个；
+> （实测 headless profile 是 `spawn` / `fork`）。一次性通道缺省取第一个；
 > 显式指定的名字不存在时**跳过并列出可用名**。
+> `teammate` 模式按 `context` 取 `spawn` / `fork`，可用 `provider` 覆盖。
 
 > **使用纪律**：agent 类是**黑盒**用例，适合"端到端结果不对"这类说不清归类的 issue。
 > 根因清楚后应**下沉**到精确 kind（`tool` / `llm` / `prompt` …），黑盒那条保留当回归网。
 
-> **在 CI 轨里的行为**：headless 宿主没有 `subagents` 能力，所以这条场景会被**跳过**
-> （导出用例里显示为 `t.skip`）。这是刻意的——CI 里不该意外产生模型调用与费用。
+> **跳过而不是失败**：宿主没 `subagents`（一次性通道）、没 `agentTeams`（team 通道）、
+> 或当前 agent 不是 Team Lead（团队是扁平的，teammate 不能再建 teammate）——
+> 三种情况都走 `SkipCase`，并在报告里说明原因。
+
+> **在 CI 轨里的行为**：headless 宿主没有 `subagents` / `agentTeams` 能力，所以这两类场景
+> 都会被**跳过**（导出用例里显示为 `t.skip`）。这是刻意的——CI 里不该意外产生模型调用与费用，
+> 更不该动真实团队的 roster。
 
 ---
 

@@ -104,6 +104,23 @@ window.__ModuleLoader__.load({
 
 profile 的 `patchReload` 默认为 `startup`，**改了插件代码/配置需要重启才生效**。
 
+> **两条实测补充（2026-10-10 踩出来的）**：
+>
+> 1. **`plugin_manager` 的 disable → enable 不能替代重启。** 走工具面
+>    `set_plugin(include:dsh-testkit, enabled:false)` 再 `true` 会让插件重新
+>    `apply()`（bridge 探针确实又写了一次），但 **Node 的模块缓存没被打破**——
+>    之后 `testkit_run` 仍然是旧代码的行为。改 host 半只能靠新进程。
+> 2. **最省事的真实验证法是新起一个 headless 进程**，它天然加载最新 `lib/`：
+>
+>    ```powershell
+>    $task | & $DSH tk          # 独立 profile，答一个任务就退出，不碰 desktop
+>    ```
+>
+>    本次 team 通道（`agentTeams.spawnTeammate`）就是这么验的；但 `tk` profile
+>    默认没有 Agent Teams，需要临时把 bundle
+>    `@deepseek-ai/dsh-experimental-agent-team-profile` 加进它的
+>    `dsh.profile.bundles`（验完记得还原）。
+
 ### 4.2 client 半的循环
 
 client 半产物是 `lib/client.js`，改完之后**只需两步**：

@@ -98,7 +98,7 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
     {
       name: 'testkit_run',
       description:
-        '运行指定的测试场景（省略选择器则跑全部 active 场景），返回结果摘要并写出报告。',
+        '运行指定的测试场景（省略选择器则跑全部 active 场景；显式给 ids 时不受 status 限制，可按 id 单跑 draft），返回结果摘要并写出报告。',
       parameters: {
         type: 'object',
         properties: {
@@ -110,11 +110,15 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
         additionalProperties: false,
       },
       execute: async (args, exec) => {
+        const ids = asStringArray(args.ids)
         const filter = {
-          ...(asStringArray(args.ids) ? { ids: asStringArray(args.ids)! } : {}),
+          ...(ids ? { ids } : {}),
           ...(asStringArray(args.kinds) ? { kinds: asStringArray(args.kinds) as ScenarioKind[] } : {}),
           ...(asStringArray(args.tags) ? { tags: asStringArray(args.tags)! } : {}),
-          status: ['active'],
+          // 显式点名就不受 status 限制：按 id 单跑 draft 是刻意支持的用法
+          // （team 通道的场景只能这样跑，见 docs/SCENARIO-SPEC.md §3.7）。
+          // 没有选择器时仍只跑 active——draft 绝不能混进默认回归集。
+          ...(ids ? {} : { status: ['active'] }),
         }
 
         const progress: string[] = []
@@ -139,7 +143,13 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
 
         const lines: string[] = []
         lines.push(`Run ${summary.runId}`)
+        // 回显选择器：否则「合计 0」只能靠猜（真踩过——draft 场景按 id 单跑时
+        // 曾因为写死 status=active 而静默选中 0 条）
+        lines.push(`选择器：${describeFilter(filter)}`)
         lines.push(`合计 ${t.total} — ✅ ${t.passed} · ❌ ${t.failed} · ⏭️ ${t.skipped} · 💥 ${t.errored}`)
+        if (t.total === 0) {
+          lines.push('没有选中任何场景：省略选择器只跑 active；draft 场景需显式按 id 点名。')
+        }
         if (progress.length > 0) lines.push('')
         lines.push(...progress)
 
@@ -261,4 +271,12 @@ function asStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined
   const out = value.filter((v): v is string => typeof v === 'string')
   return out.length > 0 ? out : undefined
+}
+
+/** 把选择器渲染成一行，让报告与工具回显都能解释「为什么是 0 条」。 */
+function describeFilter(filter: object): string {
+  const parts = Object.entries(filter as Record<string, unknown>).map(([key, value]) =>
+    Array.isArray(value) ? `${key}=[${value.join(', ')}]` : `${key}=${String(value)}`,
+  )
+  return parts.length > 0 ? parts.join(' ') : '（无）'
 }
