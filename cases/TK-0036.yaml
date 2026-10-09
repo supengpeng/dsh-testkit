@@ -1,0 +1,80 @@
+# 提案正文 —— 批准后由 /testkit issue approve 落成 cases/TK-XXXX.yaml
+#
+# 源 issue：https://github.com/FuRongJun-1999/dsh-memory/issues/57
+# 判据来源：0.8.1 fixture 实测（谓词表真/假各若干 + _abs_host_path 窗口接线）
+
+schema: 1
+id: TK-0036
+title: "保留设备名守卫须末段直判：与 abspath 平台行为解耦（#57）"
+kind: shell
+severity: medium
+status: active
+tags: [shell, python, windows, device-name, regression, dsh-memory, fixture]
+
+source:
+  issue: https://github.com/FuRongJun-1999/dsh-memory/issues/57
+  summary: |
+    【现象】`os.path.abspath` 在 Windows 上走 `GetFullPathNameW`，会把末段是保留
+    设备名的路径归一进设备命名空间（`D:\x\aux` → `\\.\aux`）。旧守卫只判「归一结果
+    是否以 `\\.\` 开头」，而较新 Windows 构建不再做这个吞并 —— 该判据随即失效
+    （漏拦），归一回落的路径被静默接受。
+
+    【最小复现（issue 原文）】
+      git clone --depth 1 https://github.com/FuRongJun-1999/dsh-memory.git
+      cd dsh-memory
+      python -X utf8 -m md_cg.test_datapath_device_name
+      # → datapath device-name tests: 11 passed, 9 failed
+    红项原文节选：
+      [FAIL] 1a aux_root() 抛 ValueError（红态：静默返回 \\.\aux 不抛）  msg=''
+      [FAIL] 4·aux: aux_root() 抛 ValueError（GetFullPathNameW 劫持被拦）  msg=''
+
+    【修法（v0.7.3 落地，0.8.1 在位）】守卫改「末段直判」：新增纯字符串谓词
+    `_reserved_device_tail`，并把它接进 `_abs_host_path` —— 与 OS 的归一行为解耦。
+
+    【本场景测什么】0.8.1 上的两个**防回退**点，同一问题的一体两面：
+      ① 谓词表（纯字符串、平台无关）：真值 aux / con / nul / prn / com1 / lpt1 /
+         CON.txt / Aux 必须判 True；假值 auxdir / mdcg_aux / normal_dir / console /
+         com10 / com0 必须判 False。**两侧都标** —— 否则「一律拒绝」也能蒙过。
+      ② 接线：`_abs_host_path` 的函数窗口内确实调用了 `_reserved_device_tail`。
+         只有谓词在、却没接进守卫，正是 #57 的失效形态（判据在而门不生效）。
+
+    【为什么断言实现细节】issue 说的就是守卫条件本身（依赖 abspath 的平台行为），
+    所以「解耦后的判据被接进守卫」是可观测事实，不是实现细节泄漏。
+
+runtime:
+  requires: [subprocess]
+  timeoutMs: 60000
+
+setup:
+  shell:
+    cwd: $FIXTURES/dsh-memory-0.8.1
+
+steps:
+  - name: 解释器可用
+    act: { shell: { argv: [$PYTHON, --version] } }
+    expect:
+      - { ref: fx.spawnError, exists: false }
+      - { ref: fx.exitCode, is: 0 }
+
+  - name: 末段直判谓词表：保留设备名判 True，普通目录名判 False
+    act:
+      shell:
+        argv:
+          - $PYTHON
+          - -c
+          - import sys; sys.path.insert(0, "."); from md_cg.datapath import _reserved_device_tail as f; T=["aux","con","nul","prn","com1","lpt1","CON.txt","Aux"]; F=["auxdir","mdcg_aux","normal_dir","console","com10","com0"]; bad=[c for c in T if not f(c)]+[c for c in F if f(c)]; print("MISMATCH", bad) if bad else print("PREDICATE_OK", len(T), len(F)); sys.exit(1 if bad else 0)
+    expect:
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: PREDICATE_OK }
+      - { ref: fx.stderr, notContains: Traceback }
+
+  - name: 守卫与 OS 行为解耦：_abs_host_path 里确实调用了末段直判
+    act:
+      shell:
+        argv:
+          - $PYTHON
+          - -c
+          - import re, sys; src=open("md_cg/datapath.py", encoding="utf-8").read(); m=re.search(r"def _abs_host_path\(.*?(?=\ndef |\Z)", src, re.S); w=m.group(0) if m else ""; ok="_reserved_device_tail(" in w; print("DECOUPLED_OK" if ok else "DECOUPLED_MISSING"); sys.exit(0 if ok else 1)
+    expect:
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: DECOUPLED_OK }

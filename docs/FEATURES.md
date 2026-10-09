@@ -64,7 +64,7 @@
 ## 4. 场景数据
 
 - **一案一 YAML**（`cases/TK-XXXX.yaml`），加一条场景理想情况下**只加文件、不改代码**
-- **35 条场景**，分布：`shell=6` `tool=6` `session=4` `interaction=3` `file=3` `agent=3` `llm=2` `resource=2` `fs=2` `compaction=2` `prompt=1` `ui=1`
+- **36 条场景**，分布：`shell=7` `tool=6` `session=4` `interaction=3` `file=3` `agent=3` `llm=2` `resource=2` `fs=2` `compaction=2` `prompt=1` `ui=1`
 - **索引** `cases/index.yaml` 由守卫自动维护，禁止手工编辑
 - **溯源**：场景可带 `source.issue`（真实 issue 派生的场景必须带）
 

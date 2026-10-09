@@ -1,6 +1,6 @@
 # 由 scripts/verify-cases.mjs --write 生成；只存索引与溯源，真源是各个 case 文件。
 schema: 1
-nextId: 36
+nextId: 37
 cases:
   - id: TK-0001
     kind: tool
@@ -142,3 +142,7 @@ cases:
     kind: compaction
     status: draft
     issue: null
+  - id: TK-0036
+    kind: shell
+    status: active
+    issue: https://github.com/FuRongJun-1999/dsh-memory/issues/57

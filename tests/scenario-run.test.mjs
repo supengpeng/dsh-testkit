@@ -116,6 +116,8 @@ test('端到端：cases/ 下的全部场景在 headless 宿主里按要求通过
     'TK-0032',
     // compaction 面：headless 最小宿主不提供 sessions / compaction 能力
     'TK-0034',
+    // 外部被测对象的 shell 场景（fixture）：headless 最小宿主不提供 subprocess 能力
+    'TK-0036',
     // 注意：TK-0033（goals）是 draft，默认全量集里本来就不会出现
   ])
   for (const c of value.cases.filter((c) => c.verdict === 'skipped')) {

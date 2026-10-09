@@ -34,7 +34,7 @@ issue ──提炼──▶ cases/TK-XXXX.yaml ──驱动──▶ src/kinds/*
 | **场景可跑通** | ✅ `cases/TK-0001..0026` 在真实 DSH 里 **25 通过 / 1 失败（预期）/ 0 跳过**；`TK-0028`…`TK-0034`（两条 waterfall / `ctx.fs` / session 三件套 / compaction 边界）在独立 headless 新进程 **7/7 通过**；`TK-0035`（真压缩）单跑通过。`TK-0027` / `TK-0033` / `TK-0035` 是 `draft`（留痕或花 token） |
 | **组合场景（跨 kind）** | ✅ `setup` 可含多个 kind，`act` 按动作形状分派；实测证明 root 的假 provider 会穿透到子 agent |
 | **issue 提炼闸门** | ✅ **要不要提炼、要不要落地都由人定**：人开批次 → 模型只提交提案（质量预检不过不落盘）→ 人批准才进 `cases/`；未结案不允许开下一批（三个闸门都有回归测试，见 `tests/pipeline-gate.test.mjs`） |
-| 验证 | ✅ `pnpm run gate`：**386 测试** ＋ 导出的 **26 条场景**（gate 默认排除 6 条 `fixture` 场景——它们测的是外部被测对象） |
+| 验证 | ✅ `pnpm run gate`：**386 测试** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
 
 > 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（6 个模型工具 / 6 个子命令 /
 > 12 个 kind / 17 个断言词 / 约 235 个取证字段 / 2 个质量守卫 / 3 个通用检查器），
@@ -76,7 +76,7 @@ node --test export/scenarios.test.mjs
 
 ### 已能跑通的场景
 
-[`cases/`](cases) 下 **35 条场景**（其中 7 条源自真实 issue 数据；`TK-0027` / `TK-0033` / `TK-0035` 为 `draft`）：
+[`cases/`](cases) 下 **36 条场景**（其中 7 条带 `source.issue` 溯源；`TK-0027` / `TK-0033` / `TK-0035` 为 `draft`）：
 
 | ID | kind | 测什么 |
 |---|---|---|
@@ -115,6 +115,7 @@ node --test export/scenarios.test.mjs
 | [TK-0033](cases/TK-0033.yaml) | session | **`ctx.goals` 状态机**：`create` 会 arm 自动续轮（driver 默认立刻收回授权）；并实测出「一半目标是 `@Remote` 方法，不能本地直调」（`draft`：留痕） |
 | [TK-0034](cases/TK-0034.yaml) | compaction | **压缩边界**：没有安全范围时不压、非法范围被拒、`compactNow` 缺 agent 上下文时如实不可用（只作用于**隔离会话**） |
 | [TK-0035](cases/TK-0035.yaml) | compaction | **压缩正向路径**：隔离会话上真的压出摘要；实测出「收缩校验」——成败取决于模型摘要长度，故按 `compactionOutcome` 断言 + soft 形状（`draft`：花 token） |
+| [TK-0036](cases/TK-0036.yaml) | shell | **#57 防回退**：保留设备名守卫改「末段直判」后，谓词表两侧（真值须拦 / 假值须放行）与 `_abs_host_path` 的接线都必须在位（`fixture`：需 dsh-memory 0.8.1） |
 
 ---
 

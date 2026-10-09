@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "nextBatch": 2,
+  "nextProposal": 2,
+  "batches": [
+    {
+      "id": "BATCH-0001",
+      "scope": "选一条 cases/ 未覆盖的真实 issue 场景：dsh-memory #57（保留设备名守卫末段直判）",
+      "status": "approved",
+      "openedAt": "2026-10-09T19:03:59.198Z",
+      "items": [
+        {
+          "id": "P-0001",
+          "file": "P-0001-abspath-57.yaml",
+          "issue": "https://github.com/FuRongJun-1999/dsh-memory/issues/57",
+          "title": "保留设备名守卫须末段直判：与 abspath 平台行为解耦（#57）",
+          "kind": "shell",
+          "status": "active",
+          "state": "promoted",
+          "notes": "dsh-memory #57 防回退：末段直判谓词表 + _abs_host_path 接线（0.8.1 实测）",
+          "quality": {
+            "ok": true,
+            "findings": []
+          },
+          "createdAt": "2026-10-09T19:03:59.200Z",
+          "caseId": "TK-0036"
+        }
+      ],
+      "closedAt": "2026-10-09T19:05:02.038Z",
+      "reason": "批准落地 1 条"
+    }
+  ]
+}
