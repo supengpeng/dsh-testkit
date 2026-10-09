@@ -1,0 +1,27 @@
+# 构建产物
+lib/
+export/
+export-all/
+
+# 运行产物（每次 run 都会新增，不入库）
+runs/
+
+# 从 issue 数据生成的提炼草稿（可随时重跑 scripts/from-issue-data.mjs 再生成）
+cases-draft/
+
+# 外部 fixture（下载来的被测对象；用 scripts/fetch-fixtures.mjs 准备）
+.fixtures/
+
+# 依赖与工具
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log

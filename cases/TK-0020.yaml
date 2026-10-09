@@ -1,0 +1,47 @@
+# TK-0020 —— file driver 自检：读文件与列目录
+#
+# 纯离线（用 node:fs），任何宿主都能跑——所以在 CI 轨里也**不会**被跳过。
+#
+# 这个 kind 是被**能力缺口分析**驱动出来的：对 238 条可回归候选分类后，
+# **97 条**（41%）属于 `file-inspect`——判据是"某个文件里有没有某段内容"、
+# "清单里有没有这一项"。用 shell + grep 能凑，但依赖外部命令、断言也更脆。
+
+schema: 1
+id: TK-0020
+title: file driver 能读文件并取证内容与行数
+kind: file
+severity: medium
+status: active
+tags: [file, smoke]
+
+source:
+  issue: null
+  summary: file driver 自检：读本包 package.json、列 cases 下的场景文件、并验证"文件不存在"被如实取证
+
+setup:
+  file:
+    # `$PKG` 由 file driver 替换成插件包根
+    root: $PKG
+
+steps:
+  - name: 读一个一定存在的文件
+    act: { file: { read: package.json } }
+    expect:
+      - { ref: fx.fileExists, is: true }
+      - { ref: fx.fileError, exists: false }
+      - { ref: fx.fileText, contains: dsh-testkit }
+      - { ref: fx.fileLineCount, atLeast: 10 }
+
+  - name: 列出来场景文件
+    act: { file: { glob: cases/TK-*.yaml } }
+    expect:
+      - { ref: fx.globCount, atLeast: 15 }
+      - { ref: fx.globMatches, contains: cases/TK-0001.yaml }
+      # globTotal 是截断前的匹配总数——它能区分"没匹配"与"匹配很多但被截断"
+      - { ref: fx.globTotal, atLeast: 15 }
+
+  - name: 不存在的文件被如实取证（装机缺件是最常见的真实故障）
+    act: { file: { read: cases/definitely-not-here.yaml } }
+    expect:
+      - { ref: fx.fileExists, is: false }
+      - { ref: fx.fileText, exists: false }

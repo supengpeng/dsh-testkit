@@ -1,0 +1,46 @@
+# TK-0002 —— 边界：工具返回值体积远超常规
+#
+# 属于 docs/SCENARIO-SPEC.md §3.2 的 `generate` 用法。
+# 断言刻意分成两层：
+#   ① 执行链路不能失败；
+#   ② **返回值的精确长度**没被动过（用 resultValueLength 而不是文本长度，
+#      因为内容块的文本长度受渲染方式影响，拿它当"没截断"的证据不严谨）。
+
+schema: 1
+id: TK-0002
+title: 工具返回 200KB 文本时调用仍然成功且值未被截断
+kind: tool
+severity: medium
+status: active
+tags: [tool, boundary, large-payload]
+
+source:
+  issue: null
+  summary: 边界场景：单次工具返回 200KB 文本，执行链路不应失败、返回值不应被中途截断
+
+runtime:
+  timeoutMs: 30000
+  requires: [tools]
+
+setup:
+  tool:
+    register:
+      name: testkit_bigresult
+      description: 返回超大文本的测试工具
+      parameters: { type: object, properties: {}, additionalProperties: false }
+      generate:
+        kind: repeat-string
+        char: A
+        times: 200000
+
+steps:
+  - name: 大结果不应让执行失败
+    act: { tool: testkit_bigresult, args: {} }
+    expect:
+      - ref: fx.callError
+        exists: false
+
+  - name: 返回值的精确长度应等于声明值
+    expect:
+      - ref: fx.resultValueLength
+        is: 200000

@@ -1,0 +1,62 @@
+# TK-0022 —— 隐式顶层导入依赖必须被打进包（#12 / #48 这一类）
+#
+# ## 源 issue（两条同一类）
+#
+# · dsh-memory #48：files 白名单漏了根目录 utf8_boot.py → mcp_server 启动即 ModuleNotFoundError
+# · dsh-memory #12：md_cg 随包发布但启动时找不到
+#
+# 共同形态：代码里有 `from <顶层模块> import ...` 这种**非相对导入**，
+# 它要求那个模块躺在 sys.path 的根上。于是：
+#   · 在仓库里跑 → 能 import（cwd 就是根）
+#   · 装出来跑 → ModuleNotFoundError（文件没被打进包）
+#
+# ## 与 TK-0021 的分工
+#
+# TK-0021 只检查"`utf8_boot.py` 在不在 files 里"——判据是硬编码的。
+# 这条用 `scripts/check-python-topimports.mjs` **自动找出所有依赖**：
+# 扫描包内 .py 的非相对导入，与 files 白名单对照。
+# 注入 #48 形态后它能报出 3 处（mcp_server / run_tests / test_issue39_utf8_stdio），
+# 而 TK-0021 只能报出 1 处。
+#
+# ## 依赖
+#
+# ```sh
+# node scripts/fetch-fixtures.mjs dsh-memory-0.8.1
+# ```
+# 缺失时跳过并说明。
+
+schema: 1
+id: TK-0022
+title: 包内隐式顶层导入的依赖必须被打进包（#12 / #48 类，自动发现）
+kind: shell
+severity: high
+status: active
+tags: [shell, packaging, python, regression, dsh-memory, fixture]
+
+source:
+  issue: https://github.com/FuRongJun-1999/dsh-memory/issues/48
+  summary: |
+    自动检查包内所有非相对顶层导入（`from X import ...`），
+    确认 X 对应的文件被 files 白名单覆盖——否则装机后会 ModuleNotFoundError。
+
+runtime:
+  requires: [subprocess]
+  timeoutMs: 120000
+
+setup:
+  shell:
+    cwd: $PKG
+
+steps:
+  - name: 扫描 fixture 的隐式顶层导入依赖
+    act:
+      shell:
+        argv:
+          [$NODE, scripts/check-python-topimports.mjs, $FIXTURES/dsh-memory-0.8.1]
+    expect:
+      - { ref: fx.spawnError, exists: false }
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: check-python-topimports }
+      - { ref: fx.stdout, contains: OK }
+      # 确认它真的扫了东西（而不是空跑）
+      - { ref: fx.stdout, contains: 扫描 }

@@ -1,0 +1,54 @@
+# TK-0005 —— llm driver 自检：模型输出由声明决定
+#
+# 这条场景**不请求任何上游模型**：driver 注册的 llm/stream listener
+# 故意不调用 next()，真实适配器完全不会被触达。
+#
+# 断言的关键证据是 fx.mockText —— 它不是"我们打算产出的文本"，
+# 而是下游**实际消费到的流**里累积出来的，因此它同时证明了
+# "拦截生效"与"chunk 结构被正确识别"。
+
+schema: 1
+id: TK-0005
+title: 接管的模型流按声明分块产出，且零上游请求
+kind: llm
+severity: medium
+status: active
+tags: [llm, stream, smoke]
+
+source:
+  issue: null
+  summary: llm driver 自检：llm/stream 被接管后，模型输出完全由声明决定
+
+runtime:
+  timeoutMs: 15000
+  requires: [llm]
+
+setup:
+  llm:
+    respond:
+      chunks: ['你好，', '这是分块输出']
+      finishReason: stop
+      usage: { input: 100, output: 20 }
+
+steps:
+  - name: 触发一次模型流
+    act: { llm: { prompt: 说点什么 } }
+    expect:
+      - ref: fx.llmCallCount
+        is: 1
+      - ref: fx.streamError
+        exists: false
+
+  - name: 下游消费到的文本应与声明一致
+    expect:
+      - ref: fx.mockText
+        is: 你好，这是分块输出
+
+  - name: finish 与 usage chunk 都应被产出
+    expect:
+      - ref: fx.finishReason
+        is: stop
+      - ref: fx.chunkTypes
+        contains: usage
+      - ref: fx.chunkCount
+        atLeast: 5

@@ -1,0 +1,51 @@
+# TK-0007 —— interaction driver 自检：提问被应答
+#
+# 这条场景验证的是「人机交互面能被接管」：
+# 宿主发起 user-questions/request，driver 的答者按声明返回选择。
+#
+# 注意 act 是**替宿主发起请求**——真实 DSH 里这一步由 ask_user_question 工具触发，
+# 自检场景没有真实的模型调用，所以显式触发。
+
+schema: 1
+id: TK-0007
+title: 提问请求应被应答为声明选择的选项
+kind: interaction
+severity: medium
+status: active
+tags: [interaction, question, smoke]
+
+source:
+  issue: null
+  summary: interaction driver 自检：user-questions/request 被接管后，回答由声明决定
+
+runtime:
+  timeoutMs: 15000
+  requires: [userQuestions]
+
+setup:
+  interaction:
+    question:
+      select: [选项 A]
+
+steps:
+  - name: 触发一次提问，应答过程不应出错
+    act:
+      interaction:
+        question:
+          question: 请选择一项
+          header: 测试提问
+          options:
+            - { label: 选项 A }
+            - { label: 选项 B }
+    expect:
+      - ref: fx.questionCount
+        is: 1
+      - ref: fx.questionError
+        exists: false
+
+  - name: 应答内容应与声明一致
+    expect:
+      - ref: fx.answer.answers[0].selected
+        contains: 选项 A
+      - ref: fx.answer.answers[0].id
+        is: testkit-q1

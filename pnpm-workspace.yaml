@@ -1,0 +1,6 @@
+# pnpm 12 的构建脚本白名单（由 pnpm 自动生成占位后填写）。
+#
+# 放行 esbuild：它需要执行安装脚本准备平台二进制。
+# 未放行时，pnpm 的 deps 状态检查会让 `pnpm run *` 直接失败。
+allowBuilds:
+  esbuild: true

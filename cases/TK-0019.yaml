@@ -1,0 +1,49 @@
+# TK-0019 —— 发布的包必须包含入口声明的文件（发包面自检）
+#
+# ## 这条场景是从真实 issue 形态提炼出来的
+#
+# `dsh-memory` #48：
+#   > 0.6.1 装机态开箱即挂：files 白名单漏了根目录 utf8_boot.py
+#   > → mcp_server 启动即 ModuleNotFoundError（#38「出货面缺件」同类复发）
+#
+# 形态归纳：**本地能跑、装出来就挂**——因为 npm 发包只带 `files` 白名单里的东西。
+# 这类问题的理想检测点是**发包面本身**：不安装、不启动，直接比对清单。
+#
+# ## 可复用的模式
+#
+# 任何"装机后缺件/找不到模块"的 issue，都可以落成这个模式：
+#   ① 写一个把判据固定下来的脚本（这里是 scripts/check-pack-files.mjs）
+#   ② 用 `kind: shell` 跑它并断言退出码
+# 好处是判据可复跑、可进回归集，而不是"人工装一遍看看"。
+
+schema: 1
+id: TK-0019
+title: 发布的包必须包含入口声明的文件（files 白名单自检）
+kind: shell
+severity: high
+status: active
+tags: [shell, packaging, regression]
+
+source:
+  issue: null
+  summary: |
+    从 dsh-memory #48「files 白名单漏件导致装机即挂」提炼的**通用形态**：
+    把"发包面是否完整"固定成可复跑的检查，防止同类问题再犯。
+
+runtime:
+  requires: [subprocess]
+  timeoutMs: 60000
+
+setup:
+  shell:
+    # `$PKG` 由 shell driver 替换成插件包根——场景不硬编码绝对路径
+    cwd: $PKG
+
+steps:
+  - name: 跑发包面检查
+    act: { shell: { argv: [$NODE, scripts/check-pack-files.mjs] } }
+    expect:
+      - { ref: fx.spawnError, exists: false }
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: check-pack-files }
+      - { ref: fx.stdout, contains: OK }

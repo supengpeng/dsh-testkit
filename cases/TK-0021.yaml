@@ -1,0 +1,66 @@
+# TK-0021 —— dsh-memory 的发包面回归（#48 的直接对应）
+#
+# ## 源 issue
+#
+# dsh-memory #48：
+#   > 0.6.1 装机态开箱即挂：files 白名单漏了根目录 utf8_boot.py
+#   > → mcp_server 启动即 ModuleNotFoundError（#38「出货面缺件」同类复发）
+#
+# ## 为什么这条值得存在
+#
+# 0.8.1 已经修了它（`files` 里明确列了 `utf8_boot.py`）。
+# 但**"修好了"和"不会再坏"是两件事**——这条场景把修复固定成回归判据：
+# 哪天 `files` 又被改窄、或启动依赖被挪走，它会立刻红。
+#
+# ## 依赖
+#
+# 需要外部 fixture。准备方式：
+#
+# ```sh
+# node scripts/fetch-fixtures.mjs dsh-memory-0.8.1
+# ```
+#
+# 缺失时本场景会**跳过并说明**（不是假装通过）。
+
+schema: 1
+id: TK-0021
+title: dsh-memory 的发包面必须包含 mcp_server 的启动依赖（#48 回归）
+kind: file
+severity: high
+status: active
+tags: [file, packaging, regression, dsh-memory, fixture]
+
+source:
+  issue: https://github.com/FuRongJun-1999/dsh-memory/issues/48
+  summary: |
+    0.6.1 装机态开箱即挂：files 白名单漏了根目录 utf8_boot.py，
+    mcp_server 启动即 ModuleNotFoundError。0.8.1 已修——本场景把修复固定成回归判据。
+
+setup:
+  file:
+    root: $FIXTURES/dsh-memory-0.8.1
+
+steps:
+  - name: 包声明里必须包含 utf8_boot.py（#48 的关键点）
+    act: { file: { read: package.json } }
+    expect:
+      - { ref: fx.fileExists, is: true }
+      - { ref: fx.fileText, contains: utf8_boot.py }
+      - { ref: fx.fileText, contains: md_cg }
+
+  - name: 被漏掉的那个文件必须真的在包里
+    act: { file: { read: utf8_boot.py } }
+    expect:
+      - { ref: fx.fileExists, is: true }
+      - { ref: fx.fileText, contains: def }
+
+  - name: MCP server 入口必须存在（启动即挂的那个）
+    act: { file: { read: md_cg/mcp_server.py } }
+    expect:
+      - { ref: fx.fileExists, is: true }
+      - { ref: fx.fileText, contains: utf8_boot }
+
+  - name: 它确实是一个 DSH 插件（有 bundle patch）
+    act: { file: { glob: dsh/*.yml } }
+    expect:
+      - { ref: fx.globCount, atLeast: 1 }

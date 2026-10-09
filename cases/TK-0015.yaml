@@ -1,0 +1,49 @@
+# TK-0015 —— ui driver 自检：client 半的产物契约与注册行为
+#
+# 这条场景**纯离线**：它不依赖宿主提供任何服务，在任何宿主（含 CI 轨）里都能跑。
+#
+# 它守的是两类真实踩过的坑：
+#   · `lib/client.js` 不存在（构建脚本把它删了）→ GUI 里「测试」标签凭空不见
+#   · client bundle 的导出形态或注册名变了 → 加载静默失败
+#
+# 注意它**不验证渲染结果**（React 组件长什么样、像素对不对），那是浏览器的事。
+
+schema: 1
+id: TK-0015
+title: client 半产物可加载，且注册了会话视图标签与词典
+kind: ui
+severity: high
+status: active
+tags: [ui, client, smoke]
+
+source:
+  issue: null
+  summary: ui driver 自检：在隔离 vm 里加载真实 client bundle，验证产物契约与 slot / 词典注册
+
+setup:
+  ui:
+    expectSlots: [conversation.view]
+    expectLocaleNamespaces: [dsh-testkit]
+
+steps:
+  - name: 产物存在且能被加载器接收
+    act: { ui: { load: true } }
+    expect:
+      - { ref: fx.uiBundleExists, is: true }
+      - { ref: fx.uiError, exists: false }
+      - { ref: fx.uiLoadCalls, is: 1 }
+      - { ref: fx.uiModuleId, is: dsh-testkit }
+      - { ref: fx.uiHasApply, is: true }
+
+  - name: 模块名与依赖声明正确
+    expect:
+      - { ref: fx.uiName, is: dsh-testkit }
+      - { ref: fx.uiInject, contains: slots }
+      - { ref: fx.uiInject, contains: locale }
+
+  - name: 注册了会话视图标签、词典，且给了渲染函数
+    expect:
+      - { ref: fx.uiInjectedSlots, contains: conversation.view }
+      - { ref: fx.uiRegisteredSlotNames, contains: conversation.view }
+      - { ref: fx.uiLocaleNamespaces, contains: dsh-testkit }
+      - { ref: fx.uiRendererProvided, is: true }

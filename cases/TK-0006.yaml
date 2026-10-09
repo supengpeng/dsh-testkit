@@ -1,0 +1,46 @@
+# TK-0006 —— 流中途失败注入
+#
+# 断言刻意分成两层：**已产出的内容要保留**（不能因为后来出错就丢掉前面），
+# 且收尾必须是 error finish（而不是把错误吞掉、伪装成正常结束）。
+
+schema: 1
+id: TK-0006
+title: 流中途注入错误时应以 error finish 收尾并保留已产出内容
+kind: llm
+severity: high
+status: active
+tags: [llm, failure-injection, boundary]
+
+source:
+  issue: null
+  summary: 失败注入：模型流在产出部分内容后失败，已产出内容不应丢失、收尾应为 error
+
+runtime:
+  timeoutMs: 15000
+  requires: [llm]
+
+setup:
+  llm:
+    respond:
+      chunks: [前半段, 后半段, 永远到不了]
+    failMode: mid-stream-error
+    failAfterChunks: 1
+
+steps:
+  - name: 触发模型流
+    act: { llm: { prompt: x } }
+    expect:
+      - ref: fx.streamError
+        exists: false
+
+  - name: 只应消费到失败前的那一块内容
+    expect:
+      - ref: fx.mockText
+        is: 前半段
+      - ref: fx.mockText
+        notContains: 永远到不了
+
+  - name: 收尾必须是 error（不能伪装成正常结束）
+    expect:
+      - ref: fx.finishReason
+        is: error

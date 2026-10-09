@@ -1,0 +1,52 @@
+# TK-0014 —— agent driver 自检：派生真实子 agent
+#
+# ⚠️ 这条场景与其它十三条有本质区别：**它会真的调模型、花 token、耗时**。
+# 前十三条都是"造条件"，这一条是"跑真事"。
+#
+# 它在没有 subagents 能力的宿主里会被**跳过**（例如 CI 轨使用的 headless 宿主），
+# 所以放进回归集是安全的——不会在 CI 里意外产生模型调用。
+
+schema: 1
+id: TK-0014
+title: 派生的子 agent 能完成最小任务并正常收尾
+kind: agent
+severity: medium
+status: active
+tags: [agent, end-to-end]
+
+source:
+  issue: null
+  summary: agent driver 自检：派生真实子 agent 跑最小任务，验证它能收尾并产出文本
+
+runtime:
+  timeoutMs: 120000
+  requires: [subagents]
+
+setup:
+  agent:
+    label: testkit-smoke
+
+steps:
+  - name: 派生子 agent 并跑一个最小任务
+    act: { agent: { prompt: '请只回复这四个字符：TESTKIT_OK' } }
+    expect:
+      - ref: fx.agentError
+        exists: false
+      - ref: fx.agentStopReason
+        is: completed
+
+  - name: 子 agent 应当产出文本
+    expect:
+      - ref: fx.agentOutput
+        exists: true
+      # 内容是否听话由模型决定，所以这条用 soft：失败会记录但不影响判定
+      - ref: fx.agentOutput
+        soft: true
+        contains: TESTKIT_OK
+
+  - name: 运行记录应可溯源
+    expect:
+      - ref: fx.agentProvider
+        exists: true
+      - ref: fx.agentRunId
+        exists: true

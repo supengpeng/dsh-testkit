@@ -1,0 +1,46 @@
+# TK-0011 —— 命令的失败路径（返回 error 结果）
+#
+# `CommandResult` 的失败有**两种形态**，而且它们不是同一回事：
+#   ① 返回 `{ kind: 'error', text }` —— 正常的失败表达（本场景）
+#   ② 抛异常 —— DSH 会把它 settle 成 `kind: 'error'`，但过程不同
+#
+# ② 由 tests/session-driver.test.mjs 覆盖。之所以分成两处，是因为
+# 一个 case 只能声明一个命令，而两者的断言重点不同。
+
+schema: 1
+id: TK-0011
+title: 命令返回 error 结果时应被如实反映而不是当成成功
+kind: session
+severity: high
+status: active
+tags: [session, command, failure-path]
+
+source:
+  issue: null
+  summary: 失败路径：命令以 error 结果收尾时，结果形态与文本都要可断言
+
+runtime:
+  timeoutMs: 15000
+  requires: [commands]
+
+setup:
+  session:
+    command:
+      name: testkit-fail
+      description: 总是失败的命令
+      returns: 这条命令注定失败
+      error: true
+
+steps:
+  - name: 驱动命令不应抛异常（失败是返回值形态）
+    act: { session: { command: { name: testkit-fail, input: whatever } } }
+    expect:
+      - ref: fx.commandError
+        exists: false
+
+  - name: 结果形态必须是 error，且文本可读
+    expect:
+      - ref: fx.commandKind
+        is: error
+      - ref: fx.commandText
+        is: 这条命令注定失败

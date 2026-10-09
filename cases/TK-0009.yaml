@@ -1,0 +1,41 @@
+# TK-0009 —— 无人应答的提问路径
+#
+# "没人回答"是最容易被忽略的失败路径：如果答者抛错被吞掉、
+# 或请求静默挂起，用户看到的是"卡住"而不是"超时"。
+# 这条场景要求它**必须**以可断言的错误收尾。
+
+schema: 1
+id: TK-0009
+title: 无人应答提问时应以超时错误收尾而不是静默挂起
+kind: interaction
+severity: high
+status: active
+tags: [interaction, question, timeout, failure-path]
+
+source:
+  issue: null
+  summary: 失败路径：提问没有答者时必须以超时错误收尾，不能静默挂起
+
+runtime:
+  timeoutMs: 15000
+  requires: [userQuestions]
+
+setup:
+  interaction:
+    question:
+      timeout: true
+
+steps:
+  - name: 触发提问，应答应当失败而不是成功
+    act:
+      interaction:
+        question:
+          question: 这次没有人回答
+    expect:
+      - ref: fx.questionError
+        contains: TESTKIT_QUESTION_TIMEOUT
+
+  - name: 不应产生任何答案
+    expect:
+      - ref: fx.answer
+        exists: false

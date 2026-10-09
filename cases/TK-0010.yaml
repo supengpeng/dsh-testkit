@@ -1,0 +1,47 @@
+# TK-0010 —— session driver 自检：人类命令可被驱动
+#
+# 注意本 driver 的边界：它测的是**命令自身的行为**（handler 怎么答），
+# 不测 DSH 的分发逻辑（解析斜杠、找命令、归属 agent、command/run 审计事件）——
+# 后者需要真实 agent，属于活宿主验证范围。
+
+schema: 1
+id: TK-0010
+title: 临时注册的人类命令可被驱动并返回声明的输出
+kind: session
+severity: medium
+status: active
+tags: [session, command, smoke]
+
+source:
+  issue: null
+  summary: session driver 自检：命令注册 → 驱动 → 取证的完整链路可用
+
+runtime:
+  timeoutMs: 15000
+  requires: [commands]
+
+setup:
+  session:
+    command:
+      name: testkit-echo
+      description: 回显命令
+      inputHint: '<要回显的文本>'
+      returns: 命令输出
+
+steps:
+  - name: 驱动命令应当成功
+    act: { session: { command: { name: testkit-echo, input: hello } } }
+    expect:
+      - ref: fx.commandError
+        exists: false
+      - ref: fx.commandCount
+        is: 1
+      - ref: fx.commandKind
+        is: success
+
+  - name: 输出应与声明一致，且入参被如实记录
+    expect:
+      - ref: fx.commandText
+        is: 命令输出
+      - ref: fx.commandInvocations[0].rawInput
+        is: hello

@@ -1,0 +1,54 @@
+# TK-0001 —— tool driver 的自检场景（smoke）
+#
+# 这条不是"某个 issue 的复现"，而是**驱动器的自检**：
+# 它验证 tool driver 的注册 → 调用 → 取证链路本身可用。
+# 任何 driver 都应该配一条这样的冒烟场景，否则它挂掉时你分不清
+# 是"被测对象有问题"还是"驱动器没工作"。
+#
+# 字段逐项说明见 docs/SCENARIO-SPEC.md。
+
+schema: 1
+id: TK-0001
+title: 临时注册的工具可被调用并返回指定值
+kind: tool
+severity: low
+status: active
+tags: [tool, smoke]
+
+source:
+  issue: null
+  summary: tool driver 自检：注册 → 调用 → 取证的完整链路可用
+
+runtime:
+  timeoutMs: 20000
+  requires: [tools]
+
+setup:
+  tool:
+    register:
+      name: testkit_echo
+      description: 回显型测试工具
+      parameters:
+        type: object
+        properties:
+          text: { type: string, description: 要回显的文本 }
+        required: [text]
+      returns:
+        echoed: true
+
+steps:
+  - name: 调用临时工具应当成功
+    act: { tool: testkit_echo, args: { text: hello } }
+    expect:
+      - ref: fx.callError
+        exists: false
+      - ref: fx.callCount
+        is: 1
+
+  - name: 结果应带上工具的返回值
+    expect:
+      - ref: fx.resultValue
+        exists: true
+      - ref: fx.lastResult
+        soft: true
+        exists: true

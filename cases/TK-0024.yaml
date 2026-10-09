@@ -1,0 +1,73 @@
+# TK-0024 —— dsh-memory 的启动依赖真的能被导入（#48 的**运行时**验证）
+#
+# ## 与 TK-0021 / TK-0022 的关系
+#
+# · TK-0021 静态查 `files` 里有没有 `utf8_boot.py`
+# · TK-0022 静态查"隐式顶层导入"是否被打进包
+# · **本场景真跑解释器**：用 DSH 桌面端自带的 Python 去 import 那个启动依赖
+#
+# 三者是**同一问题的三个层次**：清单里有 → 依赖被覆盖 → 真的能 import。
+# 只做静态检查会漏掉"文件在但内容坏了 / 版本不兼容"这类问题。
+#
+# ## `$PYTHON` 令牌
+#
+# DSH 桌面端**自带 Python**，但它不在 PATH 上、也没有约定启动器
+# （`runtime/bin` 只有 node；`versions.json` 只记 node/pnpm）。
+# shell driver 的 `$PYTHON` 按这个顺序找：
+#   ① `DSH_TESTKIT_PYTHON` / `DSH_PYTHON` 环境变量
+#   ② 从 DSH 安装目录推：`<根>/resources/runtime/*/dependencies/python/python.exe`
+#   ③ PATH 上的 python3
+
+schema: 1
+id: TK-0024
+title: dsh-memory 的 mcp_server 启动依赖能被真正导入（#48 运行时验证）
+kind: shell
+severity: high
+status: active
+tags: [shell, python, runtime, regression, dsh-memory, fixture]
+
+source:
+  issue: https://github.com/FuRongJun-1999/dsh-memory/issues/48
+  summary: |
+    #48 的运行时形态：mcp_server 启动时 `from utf8_boot import ...`。
+    本场景用 DSH 自带的 Python 真跑 import——静态检查过了不代表 import 一定成。
+
+runtime:
+  requires: [subprocess]
+  timeoutMs: 120000
+
+setup:
+  shell:
+    cwd: $FIXTURES/dsh-memory-0.8.1
+
+steps:
+  - name: 解释器可用
+    act: { shell: { argv: [$PYTHON, --version] } }
+    expect:
+      - { ref: fx.spawnError, exists: false }
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: Python }
+      - { ref: fx.shellResolvedArgv0, contains: python }
+
+  - name: 启动依赖能被导入（#48 那条路径）
+    act:
+      shell:
+        argv:
+          - $PYTHON
+          - -c
+          - import sys; sys.path.insert(0, "."); import utf8_boot; print("UTF8_BOOT_OK:", utf8_boot.__file__)
+    expect:
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: UTF8_BOOT_OK }
+      - { ref: fx.stderr, notContains: ModuleNotFoundError }
+
+  - name: mcp_server 模块本身能被导入（不启动 server）
+    act:
+      shell:
+        argv:
+          - $PYTHON
+          - -c
+          - import sys; sys.path.insert(0, "."); import importlib.util as u; print("MCP_SPEC:", bool(u.find_spec("md_cg.mcp_server")))
+    expect:
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: "MCP_SPEC: True" }

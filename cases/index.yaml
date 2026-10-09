@@ -1,0 +1,108 @@
+# 由 scripts/verify-cases.mjs --write 生成；只存索引与溯源，真源是各个 case 文件。
+schema: 1
+nextId: 27
+cases:
+  - id: TK-0001
+    kind: tool
+    status: active
+    issue: null
+  - id: TK-0002
+    kind: tool
+    status: active
+    issue: null
+  - id: TK-0003
+    kind: tool
+    status: active
+    issue: null
+  - id: TK-0004
+    kind: prompt
+    status: active
+    issue: null
+  - id: TK-0005
+    kind: llm
+    status: active
+    issue: null
+  - id: TK-0006
+    kind: llm
+    status: active
+    issue: null
+  - id: TK-0007
+    kind: interaction
+    status: active
+    issue: null
+  - id: TK-0008
+    kind: interaction
+    status: active
+    issue: null
+  - id: TK-0009
+    kind: interaction
+    status: active
+    issue: null
+  - id: TK-0010
+    kind: session
+    status: active
+    issue: null
+  - id: TK-0011
+    kind: session
+    status: active
+    issue: null
+  - id: TK-0012
+    kind: resource
+    status: active
+    issue: null
+  - id: TK-0013
+    kind: resource
+    status: active
+    issue: null
+  - id: TK-0014
+    kind: agent
+    status: active
+    issue: null
+  - id: TK-0015
+    kind: ui
+    status: active
+    issue: null
+  - id: TK-0016
+    kind: agent
+    status: active
+    issue: null
+  - id: TK-0017
+    kind: tool
+    status: active
+    issue: null
+  - id: TK-0018
+    kind: shell
+    status: active
+    issue: null
+  - id: TK-0019
+    kind: shell
+    status: active
+    issue: null
+  - id: TK-0020
+    kind: file
+    status: active
+    issue: null
+  - id: TK-0021
+    kind: file
+    status: active
+    issue: https://github.com/FuRongJun-1999/dsh-memory/issues/48
+  - id: TK-0022
+    kind: shell
+    status: active
+    issue: https://github.com/FuRongJun-1999/dsh-memory/issues/48
+  - id: TK-0023
+    kind: file
+    status: active
+    issue: https://github.com/FuRongJun-1999/dsh-memory/issues/37
+  - id: TK-0024
+    kind: shell
+    status: active
+    issue: https://github.com/FuRongJun-1999/dsh-memory/issues/48
+  - id: TK-0025
+    kind: shell
+    status: active
+    issue: https://github.com/FuRongJun-1999/dsh-memory/issues/22
+  - id: TK-0026
+    kind: shell
+    status: active
+    issue: https://github.com/FuRongJun-1999/dsh-memory/issues/75

@@ -1,0 +1,101 @@
+# TK-0025 —— 会话归属必须能解析出来（#22「写入不带 session」的回归）
+#
+# ## 源 issue
+#
+# dsh-memory #22：
+#   > 多对话并行时 autoRecall 记忆串台：**写入不带 session、读取不过滤会话**
+#   > 最小复现：`ls data/mdcg/contextual/*.md` 查 frontmatter：全部无 `session` 字段
+#
+# ## 为什么这条能写成回归场景
+#
+# 0.8.1 把会话归属收敛到一个**纯函数** `md_cg.mdcos._writer_session`，源码注释也写明了：
+#
+#   > 会话归属必须落 frontmatter……与 role 同款：显式给就尊重，否则取 self.session
+#   > （MdCGSecure 由 principal.session 注入，mcp_server 按请求切换 cg.session）
+#
+# 纯函数 = 可判定 = 可回归。本场景直接断言它的三条取值口径。
+#
+# ## 它是"运行时"场景
+#
+# 需要真正的 Python 解释器（用 shell driver 的 `$PYTHON` 令牌，
+# 它会找到 DSH 桌面端自带的那个）。这与 TK-0021/0022 的静态检查互补：
+# 静态查"代码里有没有这个东西"，这里查"它算出来的值对不对"。
+
+schema: 1
+id: TK-0025
+title: 会话归属解析必须遵循「显式优先、否则取 cg.session」（#22 回归）
+kind: shell
+severity: high
+status: active
+tags: [shell, python, runtime, regression, dsh-memory, fixture]
+
+source:
+  issue: https://github.com/FuRongJun-1999/dsh-memory/issues/22
+  summary: |
+    #22 报告写入不带 session、读取不过滤会话，导致多对话并行时记忆串台。
+    修法是把会话归属收敛到 `_writer_session`（显式给就尊重，否则取 cg.session）——
+    本场景断言它的三条取值口径。
+
+runtime:
+  requires: [subprocess]
+  timeoutMs: 120000
+
+setup:
+  shell:
+    cwd: $FIXTURES/dsh-memory-0.8.1
+
+steps:
+  - name: 会话归属的三条取值口径
+    act:
+      shell:
+        argv:
+          - $PYTHON
+          - -c
+          - |
+            import sys
+            sys.path.insert(0, ".")
+            from md_cg.mdcos import _writer_session
+
+            CG = type("CG", (), {"session": "ses-from-cg"})
+
+            # ① 没有显式值时，取 cg.session（这就是 #22 修好的那半边）
+            got = _writer_session(CG())
+            assert got == "ses-from-cg", f"应取 cg.session，实际 {got!r}"
+
+            # ② 显式给了就尊重（与 role 同款口径）
+            got = _writer_session(CG(), {"session": "ses-explicit"})
+            assert got == "ses-explicit", f"显式值应优先，实际 {got!r}"
+
+            # ③ 都没有时为 None（不编造、不回落成空串）
+            got = _writer_session(object())
+            assert got is None, f"都没有时应为 None，实际 {got!r}"
+
+            print("WRITER_SESSION_OK")
+    expect:
+      - { ref: fx.spawnError, exists: false }
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: WRITER_SESSION_OK }
+      - { ref: fx.stderr, notContains: AssertionError }
+      - { ref: fx.stderr, notContains: Traceback }
+
+  - name: 写入路径确实调用它（落盘口径与读面同源）
+    act:
+      shell:
+        argv:
+          - $PYTHON
+          - -c
+          - |
+            import sys
+            sys.path.insert(0, ".")
+            import inspect
+            from md_cg import mdcos
+
+            src = inspect.getsource(mdcos)
+            assert "_writer_session" in src, "mdcos 里应定义 _writer_session"
+            # 至少出现两次：定义 + 使用（只定义不调用 = 死代码）
+            n = src.count("_writer_session")
+            assert n >= 2, f"_writer_session 出现 {n} 次，疑为只定义未使用"
+            print(f"WRITER_SESSION_USED:{n}")
+    expect:
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: "WRITER_SESSION_USED:" }

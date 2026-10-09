@@ -1,0 +1,58 @@
+# TK-0012 —— resource driver 自检：假搜索 provider 被接管
+#
+# 这条场景同时验证了两件事：
+#   ① provider 真的**被选中**了（搜索成功本身就证明接管生效——
+#      仅"注册"是不够的，见 src/kinds/resource.ts 头注的选择语义表）
+#   ② 返回值与 maxResults 截断语义都可断言
+
+schema: 1
+id: TK-0012
+title: 假搜索 provider 接管后返回声明结果并按 maxResults 截断
+kind: resource
+severity: medium
+status: active
+tags: [resource, web, search, smoke]
+
+source:
+  issue: null
+  summary: resource driver 自检：搜索 provider 被接管，结果与截断语义都可断言
+
+runtime:
+  timeoutMs: 15000
+  requires: [web]
+
+setup:
+  resource:
+    webSearch:
+      providerId: testkit-fake-search
+      results:
+        - { title: 结果一, url: 'https://example.invalid/1', snippet: 第一条 }
+        - { title: 结果二, url: 'https://example.invalid/2', snippet: 第二条 }
+        - { title: 结果三, url: 'https://example.invalid/3', snippet: 第三条 }
+      content: 汇总文本
+
+steps:
+  - name: 搜索应当成功——这本身就证明假 provider 被选中了
+    act: { resource: { search: { query: 测试查询 } } }
+    expect:
+      - ref: fx.searchError
+        exists: false
+      - ref: fx.searchSourceCount
+        is: 3
+
+  - name: 结果内容应与声明一致
+    expect:
+      - ref: fx.searchResult.content
+        is: 汇总文本
+      - ref: fx.searchSources[0].title
+        is: 结果一
+      - ref: fx.searchSources[2].url
+        is: https://example.invalid/3
+
+  - name: maxResults 应当把结果截断到上限
+    act: { resource: { search: { query: 测试查询, maxResults: 2 } } }
+    expect:
+      - ref: fx.searchSourceCount
+        is: 2
+      - ref: fx.searchTruncated
+        is: true

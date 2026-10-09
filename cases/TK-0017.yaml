@@ -1,0 +1,56 @@
+# TK-0017 —— 多个 guard 叠加时的短路语义
+#
+# 契约盲区：`tools.guard` 可以装多个拦截器。第一个返回拒绝理由后，
+# **后续 guard 还会被询问吗**？
+#
+# 这个答案有实际后果：
+#   · 若短路 → 后续 guard 的副作用（记账、审计、计数）不会发生
+#   · 若不短路 → 每个 guard 都会跑，叠加 N 层就有 N 份开销与副作用
+#
+# driver 侧为此扩了 `intercept.guards`（多个 guard），
+# 每个 guard 只要**被询问过**就会把自己的 record 记进 `fx.guardCalls`。
+
+schema: 1
+id: TK-0017
+title: 多个 guard 时第一个拒绝后不再询问后续 guard（短路）
+kind: tool
+severity: medium
+status: active
+tags: [tool, guard, boundary]
+
+source:
+  issue: null
+  summary: |
+    明确 tools.guard 的短路语义：装三个 guard，第一个返回拒绝理由，
+    观察后续两个是否仍被询问（通过 fx.guardCalls 取证）。
+
+runtime:
+  requires: [tools]
+
+setup:
+  tool:
+    register:
+      name: probe
+      description: 短路语义探测
+      returns: BODY
+    intercept:
+      guards:
+        - { reason: '第一个 guard 拒绝', record: first }
+        - { reason: '第二个 guard 拒绝', record: second }
+        - { record: third }
+
+steps:
+  - name: 调用应当被拦截
+    act: { tool: probe }
+    expect:
+      - { ref: fx.callError, exists: true }
+      - { ref: fx.resultValue, exists: false }
+
+  - name: 取证到被询问过的 guard 顺序
+    expect:
+      - { ref: fx.guardCalls, exists: true }
+      - { ref: fx.guardLabels, length: 3 }
+      # 短路语义：只应询问到第一个
+      - { ref: fx.guardCalls, length: 1 }
+      - { ref: fx.guardCalls, contains: first }
+      - { ref: fx.guardCalls, notContains: second }

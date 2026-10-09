@@ -1,0 +1,50 @@
+# TK-0013 —— 联网能力的降级路径
+#
+# 这条场景要防的是一种很隐蔽的失效：provider "注册上了但不可用" 时，
+# 如果上层把失败静默成"空结果"，调用方就分不清
+#   「查了，没有结果」 与 「根本没查成」。
+#
+# 所以断言分两层：① 必须报错；② 错误要**点名**是"已配置但不可用"。
+
+schema: 1
+id: TK-0013
+title: provider 声明不可用时搜索必须报错，而不是返回空结果
+kind: resource
+severity: high
+status: active
+tags: [resource, web, degradation, failure-path]
+
+source:
+  issue: null
+  summary: 降级路径：已配置的 provider 不可用时，搜索应以可识别的错误收尾，不能静默返回空
+
+runtime:
+  timeoutMs: 15000
+  requires: [web]
+
+setup:
+  resource:
+    webSearch:
+      providerId: testkit-fake-search
+      available: false
+      results:
+        - { title: 不该出现的结果, url: 'https://example.invalid/x' }
+
+steps:
+  - name: 不可用的 provider 应当让搜索失败
+    act: { resource: { search: { query: 测试 } } }
+    expect:
+      - ref: fx.searchError
+        exists: true
+      - ref: fx.searchResult
+        exists: false
+
+  - name: 错误必须点名"已配置但不可用"，而不是笼统的失败
+    expect:
+      - ref: fx.searchError
+        contains: WEB_PROVIDER_CONFIGURED_UNAVAILABLE
+
+  - name: 不得出现任何结果条目（防止被静默降级成空结果）
+    expect:
+      - ref: fx.searchSources
+        exists: false

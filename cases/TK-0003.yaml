@@ -1,0 +1,45 @@
+# TK-0003 —— tools.guard 拦截链路
+#
+# 验证"被拒绝的调用根本没有执行"：不能只看返回了错误，
+# 还必须确认工具自身的返回值没出现在结果里（否则说明它其实跑过了）。
+
+schema: 1
+id: TK-0003
+title: tools.guard 拒绝的调用应返回理由且不执行工具本体
+kind: tool
+severity: high
+status: active
+tags: [tool, guard, deny]
+
+source:
+  issue: null
+  summary: 验证 guard 拦截：被拒绝的调用不应真正执行，且拒绝理由可被断言
+
+runtime:
+  timeoutMs: 20000
+  requires: [tools]
+
+setup:
+  tool:
+    register:
+      name: testkit_guarded
+      description: 会被 guard 拦下的测试工具
+      parameters: { type: object, properties: {}, additionalProperties: false }
+      returns: TESTKIT_BODY_RAN
+
+    intercept:
+      name: testkit_guarded
+      decision: deny
+      reason: TESTKIT_GUARD_DENIED
+
+steps:
+  - name: 调用应被拦截并报出理由
+    act: { tool: testkit_guarded, args: {} }
+    expect:
+      - ref: fx.callError
+        contains: TESTKIT_GUARD_DENIED
+
+  - name: 工具本体的返回值不应出现（证明它没被执行）
+    expect:
+      - ref: fx.resultText
+        notContains: TESTKIT_BODY_RAN

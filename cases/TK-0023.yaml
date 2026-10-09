@@ -1,0 +1,62 @@
+# TK-0023 —— dsh-memory 的 compact_access 必须有调用方（#37「产物无消费方」回归）
+#
+# ## 源 issue（#37 六项发现之一）
+#
+# > `grep -rn "compact_access" md_cg/` → 仅 `def` 处 1 次，**无调用点**
+#
+# 形态归纳：**公开方法定义了却没有消费方**——功能存在但从不生效。
+# 这类问题在源码里"看起来很正常"（有个方法在那儿），只有做**引用计数**才暴露。
+#
+# ## 判据怎么来的（可机器判定）
+#
+# · 命中数 ≥ 2：至少要有「定义处」+「使用处」
+# · 涉及文件数 ≥ 2：定义与使用通常不在同一个文件
+# · 命中文本里必须出现定义本身（防止把同名变量误当调用）
+#
+# ## 它演示的**可复用模式**
+#
+# 「某个符号有没有被引用」这类结构性判据，用 `kind: file` 的 `search` 动作
+# （对应 grep）固定下来即可——不需要运行环境，任何宿主都能跑。
+
+schema: 1
+id: TK-0023
+title: dsh-memory 的 compact_access 必须有调用方（#37 回归）
+kind: file
+severity: medium
+status: active
+tags: [file, search, regression, dsh-memory, fixture]
+
+source:
+  issue: https://github.com/FuRongJun-1999/dsh-memory/issues/37
+  summary: |
+    #37 报告 compact_access 只有定义、没有调用点（产物无消费方）。
+    0.8.1 已有消费方（sustain.py 的 act("compact_access", ...)）——
+    本场景用引用计数把"它必须被消费"固定成回归判据。
+
+setup:
+  file:
+    root: $FIXTURES/dsh-memory-0.8.1
+
+steps:
+  - name: compact_access 的定义与调用点都应在
+    act:
+      file:
+        search:
+          pattern: compact_access
+          glob: "**/*.py"
+    expect:
+      - { ref: fx.searchCount, atLeast: 2 }
+      - { ref: fx.searchFileCount, atLeast: 2 }
+      - { ref: fx.searchText, contains: "def compact_access" }
+
+  - name: 调用点应当真的"调用"它（而不只是同名字符串）
+    act:
+      file:
+        search:
+          pattern: "compact_access\\s*\\("
+          glob: "**/*.py"
+    expect:
+      # def 那行本身也带括号，所以至少 2 处才说明有真实调用
+      - { ref: fx.searchCount, atLeast: 2 }
+      # 调用点不应全部集中在定义它的那个文件里
+      - { ref: fx.searchFileCount, atLeast: 2 }

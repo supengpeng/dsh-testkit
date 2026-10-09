@@ -1,0 +1,19 @@
+# dsh-testkit bundle patch
+#
+# 作用：把本包的 host 半（package.json 的 main → lib/index.js）作为一行插件插入
+#       profile 的插件 roster。浏览器半不走这里，走 package.json 的 `dsh.client`
+#       清单（Web 端据此装载 `./client` → lib/client.js）。
+#
+# 安装：`dsh plugin --profile desktop add <本目录绝对路径>`
+#       安装后本层自动并入 profile，**不要**再往
+#       ~/.dsh/profiles/<name>/cordis.patch.yml 手动 insert 同一个 id
+#       （重复 id 会让加载器报错起不来）。
+#
+# 本行默认不启用任何配置；需要覆盖时改 profile 的 cordis.patch.yml：
+#   - id: dsh-testkit
+#     config:
+#       casesDir: 'C:/Users/19059/Documents/deepseek-harness/default-workspace/dsh-testkit/cases'
+#       autoload: true
+- insert:
+    - id: dsh-testkit
+      name: dsh-testkit

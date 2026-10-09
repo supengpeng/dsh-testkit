@@ -1,0 +1,78 @@
+# TK-0016 —— 组合场景：假 web provider 能影响**子 agent** 里的工具调用
+#
+# 这是**组合场景**的首个可用实例：`setup` 里同时有 resource 与 agent，
+# runner 会把两个 driver 的 setup 都跑一遍——
+#   · resource：接管 searchProviderId，注册一个假搜索 provider
+#   · agent：配置派生参数
+# 而 act 用 agent 动作，派一个**真实子 agent**，让它在自己的会话里调 `web_search`。
+#
+# ## 它证明了什么
+#
+# 「测试替身装在 host 半的 root 上，能影响 agent 作用域里的工具行为」——
+# 即**宿主级干预会穿透到子 agent**。这是组合场景的核心价值，
+# 也是只测单 kind 时看不到的性质。
+#
+# ## 一段被这条场景否掉的设想（保留记录）
+#
+# 本来的设计是「注册假答者（interaction）+ 派子 agent 问用户」，用来端到端验证 R9
+# （`Scoped<Agent>` 事件的作用域行为）。**实测否决了这个设想**：
+# 子 agent 调 `ask_user_question` 时，工具直接返回
+# `human interaction is unavailable while the calling agent is owned by another live agent`，
+# 压根走不到 `user-questions/request` 的 waterfall。
+#
+# 即 **DSH 不允许被委派的子 agent 进行人工交互**。所以 R9 的"agent 作用域触发"路径
+# 只能靠源码推导回答（root listener 没有 scope tag，不被 `scopeTarget` 过滤），
+# 无法用场景端到端验证。这个约束本身值得记住。
+
+schema: 1
+id: TK-0016
+title: 假 web provider 能影响子 agent 里的工具调用
+kind: agent
+severity: high
+status: active
+tags: [agent, resource, combined]
+
+source:
+  issue: null
+  summary: |
+    组合场景自检：resource setup（假搜索 provider 接管）＋ agent act（派真实子 agent），
+    验证宿主级测试替身会穿透到子 agent 的工具行为。
+
+runtime:
+  timeoutMs: 180000
+  requires: [subagents, web]
+
+setup:
+  resource:
+    webSearch:
+      results:
+        - url: https://testkit.invalid/first
+          title: 假搜索结果一
+        - url: https://testkit.invalid/second
+          title: 假搜索结果二
+      content: 这是 dsh-testkit 注入的假搜索内容
+  agent:
+    label: combo-probe
+
+steps:
+  - name: 派生子 agent 并让它搜索
+    act:
+      agent:
+        prompt: |
+          请调用 web_search 工具搜索「testkit」，然后用一句话告诉我第一条结果的 URL。
+    expect:
+      - { ref: fx.agentError, exists: false }
+      - { ref: fx.agentStopReason, is: completed }
+
+  - name: 子 agent 应能看到假 provider 注入的结果
+    expect:
+      - { ref: fx.agentOutput, exists: true }
+      # 模型是否照做由它决定，所以这条用 soft：失败会记录但不影响判定
+      - { ref: fx.agentOutput, soft: true, contains: testkit.invalid }
+
+  - name: 假 provider 确实被子 agent 调用过
+    expect:
+      # providerSearchCalls 由假 provider 自己记账——只要有人调它就递增，
+      # 不管是我们主动调的还是子 agent 调的。子 agent 没搜索时它是 undefined。
+      - { ref: fx.providerSearchCalls, exists: true }
+      - { ref: fx.providerSearchCalls, atLeast: 1 }

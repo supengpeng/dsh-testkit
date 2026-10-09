@@ -1,0 +1,51 @@
+# TK-0004 —— prompt driver 自检：提示词注入可验证
+#
+# 这条场景的价值在于它**不需要跑模型**：
+# `systemPrompt.assemble()` 是公开可调的，注册完立刻组装一次就能断言。
+#
+# 注意 variable 名字必须匹配 [a-z][a-z0-9_]*（只能小写）——
+# 写成 testkitVar 会被 DSH 拒绝，driver 会在注册前先自查并给出可读错误。
+
+schema: 1
+id: TK-0004
+title: 注入的提示词 section 与 variable 能在组装结果里取到
+kind: prompt
+severity: medium
+status: active
+tags: [prompt, injection, smoke]
+
+source:
+  issue: null
+  summary: prompt driver 自检：注册 section/variable 后主动组装，验证注入确实生效
+
+runtime:
+  timeoutMs: 15000
+  requires: [systemPrompt]
+
+setup:
+  prompt:
+    section:
+      name: testkit-marker
+      order: 1200
+      text: TESTKIT_MARKER_ALPHA
+    variable:
+      name: testkit_var
+      value: TESTKIT_VAR_VALUE
+
+steps:
+  - name: 组装本身不应失败
+    expect:
+      - ref: fx.assembleError
+        exists: false
+
+  - name: 注入的 section 应当出现在组装结果里
+    expect:
+      - ref: fx.sectionNames
+        contains: testkit-marker
+      - ref: fx.sectionText
+        contains: TESTKIT_MARKER_ALPHA
+
+  - name: 注入的 variable 应当可取值
+    expect:
+      - ref: fx.variableValue
+        is: TESTKIT_VAR_VALUE

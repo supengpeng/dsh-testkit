@@ -1,0 +1,46 @@
+# TK-0008 —— 审批决策被接管
+#
+# 关键断言是 `is: rejected` 而不是 `is: unavailable`：
+# 后者是「没有答者时 fail closed」的兜底值。如果 driver 没真正接上，
+# 结果会**静默**变成 unavailable —— 一个宽松的断言会让它蒙混过关。
+
+schema: 1
+id: TK-0008
+title: 审批请求应返回声明的决策而不是兜底的 unavailable
+kind: interaction
+severity: high
+status: active
+tags: [interaction, approval]
+
+source:
+  issue: null
+  summary: interaction driver 自检：approval/request 被接管后返回声明的决策
+
+runtime:
+  timeoutMs: 15000
+  requires: [approval]
+
+setup:
+  interaction:
+    approval:
+      decision: rejected
+
+steps:
+  - name: 触发一次审批请求
+    act:
+      interaction:
+        approval:
+          toolName: bash
+          reason: 测试审批
+    expect:
+      - ref: fx.approvalCount
+        is: 1
+      - ref: fx.approvalError
+        exists: false
+
+  - name: 结果应是声明的决策（而不是兜底的 unavailable）
+    expect:
+      - ref: fx.approvalOutcome
+        is: rejected
+      - ref: fx.plannedDecision
+        is: rejected

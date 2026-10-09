@@ -1,0 +1,92 @@
+# TK-0026 —— csre 的 build_index 不应因同名笔误而 ImportError（#75）
+#
+# ## 源 issue
+#
+# dsh-memory #75（**0.8.1 里仍然存在**）：
+#   > `csre.py` L61/L64 名字笔误致 `build_index()` 抛 ImportError
+#   > 复现：`cd md_cg/whitebox_kb/wisdom && python -c "from csre import Csre; Csre(db_path=':memory:').build_index()"`
+#
+# 实测（0.8.1）：
+#
+#   csre.py:61        from md_access import md_conn_or_none     ← 不带下划线
+#   md_access.py:447  def _md_conn_or_none():                   ← 实际带下划线
+#
+#   ImportError: cannot import name 'md_conn_or_none' from 'md_access'
+#   Did you mean: '_md_conn_or_none'?
+#
+# ## ⚠️ 这条场景**预期会红**
+#
+# 它不是插件的缺陷，而是**插件如实抓到了被测对象的缺陷**。
+# 所以它带 `fixture` 标签：`gate` 默认不导出这类场景，
+# 避免"被测对象的 bug"把"插件的质量门"染红。
+#
+# 单独巡检被测对象：
+#
+# ```sh
+# node scripts/fetch-fixtures.mjs dsh-memory-0.8.1
+# # 用内置 Python 跑（$PYTHON 会自动找到它）
+# ```
+
+schema: 1
+id: TK-0026
+title: csre 的 build_index 不应因同名笔误而 ImportError（#75，0.8.1 仍存在）
+kind: shell
+severity: high
+status: active
+tags: [shell, python, runtime, regression, dsh-memory, fixture, known-broken]
+
+source:
+  issue: https://github.com/FuRongJun-1999/dsh-memory/issues/75
+  summary: |
+    csre.py 从 md_access 导入 md_conn_or_none，但对方叫 _md_conn_or_none（多个下划线），
+    于是 build_index() 一调用就 ImportError。0.8.1（latest）仍可复现。
+
+runtime:
+  requires: [subprocess]
+  timeoutMs: 120000
+
+setup:
+  shell:
+    # 直接进 #75 复现命令所在的目录
+    cwd: $FIXTURES/dsh-memory-0.8.1/md_cg/whitebox_kb/wisdom
+
+steps:
+  - name: build_index 应当能跑完（#75 的复现命令）
+    act:
+      shell:
+        argv:
+          - $PYTHON
+          - -c
+          - from csre import Csre; Csre(db_path=":memory:").build_index(); print("BUILD_INDEX_OK")
+    expect:
+      - { ref: fx.spawnError, exists: false }
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: BUILD_INDEX_OK }
+      - { ref: fx.stderr, notContains: ImportError }
+
+  - name: 被导入的名字必须在目标模块里存在（笔误的直接判据）
+    act:
+      shell:
+        argv:
+          - $PYTHON
+          - -c
+          - |
+            import ast, sys
+            src = open("md_access.py", encoding="utf-8").read()
+            tree = ast.parse(src)
+            defined = set()
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    defined.add(node.name)
+                elif isinstance(node, ast.Assign):
+                    for t in node.targets:
+                        if isinstance(t, ast.Name):
+                            defined.add(t.id)
+            assert "md_conn_or_none" in defined, (
+                f"md_access 里没有 md_conn_or_none；相近的有："
+                f"{sorted(n for n in defined if 'conn' in n)}"
+            )
+            print("NAME_EXISTS")
+    expect:
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: NAME_EXISTS }

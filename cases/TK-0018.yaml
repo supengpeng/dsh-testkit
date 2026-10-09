@@ -1,0 +1,39 @@
+# TK-0018 —— shell driver 自检：跑外部命令并取证
+#
+# 这个 kind 是被**真实数据**驱动出来的：`dsh-memory` / `lingshu` 的 issue 里，
+# 绝大多数「可回归候选」的判据都是"跑一条命令，看输出或退出码"。
+#
+# 自检用 `git --version`——它在 PATH 里、跨平台、输出稳定。
+#
+# ⚠️ 需要 `subprocess` 能力。headless 宿主**不提供**它（跑不了进程），
+# 所以这条在 CI 轨里会被跳过——这是如实反映，不是缺陷。
+
+schema: 1
+id: TK-0018
+title: shell driver 能跑外部命令并取证退出码与输出
+kind: shell
+severity: medium
+status: active
+tags: [shell, smoke]
+
+source:
+  issue: null
+  summary: shell driver 自检：跑一条一定存在的命令与一条必定失败的命令，验证退出码/stdout/stderr 取证
+
+runtime:
+  requires: [subprocess]
+
+steps:
+  - name: 跑一条应当成功的命令
+    act: { shell: { argv: [git, '--version'] } }
+    expect:
+      - { ref: fx.spawnError, exists: false }
+      - { ref: fx.exitCode, is: 0 }
+      - { ref: fx.stdout, contains: git version }
+
+  - name: 跑一条应当失败的命令（非零退出码不是 driver 的失败）
+    act: { shell: { argv: [git, 'rev-parse', '--verify', 'definitely-not-a-ref-xyz'] } }
+    expect:
+      - { ref: fx.spawnError, exists: false }
+      - { ref: fx.exitCode, isNot: 0 }
+      - { ref: fx.stderr, exists: true }
