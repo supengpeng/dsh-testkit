@@ -1,6 +1,7 @@
 # dsh-testkit
 
 > DSH（DeepSeek Harness）测试插件。**把 issue 提炼成可复现的测试场景，再让插件去造出那些场景。**
+> 提炼是**逐批、由人决定**的：人开批 → 模型只能提交提案 → 人批准才进 `cases/`（见[提炼闸门](docs/ISSUE-PIPELINE.md)）。
 
 它的输入是 issue，输出是**可复现、可断言、可回归**的场景资产：
 
@@ -32,9 +33,10 @@ issue ──提炼──▶ cases/TK-XXXX.yaml ──驱动──▶ src/kinds/*
 | **Phase 1 / 2 / 4 / 5 / 6 / 7 / 8 / 9 / 10** | ✅ 全部收口——**12 个 driver** 覆盖 12 类干预点，双轨执行可用 |
 | **场景可跑通** | ✅ `cases/TK-0001..0026` 在真实 DSH 里 **25 通过 / 1 失败（预期）/ 0 跳过**；`TK-0028`…`TK-0034`（两条 waterfall / `ctx.fs` / session 三件套 / compaction 边界）在独立 headless 新进程 **7/7 通过**；`TK-0035`（真压缩）单跑通过。`TK-0027` / `TK-0033` / `TK-0035` 是 `draft`（留痕或花 token） |
 | **组合场景（跨 kind）** | ✅ `setup` 可含多个 kind，`act` 按动作形状分派；实测证明 root 的假 provider 会穿透到子 agent |
-| 验证 | ✅ `pnpm run gate`：**375 测试** ＋ 导出的 **26 条场景**（gate 默认排除 6 条 `fixture` 场景——它们测的是外部被测对象） |
+| **issue 提炼闸门** | ✅ **要不要提炼、要不要落地都由人定**：人开批次 → 模型只提交提案（质量预检不过不落盘）→ 人批准才进 `cases/`；未结案不允许开下一批（三个闸门都有回归测试，见 `tests/pipeline-gate.test.mjs`） |
+| 验证 | ✅ `pnpm run gate`：**386 测试** ＋ 导出的 **26 条场景**（gate 默认排除 6 条 `fixture` 场景——它们测的是外部被测对象） |
 
-> 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（4 个模型工具 / 5 个子命令 /
+> 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（6 个模型工具 / 6 个子命令 /
 > 12 个 kind / 17 个断言词 / 约 235 个取证字段 / 2 个质量守卫 / 3 个通用检查器），
 > 只列**已实现并实测**的能力。
 | **真实 DSH 验证（host 半）** | ✅ **14 通过 / 0 失败 / 2 跳过 / 0 错误**——独立 headless profile 实测，未改动 desktop profile |
@@ -138,15 +140,16 @@ $DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 ```
 
 > **装完即刻可用（本机实测）**：`dsh plugin add` 会触发 profile 热重载，
-> 本次会话里 `testkit_list` / `testkit_run` / `testkit_report` / `testkit_export`
+> 本次会话里 `testkit_list` / `testkit_run` / `testkit_report` / `testkit_export` /
+> `testkit_propose` / `testkit_pipeline`
 > **当场出现**，不必重启 DSH。
 > 客户端那半（会话视图环里的「测试」标签页）如未出现，刷新一次页面即可——
 > client bundle 由浏览器加载，不受 host 热重载影响。
 
 装好后在 DSH 里：
 
-- 模型侧工具：`testkit_list` / `testkit_run` / `testkit_report` / `testkit_export`
-- 人类命令：`/testkit list | run | report | export | reload`
+- 模型侧工具：`testkit_list` / `testkit_run` / `testkit_report` / `testkit_export` / `testkit_propose` / `testkit_pipeline`
+- 人类命令：`/testkit list | run | report | export | reload | issue <open|show|approve|reject|close>`
 - 界面：会话视图环里的「测试」标签页
 
 ---
@@ -169,9 +172,10 @@ dsh-testkit/
 │   ├── tools.ts     ⑪ 模型工具面
 │   └── commands.ts  ⑫ 人类命令面
 ├── cases/           ⑬ 场景数据：一案一 YAML（真源）
-├── scripts/         ⑭ 构建 client 半 / 校验场景 / 校验文档 / 导出 CI 用例
-│                    ⑭′ 另含三个**通用检查器**（见下）与 fixture 准备 / 提炼工具
-├── tests/           ⑮ 插件自身的单元测试（含 headless 宿主的测试）
+├── pipeline/        ⑭ 提炼闸门：批次台账 `ledger.json` + 提案 `proposals/`（批准后才进 cases/）
+├── scripts/         ⑮ 构建 client 半 / 校验场景 / 校验文档 / 导出 CI 用例
+│                    ⑮′ 另含三个**通用检查器**（见下）与 fixture 准备 / 提炼工具
+├── tests/           ⑯ 插件自身的单元测试（含 headless 宿主的测试）
 ├── runs/            运行产物（git 忽略）
 ├── export/          导出的 CI 用例（git 忽略，gate 会重新生成并跑）
 ├── .fixtures/       外部被测对象（git 忽略；`scripts/fetch-fixtures.mjs` 准备）
@@ -209,7 +213,7 @@ dsh-testkit/
 | [架构设计](docs/ARCHITECTURE.md) | 双半架构、概念模型、kind 分类学、设计决策、风险清单 |
 | [开发文档](docs/DEVELOPMENT.md) | 环境、构建、安装、调试、HMR、真实验证流程、排障、代码约定 |
 | [场景数据规范](docs/SCENARIO-SPEC.md) | `cases/*.yaml` 的完整字段规范（含组合场景） |
-| [issue 提炼流程](docs/ISSUE-PIPELINE.md) | 从一个 issue 到一条可复现场景的五步法 |
+| [issue 提炼流程](docs/ISSUE-PIPELINE.md) | 从一个 issue 到一条可复现场景的五步法 ＋ **提炼闸门**（要不要提炼 / 要不要落地，由人按批决定） |
 | [迭代计划](docs/ROADMAP.md) | Phase 0–7 的目标、交付物与验收标准 |
 
 ---

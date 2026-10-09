@@ -9,6 +9,7 @@ import { packageRoot } from './config.js'
 import type { CaseRegistry } from './cases/registry.js'
 import type { ScenarioKind } from './cases/types.js'
 import type { DriverRegistry, HostFacade, ToolDefinition } from './kinds/types.js'
+import type { PipelineStore } from './pipeline/index.js'
 import { runScenarios, type RunProgress } from './runtime/runner.js'
 import { writeRunArtifacts } from './report/json.js'
 import { renderMarkdown } from './report/markdown.js'
@@ -22,6 +23,13 @@ export interface ToolDeps {
   exportDir: () => string
   defaultTimeoutMs: () => number
   maxInvalidReported: () => number
+  /**
+   * 提炼闸门。
+   *
+   * 工具面在这里**只用到提案侧**（`propose` / `statusText`）——
+   * 批准落地的能力只挂在命令面，模型够不到。这是闸门成立的前提。
+   */
+  pipeline: PipelineStore
 }
 
 const NO_ARGS = { type: 'object', properties: {}, additionalProperties: false } as const
@@ -261,6 +269,85 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
           ].join('\n')
         } catch (error) {
           return `导出失败：${error instanceof Error ? error.message : String(error)}`
+        }
+      },
+    },
+
+    {
+      name: 'testkit_propose',
+      description:
+        '提交一条「issue → 场景」的提炼提案：只写进 pipeline/proposals/，**永远不碰 cases/**。' +
+        '落地必须由人执行 /testkit issue approve。没有 open 批次时会被拒绝——' +
+        '要不要提炼由人决定，先让用户跑 /testkit issue open <范围说明>。',
+      parameters: {
+        type: 'object',
+        properties: {
+          yaml: {
+            type: 'string',
+            description:
+              '完整场景正文（YAML）。id 必须写成占位值 TK-0000（正式 TK 号由 approve 分配）；' +
+              'source.issue 必填；args 里不能留 TODO 标记；至少一条 expect 断言。',
+          },
+          notes: { type: 'string', description: '提炼要点（给人裁决时看）' },
+        },
+        required: ['yaml'],
+        additionalProperties: false,
+      },
+      execute: (args) => {
+        const yamlText = typeof args.yaml === 'string' ? args.yaml : ''
+        if (yamlText.trim() === '') return '缺少 yaml：请传入完整的场景正文'
+
+        try {
+          const result = deps.pipeline.propose({
+            yamlText,
+            ...(typeof args.notes === 'string' ? { notes: args.notes } : {}),
+          })
+
+          if (!result.ok) {
+            const lines = [result.error]
+            for (const finding of result.findings ?? []) {
+              lines.push(`  [${finding.level === 'block' ? '阻断' : '提醒'}] ${finding.message}`)
+            }
+            return lines.join('\n')
+          }
+
+          const lines = [
+            `已登记提案 ${result.proposalId}（批次 ${result.batchId}）`,
+            `文件：pipeline/${result.relPath}`,
+            `场景：${result.title}（${result.kind} / ${result.status}）`,
+          ]
+          for (const finding of result.quality.findings) {
+            lines.push(`  提醒：${finding.message}`)
+          }
+          lines.push('', `落地与否由人决定：/testkit issue approve ${result.proposalId}`)
+          return lines.join('\n')
+        } catch (error) {
+          return `提案提交失败：${error instanceof Error ? error.message : String(error)}`
+        }
+      },
+    },
+
+    {
+      name: 'testkit_pipeline',
+      description:
+        '查看提炼闸门台账：当前是否有 open 批次、提案的裁决状态与质量预检结论、历史批次。只读，不做任何写操作。',
+      parameters: {
+        type: 'object',
+        properties: {
+          proposalId: { type: 'string', description: '可选：查看某条提案的正文与预检明细，如 P-0001' },
+        },
+        additionalProperties: false,
+      },
+      execute: (args) => {
+        try {
+          const proposalId = typeof args.proposalId === 'string' ? args.proposalId.trim() : ''
+          if (proposalId !== '') {
+            const shown = deps.pipeline.show(proposalId)
+            return shown.ok ? shown.text : shown.error
+          }
+          return deps.pipeline.statusText()
+        } catch (error) {
+          return `读取提炼台账失败：${error instanceof Error ? error.message : String(error)}`
         }
       },
     },

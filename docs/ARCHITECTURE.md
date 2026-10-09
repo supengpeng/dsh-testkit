@@ -132,6 +132,7 @@ dsh-testkit/
 │   │   ├── types.ts          Scenario / Step / Expect 的类型定义
 │   │   ├── schema.ts         运行时结构校验（不引第三方 schema 库）
 │   │   ├── loader.ts         扫描 cases/、解析 YAML、构建索引
+│   │   ├── index-file.ts     索引文件生成（守卫脚本与提炼闸门共用同一份渲染）
 │   │   └── registry.ts       已加载场景的内存注册表 + 变更通知
 │   ├── kinds/                【驱动层】每类干预点一个 driver
 │   │   ├── index.ts          kind → driver 注册中心
@@ -154,9 +155,14 @@ dsh-testkit/
 │   ├── export/               【导出层】case → CI 用例
 │   │   ├── node-test.ts
 │   │   └── pure.ts           纯函数可测部分的导出
+│   ├── pipeline/             【闸门层】issue 提炼的批次与裁决（谁决定提炼 / 谁决定落地）
+│   │   ├── types.ts          台账数据模型（批次 / 提案 / 质量结论）
+│   │   ├── ledger.ts         批次状态机（纯函数）：一次一批、结案才准开下一批
+│   │   ├── quality.ts        质量红线判据（纯函数）：哪几条机器拦得住
+│   │   └── store.ts          文件系统编排：提案落盘、批准落地、失败回滚
 │   ├── host-facade.ts        ★ 唯一直接依赖 DSH API 的适配点
-│   ├── tools.ts              暴露给模型的工具（testkit_*）
-│   ├── commands.ts           人类命令（/testkit ...）
+│   ├── tools.ts              暴露给模型的工具（testkit_*，只含提案侧）
+│   ├── commands.ts           人类命令（/testkit ...，**批准权只在这里**）
 │   ├── http.ts               client 通道：webServer 路由 + JSON 信封
 │   └── client/               【client 半】浏览器侧
 │       ├── index.ts          client 插件入口（{name, inject, apply}）
@@ -164,10 +170,13 @@ dsh-testkit/
 │       ├── console.tsx       测试控制台（挂 conversation.view）
 │       ├── dict.ts           zh/en 词典
 │       └── types.ts          client 侧窄接口
-├── cases/                    【数据层落地】一案一 YAML
-│   ├── index.yaml            索引：case → issue 溯源、kind 分组
+├── cases/                    【数据层落地】一案一 YAML（**只有人批准才会新增**）
+│   ├── index.yaml            索引：case → issue 溯源、kind 分组（由守卫 / 闸门重建）
 │   ├── README.md             怎么写一个 case
 │   └── <CASE-ID>.yaml
+├── pipeline/                 【闸门落地】提炼的批次与提案（批准前不碰 cases/）
+│   ├── ledger.json           批次台账：谁在何时开了哪批、每条提案的裁决（唯一真源）
+│   └── proposals/<BATCH-ID>/ 提案正文（合法 case YAML，id 是占位 TK-0000）
 ├── docs/
 │   ├── ARCHITECTURE.md       本文
 │   ├── DEVELOPMENT.md        开发、构建、安装、调试
@@ -278,7 +287,9 @@ run(caseIds, options)
 | 工具 | `testkit_run` | 运行场景，返回结构化结果摘要 |
 | 工具 | `testkit_report` | 读取某次 run 的报告 |
 | 工具 | `testkit_export` | 导出为 CI 用例 |
-| 命令 | `/testkit` | `list` / `run <id>` / `run --kind llm` / `report` / `reload` |
+| 工具 | `testkit_propose` | 提交提炼提案（只写 `pipeline/proposals/`；质量预检不过不落盘） |
+| 工具 | `testkit_pipeline` | 只读查看提炼台账（当前批次 / 裁决状态 / 历史） |
+| 命令 | `/testkit` | `list` / `run <id>` / `run --kind llm` / `report` / `reload` / `issue <open\|show\|approve\|reject\|close>`（**批准落地只在这里**） |
 | HTTP | `/api/dsh-testkit/{list,run,report,reload}` | client 半的读取与触发通道（**唯一**通道，理由见 §6.3） |
 
 ---
@@ -488,6 +499,9 @@ issue 描述的是"界面上看到什么"吗？            → ui
 | D7 | client 半不持有真相 | 避免两半状态分叉 | 每次读取需要一次 RPC |
 | D8 | `inject` 只声明 `tools` | 最小宿主也能激活（`dsh-memory` 踩过的坑） | 需要运行时探测 + 降级路径 |
 | D9 | case 校验失败不阻断启动 | 一个坏文件不该让插件消失 | 需要把 invalid 项浮到 UI/工具 |
+| D10 | 提炼要**人开批次、人批落地**，模型只能提交提案 | "要不要提炼"是产品决策而非模型决策：自动批量提炼会同时制造低效与低质量（草稿堆成山、判据没人定）。工具面拿不到 `approve`，闸门才成立 | 多一道人工动作；批量提炼变慢（用速度换质量，是刻意的） |
+| D11 | 提案**质量预检不过就不落盘**，approve 前再查一遍 | 半成品留在盘上比留在模型上下文里更糟——它会被下游当成"已提炼的资产"。落地前复查是因为文件在盘上期间可能被改 | 提交必须一次写清；不合格要重写 |
+| D12 | 批次台账是唯一真源，同一时间只允许一个 open 批次 | "本次完成后用户同意才能下次"需要一条可审计的边界；并发批次会让"这次到底批没批"说不清 | 台账损坏需人工处理（读失败**显式报错**，不静默重置） |
 
 ---
 

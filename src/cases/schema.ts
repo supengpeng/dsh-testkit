@@ -24,6 +24,18 @@ export interface ValidationResult {
   issues: ValidationIssue[]
 }
 
+/** 校验选项。 */
+export interface ValidateOptions {
+  /**
+   * 允许 `id` 与文件名不一致。
+   *
+   * 提炼闸门的**提案**用占位 id（`TK-0000`），文件名带提案号
+   * （`P-0001-xxx.yaml`）——这种文件不是场景，一致性检查不适用。
+   * **正式 case（`cases/TK-XXXX.yaml`）永远不允许豁免**，所以默认是 false。
+   */
+  allowIdMismatch?: boolean
+}
+
 const CASE_ID_RE = /^TK-\d{4}$/
 const KINDS = new Set<string>(SCENARIO_KINDS)
 const SEVERITIES = new Set(['low', 'medium', 'high'])
@@ -59,8 +71,13 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  *
  * @param raw - YAML.parse 的结果
  * @param fileName - 文件名（不含路径），用于核对 id 与文件名的对应关系
+ * @param options - 校验选项（提炼提案需要豁免 id ↔ 文件名一致性）
  */
-export function validateScenario(raw: unknown, fileName: string): ValidationResult {
+export function validateScenario(
+  raw: unknown,
+  fileName: string,
+  options: ValidateOptions = {},
+): ValidationResult {
   const issues: ValidationIssue[] = []
   const push = (path: string, message: string): void => {
     issues.push({ path, message })
@@ -79,7 +96,7 @@ export function validateScenario(raw: unknown, fileName: string): ValidationResu
   const id = raw.id
   if (typeof id !== 'string' || !CASE_ID_RE.test(id)) {
     push('id', `id 必须形如 TK-0001，实际 ${JSON.stringify(id)}`)
-  } else {
+  } else if (!options.allowIdMismatch) {
     const expected = `${id}.yaml`
     if (fileName !== expected) {
       push('id', `id (${id}) 与文件名 (${fileName}) 不一致，应为 ${expected}`)

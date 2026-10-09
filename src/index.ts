@@ -20,6 +20,7 @@ import { resolveConfig, type Config as ConfigShape } from './config.js'
 import { createHostFacade } from './host-facade.js'
 import { BRIDGE_PREFIX, makeBridgeRoutes, type WebRouteLike } from './http.js'
 import { createDriverRegistry } from './kinds/index.js'
+import { PipelineStore } from './pipeline/index.js'
 import { defineTestkitTools } from './tools.js'
 
 export const name = 'dsh-testkit'
@@ -91,6 +92,11 @@ function applyInner(ctx: Context, config: ConfigShape): void {
   const host = createHostFacade({ ctx, dshVersion: detectDshVersion(resolved), log })
   const registry = new CaseRegistry(resolved.casesDirAbs)
   const drivers = createDriverRegistry()
+  // 提炼闸门：台账与提案住在 pipelineDirAbs，只有命令面能批准落地进 casesDirAbs
+  const pipeline = new PipelineStore({
+    pipelineDir: resolved.pipelineDirAbs,
+    casesDir: resolved.casesDirAbs,
+  })
 
   const reload = (): string => {
     const result = registry.reload()
@@ -134,6 +140,7 @@ function applyInner(ctx: Context, config: ConfigShape): void {
         exportDir: () => resolved.exportDirAbs,
         defaultTimeoutMs: () => resolved.defaultTimeoutMs,
         maxInvalidReported: () => resolved.maxInvalidReported,
+        pipeline,
       })
       for (const tool of tools) {
         installEffect(ctx, () => host.registerTool(tool), `dsh-testkit: tool ${tool.name}`, log)
@@ -154,6 +161,7 @@ function applyInner(ctx: Context, config: ConfigShape): void {
         runsDir: () => resolved.runsDirAbs,
         exportDir: () => resolved.exportDirAbs,
         defaultTimeoutMs: () => resolved.defaultTimeoutMs,
+        pipeline,
         reload,
       })
       for (const command of commands) {

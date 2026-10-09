@@ -20,6 +20,7 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { createDriverRegistry } from '../lib/kinds/index.js'
+import { PipelineStore } from '../lib/pipeline/store.js'
 import { defineTestkitTools } from '../lib/tools.js'
 
 function makeHarness() {
@@ -54,6 +55,8 @@ function makeHarness() {
     exportDir: () => dir,
     defaultTimeoutMs: () => 1000,
     maxInvalidReported: () => 5,
+    // 闸门是 deps 的一部分；这个 harness 只调 testkit_run，用真 store 指向临时目录即可
+    pipeline: new PipelineStore({ pipelineDir: join(dir, 'pipeline'), casesDir: dir }),
   })
 
   const run = tools.find((t) => t.name === 'testkit_run')

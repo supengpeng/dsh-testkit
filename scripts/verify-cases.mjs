@@ -9,7 +9,7 @@
  *   node scripts/verify-cases.mjs --dir <p>  # 指定目录
  */
 
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -115,23 +115,11 @@ const missingIndex = result.indexIssues.some((i) => i.message.includes('索引�
 if (missingIndex) console.warn('[verify-cases] ! cases/index.yaml 缺失（可用 --write 生成）')
 
 if (write) {
-  const maxId = result.scenarios.reduce((max, s) => {
-    const n = Number(s.id.slice(3))
-    return Number.isFinite(n) && n > max ? n : max
-  }, 0)
-  const index = {
-    schema: 1,
-    nextId: maxId + 1,
-    cases: result.scenarios.map((s) => ({
-      id: s.id,
-      kind: s.kind,
-      status: s.status ?? 'active',
-      issue: s.source.issue,
-    })),
-  }
-  const yaml = renderIndexYaml(index)
-  writeFileSync(join(casesDir, 'index.yaml'), yaml, 'utf8')
-  console.log(`[verify-cases] 已写出 cases/index.yaml（nextId=${index.nextId}，${index.cases.length} 条）`)
+  // 渲染逻辑的真源在 src/cases/index-file.ts —— 提炼闸门批准落地时也用它。
+  // 这里曾经有一份副本，两处渲染同一文件必然漂移，所以删掉了。
+  const { writeIndexFile } = await import(new URL('../lib/cases/index-file.js', import.meta.url))
+  const info = writeIndexFile(casesDir)
+  console.log(`[verify-cases] 已写出 cases/index.yaml（nextId=${info.nextId}，${info.count} 条）`)
 }
 
 if (failed) {
@@ -143,29 +131,3 @@ if (failed) {
 }
 
 console.log('[verify-cases] OK')
-
-/** 手写 YAML 渲染：索引结构固定，不值得为此引依赖。 */
-function renderIndexYaml(index) {
-  const lines = [
-    '# 由 scripts/verify-cases.mjs --write 生成；只存索引与溯源，真源是各个 case 文件。',
-    `schema: ${index.schema}`,
-    `nextId: ${index.nextId}`,
-    'cases:',
-  ]
-  if (index.cases.length === 0) {
-    lines[lines.length - 1] = 'cases: []'
-  } else {
-    for (const c of index.cases) {
-      lines.push(`  - id: ${c.id}`)
-      lines.push(`    kind: ${c.kind}`)
-      lines.push(`    status: ${c.status}`)
-      lines.push(`    issue: ${c.issue === null || c.issue === undefined ? 'null' : quote(c.issue)}`)
-    }
-  }
-  return `${lines.join('\n')}\n`
-}
-
-function quote(value) {
-  const text = String(value)
-  return /^[A-Za-z0-9_./:#?&=@+-]+$/.test(text) ? text : JSON.stringify(text)
-}

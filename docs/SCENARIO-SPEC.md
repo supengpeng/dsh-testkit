@@ -35,6 +35,19 @@ cases/
 
 `TK-%04d` 顺序分配。`index.yaml` 记录已用最大号，新增时取 `max + 1`。
 
+### 提案：批准前的形态
+
+`cases/` 里只应有**已批准**的场景。模型提炼出来的正文先作为**提案**落在
+`pipeline/proposals/<BATCH-ID>/`，它本身就是**合法 case YAML**，只有两处不同：
+
+| 差异 | 说明 |
+|---|---|
+| `id` 写成占位 `TK-0000` | 正式 TK 号由 `/testkit issue approve` 分配（ID 只增不改） |
+| 文件名带提案号（`P-0001-xxx.yaml`） | 因此「文件名 = `id`」这条规则对提案**豁免**（校验器有显式开关 `allowIdMismatch`） |
+
+提案经 `/testkit issue approve` 落地时改写 `id`、写入 `cases/TK-XXXX.yaml` 并重建索引。
+要不要提炼、要不要落地，见 [`ISSUE-PIPELINE.md`](ISSUE-PIPELINE.md) §0「提炼闸门」。
+
 ---
 
 ## 2. 通用结构

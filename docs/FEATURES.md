@@ -5,7 +5,7 @@
 
 ---
 
-## 1. 模型工具（4 个）
+## 1. 模型工具（6 个）
 
 装进 profile 后由模型直接调用。**本机实测：`dsh plugin add` 后当场出现，无需重启。**
 
@@ -15,12 +15,27 @@
 | `testkit_run` | 运行场景（省略选择器 = 跑全部 active），返回摘要并写出报告 | `ids?` `kinds?` `tags?` `timeoutMs?` |
 | `testkit_report` | 读取最近一次或指定 Run ID 的报告 | `runId?` `full?` |
 | `testkit_export` | 导出为可脱离活宿主运行的 CI 用例 | `target` `ids?` `outDir?` |
+| `testkit_propose` | 提交一条提炼提案：**只写 `pipeline/proposals/`**，质量预检不过不落盘；没有 open 批次会被拒绝 | `yaml` `notes?` |
+| `testkit_pipeline` | 只读查看提炼台账（当前批次 / 提案裁决状态 / 历史） | `proposalId?` |
 
-## 2. 人类命令（1 个命令 + 5 个子命令）
+> 模型**没有** `approve`：落地能力只挂在人类命令面。这是提炼闸门成立的前提。
+
+## 2. 人类命令（1 个命令 + 6 个子命令）
 
 ```
 /testkit list      /testkit run      /testkit report
 /testkit export    /testkit reload
+```
+
+提炼闸门挂在同一个命令下的 `issue` 子命令里——**要不要提炼、要不要落地，只有这里能决定**：
+
+```
+/testkit issue open <范围说明>          开启本轮提炼（模型此后才能提交提案）
+/testkit issue show <P-xxxx>           看提案正文与质量预检明细
+/testkit issue approve <P-xxxx|--all>  批准落地：分配 TK 号 + 写 cases/ + 重建索引
+/testkit issue reject <P-xxxx|--all>   拒绝（提案文件留在 proposals/ 留痕）
+/testkit issue close [理由]            作废本轮（不裁决）
+/testkit issue                         查看台账
 ```
 
 ## 3. 场景类型：12 个 kind
@@ -109,13 +124,23 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 
 ## 11. 提炼工具链
 
-| 脚本 | 作用 |
+| 脚本 / 机制 | 作用 |
 |---|---|
-| `from-issue-data.mjs <数据目录>` | issue 数据 → 逐条草稿 + **按形态分组的能力缺口报告** |
+| `from-issue-data.mjs <数据目录>` | issue 数据 → 逐条草稿 + **按形态分组的能力缺口报告**（批量候选，产出到 git 忽略的 `cases-draft/`） |
 | `fetch-fixtures.mjs [--list] [名字]` | 下载外部被测对象到 `.fixtures/`（走 registry 直链，不碰任何 profile） |
+| `/testkit issue` ＋ `testkit_propose` | **逐批闸门**：人开批次 → 模型提交提案 → 人批准才落地 |
 
 **纪律**：草稿的 `expect` 全是显式 TODO。**判据必须人来定**——
 机器猜出来的判据只会制造"看起来在测、其实没测"的假象。
+
+**两套东西的分工**（别混）：
+
+- `scripts/from-issue-data.mjs` 是**批量筛查**：一次把几百条候选过一遍，
+  产出"哪些形态值得提炼"的地图——它管的是**线索**。
+- `/testkit issue` 是**逐批闸门**：一次一批、每批都要人批准，
+  提案进 `pipeline/proposals/`，批准后才成为 `cases/TK-XXXX.yaml`——
+  它管的是**质量与节奏**，不是数量。
+- 台账 `pipeline/ledger.json` 是"要不要提炼 / 有没有落地"的唯一证据。
 
 ## 12. 令牌与外部对象
 
@@ -135,7 +160,7 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 ## 实测验证状态
 
 ```
-gate            375 项单测 + 26 条导出场景          全绿
+gate            386 项单测 + 26 条导出场景          全绿
 真实 DSH 全量    27 条时点的读数：26 条 active → 25 通过 / 1 失败 / 0 跳过   见下
                 （TK-0027 是 draft：团队通道留痕不可逆，按需单跑）
 team 通道        TK-0027 在独立 headless 新进程 passed（703ms，真 spawnTeammate）

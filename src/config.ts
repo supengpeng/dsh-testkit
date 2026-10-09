@@ -30,6 +30,14 @@ export interface Config {
   runsDir: string
   /** CI 用例导出目录；留空 = 包内 `export/`。 */
   exportDir: string
+  /**
+   * 提炼闸门目录；留空 = 包内 `pipeline/`。
+   *
+   * 这里放批次台账（`ledger.json`）与提案（`proposals/`）。
+   * 与 `casesDir` 分开是刻意的：**提案不是场景**，只有批准落地后
+   * 才会变成 `cases/TK-XXXX.yaml`。
+   */
+  pipelineDir: string
   /** 插件激活时是否立即加载场景。 */
   autoload: boolean
   /** 是否监听 casesDir 变化并热重载（Phase 1）。 */
@@ -57,6 +65,7 @@ export const Config: z<Config> = z.object({
   casesDir: z.string().default(''),
   runsDir: z.string().default(''),
   exportDir: z.string().default(''),
+  pipelineDir: z.string().default(''),
   autoload: z.boolean().default(true),
   watch: z.boolean().default(true),
   exposeTools: z.boolean().default(true),
@@ -76,6 +85,9 @@ export function defaultRunsDir(): string {
 export function defaultExportDir(): string {
   return join(packageRoot, 'export')
 }
+export function defaultPipelineDir(): string {
+  return join(packageRoot, 'pipeline')
+}
 
 /** 解析配置里的目录：相对路径按包根解析，空值走默认。 */
 export function resolveDir(configured: string, fallback: string): string {
@@ -89,6 +101,7 @@ export interface ResolvedConfig extends Config {
   casesDirAbs: string
   runsDirAbs: string
   exportDirAbs: string
+  pipelineDirAbs: string
 }
 
 export function resolveConfig(config: Config): ResolvedConfig {
@@ -97,5 +110,6 @@ export function resolveConfig(config: Config): ResolvedConfig {
     casesDirAbs: resolveDir(config.casesDir, defaultCasesDir()),
     runsDirAbs: resolveDir(config.runsDir, defaultRunsDir()),
     exportDirAbs: resolveDir(config.exportDir, defaultExportDir()),
+    pipelineDirAbs: resolveDir(config.pipelineDir, defaultPipelineDir()),
   }
 }

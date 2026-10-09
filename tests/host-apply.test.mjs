@@ -92,8 +92,15 @@ test('在真实 cordis 容器里装配：注册面完整', async () => {
 
   assert.deepEqual(
     reg.tools.map((t) => t.name),
-    ['testkit_list', 'testkit_run', 'testkit_report', 'testkit_export'],
-    '应注册 4 个工具',
+    [
+      'testkit_list',
+      'testkit_run',
+      'testkit_report',
+      'testkit_export',
+      'testkit_propose',
+      'testkit_pipeline',
+    ],
+    '应注册 6 个工具',
   )
   assert.deepEqual(reg.commands.map((c) => c.name), ['testkit'], '应注册 1 个命令')
   assert.deepEqual(
@@ -126,7 +133,7 @@ test('能力探测：宿主只有 tools 时，命令与路由都不注册（且 
   const { ctx, reg } = makeHarness({ services: ['tools'] })
   await ctx.plugin(plugin, { ...BASE_CONFIG })
 
-  assert.equal(reg.tools.length, 4, '工具应照常注册')
+  assert.equal(reg.tools.length, 6, '工具应照常注册')
   assert.equal(reg.commands.length, 0, '没有 commands 能力就不该注册命令')
   assert.equal(reg.routes.length, 0, '没有 webServer 能力就不该注册路由')
 })
@@ -137,7 +144,7 @@ test('能力探测不会因未注入的服务而抛错（回归：cordis 4 的�
   // 因为 getService() 在 ctx.get() 之后回退到属性访问。此测试守住该回归。
   const { ctx, reg } = makeHarness({ services: ['tools'] })
   await ctx.plugin(plugin, { ...BASE_CONFIG })
-  assert.equal(reg.tools.length, 4)
+  assert.equal(reg.tools.length, 6)
 })
 
 test('开关生效：exposeTools / exposeCommands 为 false 时不注册对应面', async () => {
@@ -182,7 +189,7 @@ test('autoload 关闭时不加载场景，但注册面照常', async () => {
   const { ctx, reg } = makeHarness()
   await ctx.plugin(plugin, { ...BASE_CONFIG, autoload: false })
 
-  assert.equal(reg.tools.length, 4)
+  assert.equal(reg.tools.length, 6)
 
   const listRoute = reg.routes.find((r) => r.path.endsWith('/list'))
   const res = makeRes()
@@ -195,7 +202,7 @@ test('casesDir 不存在时不崩，只是场景为空', async () => {
   const { ctx, reg } = makeHarness()
   await ctx.plugin(plugin, { ...BASE_CONFIG, casesDir: 'definitely-missing-dir-xyz' })
 
-  assert.equal(reg.tools.length, 4)
+  assert.equal(reg.tools.length, 6)
 
   const listRoute = reg.routes.find((r) => r.path.endsWith('/list'))
   const res = makeRes()
