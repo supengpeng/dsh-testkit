@@ -1,6 +1,6 @@
 # 由 scripts/verify-cases.mjs --write 生成；只存索引与溯源，真源是各个 case 文件。
 schema: 1
-nextId: 35
+nextId: 36
 cases:
   - id: TK-0001
     kind: tool
@@ -137,4 +137,8 @@ cases:
   - id: TK-0034
     kind: compaction
     status: active
+    issue: null
+  - id: TK-0035
+    kind: compaction
+    status: draft
     issue: null

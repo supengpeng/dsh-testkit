@@ -1235,6 +1235,8 @@ steps:
 | `fx.compactionRegionStart` / `fx.compactionRegionEnd` | 请求压缩的范围 |
 | `fx.compactionSeq` / `fx.compactionSurfaceNodes` / `fx.compactionEventCount` / `fx.compactionEventTypes` | 只读探测（序号 / surface 节点 / 事件分布） |
 | `fx.compactionHasRunMaintenance` / `fx.compactionUnsupported` | `compactNow` 需要 agent 上下文时的如实记录 |
+| `fx.compactionOutcome` | 归一化结果：`compacted` / `rejected-not-smaller` / `rejected-range` / `no-range` / `error` |
+| `fx.compactionEventSample` / `fx.compactionSurfaceSeqs` | `dump` 交出的原始事件样本（含 `data`）与 surface 序号 |
 | `fx.compactionError` / `fx.compactionErrorCode` | 失败原文与尽力提取的稳定码 |
 
 > 🔎 **实测：新建会话不是零事件。** `sessions.create()` 出来的会话自带 3 条 bootstrap 事件
@@ -1246,12 +1248,23 @@ steps:
 > `compactRegion: start seq 1 not found in surface`。契约原文也列出了另外几类：
 > "rejects active, missing, reversed, or unbalanced ranges"。
 
-> **刻意留白**：**真压缩**（产生 `CompactionResult`）这条正向路径目前不作为回归项——
-> 它需要一段 **balanced** 的 surface 范围（tool call 与 result 必须配对）加一次真实模型摘要调用。
-> `TK-0034` 覆盖的是边界语义（该压才压 / 非法范围被拒 / `compactNow` 缺上下文时不可用）。
-> 要跑正向路径得显式构造范围并接受 token 成本——**这是留白，不是遗漏**。
+> 🔎 **正向路径怎么跑通的**：手工挑 balanced 范围既脆又容易假红，实测改用
+> `compactIfNeeded(session, 'context-overflow')`——契约说它会 "force a useful balanced
+> reduction even below the normal threshold"，由**服务自己**挑范围。
+> 实测成功读数：`startSeq=22 summarySeq=24 endSeq=26`、遮蔽 4 条 / 646 tokens、
+> 摘要是一段真实的模型生成文本。
 
-> 场景样例：[`TK-0034`](../cases/TK-0034.yaml)。
+> ⚠️ **但真压缩的成败取决于模型摘要长度**：同一个场景再跑一次会报
+> `summary is not smaller than the shadowed content (774 estimated framed tokens >= 646)`
+> ——服务有**收缩校验**，摘要不够短就拒绝。那不是被测对象的缺陷，而是模型输出的函数。
+> 所以 driver 把结果归一化成 `fx.compactionOutcome`
+> （`compacted` / `rejected-not-smaller` / `rejected-range` / `no-range` / `error`），
+> 场景的硬断言只放在"落在可归类结果上、且不是无法归类的 `error`"，
+> 形状类断言（id / 边界 / 遮蔽计数 / 摘要）用 **soft**。
+> 这样它不会因为模型这次话多就变红，而报告里仍能一眼看出是哪种结果。
+
+> 场景样例：[`TK-0034`](../cases/TK-0034.yaml)（边界语义，零成本回归项）、
+> [`TK-0035`](../cases/TK-0035.yaml)（正向路径，`draft`，花 token）。
 
 ---
 

@@ -241,6 +241,7 @@ export const compactionDriver: Driver = {
     // 断时就成了在检查**上一步**——实测踩过：region 抛错后
     // `compactionResultNull` 仍是前一步 ifNeeded 留下的 true。
     ctx.fixture.note('compactionResultNull', undefined)
+    ctx.fixture.note('compactionOutcome', undefined)
     ctx.fixture.note('compactionCompactionId', undefined)
     ctx.fixture.note('compactionSummaryText', undefined)
 
@@ -249,9 +250,12 @@ export const compactionDriver: Driver = {
       if ('region' in spec) return await runRegion(ctx, service, state, spec.region)
       if ('now' in spec) return await runNow(ctx, service, state)
       if ('inspect' in spec) return inspect(ctx, state)
+      if ('dump' in spec) return dumpEvents(ctx, state, spec.dump)
     } catch (error) {
-      ctx.fixture.note('compactionError', error instanceof Error ? error.message : String(error))
+      const message = error instanceof Error ? error.message : String(error)
+      ctx.fixture.note('compactionError', message)
       ctx.fixture.note('compactionErrorCode', extractCompactionCode(error))
+      ctx.fixture.note('compactionOutcome', classifyFailure(message))
       return
     }
 
@@ -339,27 +343,43 @@ async function runNow(
 
 function inspect(ctx: DriverContext, state: CompactionState): void {
   const session = state.session
-  const events =
-    typeof session.snapshotEvents === 'function' ? (session.snapshotEvents() ?? []) : []
+  const events = readEvents(session)
 
   ctx.fixture.note('compactionSeq', typeof session.seq === 'number' ? session.seq : undefined)
   ctx.fixture.note(
     'compactionSurfaceNodes',
     Array.isArray(session.surface?.nodes) ? session.surface.nodes.length : undefined,
   )
-  ctx.fixture.note('compactionEventCount', Array.isArray(events) ? events.length : undefined)
-  ctx.fixture.note('compactionEventTypes', summarizeEventTypes(events))
+  ctx.fixture.note('compactionEventCount', events === undefined ? undefined : events.length)
+  ctx.fixture.note(
+    'compactionEventTypes',
+    events === undefined ? undefined : summarizeEventTypes(events),
+  )
+}
+
+/**
+ * 读会话的已提交事件。
+ *
+ * 刻意区分「取不到」与「确实 0 条」：会话没有 `snapshotEvents()` 时返回 `undefined`，
+ * 而不是伪造一个空数组——否则 `compactionEventCount is 0` 会同时匹配两种情况。
+ */
+function readEvents(session: SessionLike): readonly unknown[] | undefined {
+  if (typeof session.snapshotEvents !== 'function') return undefined
+  const events = session.snapshotEvents()
+  return Array.isArray(events) ? events : undefined
 }
 
 /** 把一次压缩结果（或 null）写进取证。 */
 function noteResult(ctx: DriverContext, result: unknown): void {
   if (result === null || result === undefined) {
     ctx.fixture.note('compactionResultNull', true)
+    ctx.fixture.note('compactionOutcome', 'no-range')
     ctx.fixture.note('compactionCompactionId', undefined)
     ctx.fixture.note('compactionSummaryText', undefined)
     return
   }
   ctx.fixture.note('compactionResultNull', false)
+  ctx.fixture.note('compactionOutcome', 'compacted')
   const record = result as CompactionResultLike
   ctx.fixture.note(
     'compactionCompactionId',
@@ -378,4 +398,62 @@ function noteResult(ctx: DriverContext, result: unknown): void {
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' ? value : undefined
+}
+
+/**
+ * 把压缩失败归一化成稳定取值。
+ *
+ * 为什么需要：真压缩的成败**取决于模型生成的摘要长度**——服务会做收缩校验，
+ * 摘要不够短就抛 `summary is not smaller than the shadowed content`。
+ * 那是模型输出的函数，不是被测对象的缺陷，所以场景不该拿它当"失败信号"，
+ * 而要能一眼看出「这次到底属于哪种结果」。
+ */
+function classifyFailure(message: string): string {
+  if (/not smaller than the shadowed/.test(message)) return 'rejected-not-smaller'
+  if (/not found in surface|balanced|reversed/i.test(message)) return 'rejected-range'
+  return 'error'
+}
+
+/**
+ * 只读 dump：把事件样本与 surface 序号原样交出来。
+ *
+ * 这是"拿活宿主当契约"的落点——合成 seed 事件、挑选压缩范围之前，
+ * 先看清真实结构（字段名、`surfaceOp` 取值、surface 节点的 seq 从哪开始），
+ * 而不是照着被截断的类型文档猜。
+ */
+function dumpEvents(
+  ctx: DriverContext,
+  state: CompactionState,
+  spec: { limit?: number },
+): void {
+  const session = state.session
+  const events = readEvents(session)
+  const limit = spec.limit ?? 8
+
+  ctx.fixture.note('compactionEventCount', events === undefined ? undefined : events.length)
+  ctx.fixture.note(
+    'compactionEventTypes',
+    events === undefined ? undefined : summarizeEventTypes(events),
+  )
+  ctx.fixture.note('compactionSeq', typeof session.seq === 'number' ? session.seq : undefined)
+  ctx.fixture.note(
+    'compactionSurfaceSeqs',
+    Array.isArray(session.surface?.nodes) ? session.surface.nodes.slice(0, limit) : undefined,
+  )
+  ctx.fixture.note(
+    'compactionEventSample',
+    events === undefined ? undefined : events.slice(0, limit).map((event) => plainEvent(event)),
+  )
+}
+
+/** 事件原样转成可 JSON 化的普通对象（只读，不改动原事件）。 */
+function plainEvent(event: unknown): unknown {
+  if (event === null || typeof event !== 'object') return event
+  const record = event as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const key of ['type', 'seq', 'time', 'surfaceOp', 'ignorable'] as const) {
+    if (record[key] !== undefined) out[key] = record[key]
+  }
+  if (record['data'] !== undefined) out['data'] = record['data']
+  return out
 }

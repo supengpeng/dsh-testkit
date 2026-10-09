@@ -1,0 +1,95 @@
+# TK-0035 —— compaction 的真压缩正向路径
+#
+# ## 它补的是 §3.13 里原来的那条"刻意留白"
+#
+# `TK-0034` 覆盖边界语义（该压才压 / 非法范围被拒 / `compactNow` 不可用）；
+# 这条补**正向路径**：宿主真的压出一段 `CompactionResult`。
+#
+# ## 怎么拿到"可压范围"（实测，不是猜）
+#
+# 契约要求 `compactRegion` 的范围 **balanced**（tool call 与 result 必须配对），
+# 手工挑边界既脆又容易假红。实测发现更可靠的路子：
+#
+# > `compactIfNeeded(session, 'context-overflow')` 会**强制**做一次有用的压缩
+# > （契约原文：context-overflow policy "may force a useful balanced reduction
+# > even below the normal threshold"），由**服务自己**挑范围。
+#
+# 实测成功读数：`startSeq=22 summarySeq=24 endSeq=26`、遮蔽 4 条 / 646 tokens、
+# 摘要是一段真实的模型生成文本。
+#
+# ## ⚠️ 关键实测：真压缩的成败**取决于模型摘要长度**
+#
+# 同一个场景再跑一次会失败，报的是：
+#
+# ```
+# summary is not smaller than the shadowed content (774 estimated framed tokens >= 646)
+# ```
+#
+# 服务有**收缩校验**——摘要必须比被遮蔽内容更短，否则压缩没有意义。
+# 而摘要长度是模型输出的函数，**非确定**。所以：
+#
+#   · 硬断言只放在「这一步给出了可归类的契约结果」上（`fx.compactionOutcome`）
+#   · 形状类断言（id / 摘要 / 遮蔽计数）用 **soft**——成功时它们就是证据，
+#     失败时只记录不判定
+#
+# 这样这条场景不会因为模型这次话多就变红，而报告里仍能一眼看出是哪种结果。
+#
+# ## 安全边界（不变）
+#
+# 压缩对象是隔离会话里 `seed: current` 复制进来的事件副本——`sessions.create()`
+# 不绑定 agent 生命周期，契约保证 "persists nothing"。真实会话只被**读**
+# （`snapshotEvents()`），从不被改写。
+
+schema: 1
+id: TK-0035
+title: compaction 真压缩正向路径（隔离会话压出摘要）
+kind: compaction
+severity: medium
+# draft：会调模型生成摘要（花 token），不进默认回归集
+status: draft
+tags: [compaction, cost, manual]
+
+source:
+  issue: null
+  summary: |
+    compaction 的正向路径：在自建隔离会话上让宿主真的压一段历史，
+    并把结果归一化成稳定取值（compacted / rejected-not-smaller / no-range）；
+    形状类断言用 soft，因为成败取决于模型生成的摘要长度。
+
+runtime:
+  # 摘要要走一次模型调用，给足窗口；仍留在工具调用上限（120s）以内
+  timeoutMs: 90000
+  requires: [sessions, compaction]
+
+setup:
+  # 复制当前会话已提交事件，让隔离会话有真实结构可压
+  compaction:
+    seed: current
+
+steps:
+  - name: 只读 dump 事件形状（挑范围前先看清结构）
+    act: { compaction: { dump: { limit: 24 } } }
+    expect:
+      - { ref: fx.compactionEventCount, atLeast: 1 }
+      - { ref: fx.compactionSurfaceSeqs, exists: true }
+      - { ref: fx.compactionEventSample, exists: true }
+      - { ref: fx.compactionError, exists: false }
+
+  - name: 上下文溢出触发压缩——无论成败都必须落在可归类的契约结果上
+    act: { compaction: { ifNeeded: { trigger: context-overflow } } }
+    expect:
+      - { ref: fx.compactionTrigger, is: context-overflow }
+      # compacted / rejected-not-smaller / no-range 三者之一
+      - { ref: fx.compactionOutcome, exists: true }
+      # 但"无法归类的失败"必须算失败
+      - { ref: fx.compactionOutcome, isNot: error }
+
+  - name: 真压成功时形状必须完整（soft：成败取决于模型摘要长度）
+    expect:
+      - { ref: fx.compactionCompactionId, soft: true, exists: true }
+      - { ref: fx.compactionStartSeq, soft: true, exists: true }
+      - { ref: fx.compactionSummarySeq, soft: true, exists: true }
+      - { ref: fx.compactionEndSeq, soft: true, exists: true }
+      - { ref: fx.compactionShadowedCount, soft: true, atLeast: 1 }
+      - { ref: fx.compactionShadowedTokenCount, soft: true, atLeast: 1 }
+      - { ref: fx.compactionSummaryText, soft: true, exists: true }

@@ -258,6 +258,15 @@ export type CompactionAction =
       /** 只读：报目标会话的序号、surface 节点数与事件分布。 */
       inspect: Record<string, never>
     }
+  | {
+      /**
+       * 只读：把目标会话的事件样本（含原始 `data`）与 surface 序号记进取证。
+       *
+       * 用途是**确认真实形状**——合成 seed 事件、挑选压缩范围之前，
+       * 先让宿主自己把结构说出来，而不是照着文档猜。
+       */
+      dump: { limit?: number }
+    }
 
 /** 步骤可执行的动作。 */
 export type StepAction =

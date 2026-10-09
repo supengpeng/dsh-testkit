@@ -310,3 +310,89 @@ test('act：没有 setup 时明确报错（而不是随手挑一个会话）', a
     /setup\.compaction 未执行/,
   )
 })
+
+/* ---------------------------------------------------------------- dump 面 -- */
+
+test('act：dump 只读交出事件样本与 surface 序号（原样保留 type / seq）', async () => {
+  const { driverCtx } = makeHarness({
+    currentEvents: [{ type: 'a', seq: 1 }, { type: 'b', seq: 2 }],
+  })
+  await compactionDriver.setup(driverCtx, { setup: { compaction: { seed: 'current' } } })
+  await compactionDriver.act(driverCtx, { compaction: { dump: { limit: 2 } } })
+
+  // 3 条 bootstrap + 2 条 seed
+  assert.equal(driverCtx.fixture.getNote('compactionEventCount'), 5)
+  assert.deepEqual(driverCtx.fixture.getNote('compactionEventSample'), [
+    { type: 'permission/preset', seq: 1 },
+    { type: 'sandbox/mode', seq: 2 },
+  ])
+  assert.deepEqual(driverCtx.fixture.getNote('compactionSurfaceSeqs'), [])
+  assert.equal(driverCtx.fixture.getNote('compactionError'), undefined)
+})
+
+test('act：dump 在目标会话没有 snapshotEvents 时也不炸（事件数为 undefined、样本为空）', async () => {
+  const ctx = new Context()
+  ctx.provide('compaction', { compactIfNeeded: async () => null })
+  ctx.provide('sessions', {
+    get: () => undefined,
+    create: () => ({ id: 'session-x', seq: 0, surface: { nodes: [] } }),
+  })
+  ctx.provide('agents', { currentInitiator: () => undefined })
+
+  const driverCtx = {
+    host: createHostFacade({ ctx, dshVersion: 'test', log: () => undefined }),
+    fixture: new Fixture(),
+    scenario: { setup: {} },
+    signal: new AbortController().signal,
+  }
+
+  await compactionDriver.setup(driverCtx, { setup: { compaction: {} } })
+  await compactionDriver.act(driverCtx, { compaction: { dump: { limit: 3 } } })
+
+  // 「取不到事件」与「确实 0 条」必须能区分：前者是 undefined，后者是 0 / []
+  assert.equal(driverCtx.fixture.getNote('compactionEventCount'), undefined)
+  assert.equal(driverCtx.fixture.getNote('compactionEventSample'), undefined)
+  assert.deepEqual(driverCtx.fixture.getNote('compactionSurfaceSeqs'), [])
+})
+
+/* ------------------------------------------------------------ outcome 面 -- */
+
+test('act：压缩结果被归一化成稳定取值（no-range / compacted / rejected-not-smaller）', async () => {
+  // ① 没有可压范围
+  const none = makeHarness({ ifNeededResult: null })
+  await compactionDriver.setup(none.driverCtx, { setup: { compaction: {} } })
+  await compactionDriver.act(none.driverCtx, { compaction: { ifNeeded: {} } })
+  assert.equal(none.driverCtx.fixture.getNote('compactionOutcome'), 'no-range')
+
+  // ② 真压成功
+  const done = makeHarness({
+    ifNeededResult: { compactionId: 'c-1', startSeq: 1, summarySeq: 2, endSeq: 3, summary: [] },
+  })
+  await compactionDriver.setup(done.driverCtx, { setup: { compaction: {} } })
+  await compactionDriver.act(done.driverCtx, { compaction: { ifNeeded: {} } })
+  assert.equal(done.driverCtx.fixture.getNote('compactionOutcome'), 'compacted')
+
+  // ③ 收缩校验拒绝（实测形态：模型摘要不够短）
+  const shrink = makeHarness({
+    regionThrows: new Error(
+      'summary is not smaller than the shadowed content (774 estimated framed tokens >= 646)',
+    ),
+  })
+  await compactionDriver.setup(shrink.driverCtx, { setup: { compaction: {} } })
+  await compactionDriver.act(shrink.driverCtx, { compaction: { region: { start: 1, end: 4 } } })
+  assert.equal(shrink.driverCtx.fixture.getNote('compactionOutcome'), 'rejected-not-smaller')
+
+  // ④ 范围类拒绝
+  const range = makeHarness({
+    regionThrows: new Error('compactRegion: start seq 1 not found in surface'),
+  })
+  await compactionDriver.setup(range.driverCtx, { setup: { compaction: {} } })
+  await compactionDriver.act(range.driverCtx, { compaction: { region: { start: 1, end: 1 } } })
+  assert.equal(range.driverCtx.fixture.getNote('compactionOutcome'), 'rejected-range')
+
+  // ⑤ 其它错误归为 error（场景应当因此判失败）
+  const broken = makeHarness({ regionThrows: new Error('boom') })
+  await compactionDriver.setup(broken.driverCtx, { setup: { compaction: {} } })
+  await compactionDriver.act(broken.driverCtx, { compaction: { region: { start: 1, end: 2 } } })
+  assert.equal(broken.driverCtx.fixture.getNote('compactionOutcome'), 'error')
+})

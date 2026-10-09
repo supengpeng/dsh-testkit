@@ -384,7 +384,7 @@ CLI 侧另观察到 teammate 用 `send_message` 把结果回传给 Lead——说
 | 10.1 | **`tools/pre-execute` + `tools/post-execute`**：dispatch 前决策与结果改写/阻塞 | ✅ 完成（`TK-0028` / `TK-0029`，活宿主实测 2/2 通过） |
 | 10.2 | **DSH 文件服务语义 `ctx.fs`**：沙箱拒绝 / 并发写 / 版本冲突 | ✅ 完成（新增 `kind: fs`；`TK-0030` / `TK-0031` 活宿主实测 2/2 通过） |
 | 10.3 | **session 三件套**：`session/flush` + `ctx.goals` + `session/event` 驱动面 | ✅ 完成（`TK-0032` / `TK-0033` 活宿主实测 2/2；实测发现一半目标是 `@Remote` 方法） |
-| 10.4 | **compaction 边界**：`ctx.compaction` | ✅ 完成（新增 `kind: compaction`；`TK-0034` 活宿主通过） |
+| 10.4 | **compaction 边界**：`ctx.compaction` | ✅ 完成（新增 `kind: compaction`；`TK-0034` 边界语义 + `TK-0035` 真压缩正向路径，均活宿主实测） |
 
 ### 10.1 已落地
 
