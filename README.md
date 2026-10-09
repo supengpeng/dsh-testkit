@@ -30,9 +30,13 @@ issue ──提炼──▶ cases/TK-XXXX.yaml ──驱动──▶ src/kinds/*
 | **`shell` driver** | ✅ 跑外部命令（`argv` 数组）并取证退出码 / stdout / stderr（**由真实 issue 数据驱动**） |
 | **`file` driver** | ✅ 读文件 / 列目录 / **搜内容（`search`，对应 grep）**；纯离线，任何宿主都能跑（**由能力缺口分析驱动**） |
 | **Phase 1 / 2 / 4 / 5 / 6 / 7 / 8** | ✅ 全部收口——**10 个 driver** 覆盖 10 类干预点，双轨执行可用 |
-| **场景可跑通** | ✅ `cases/TK-0001..0020` 在 headless 宿主里按要求通过或跳过 |
+| **场景可跑通** | ✅ `cases/TK-0001..0026` 在真实 DSH 里 **25 通过 / 1 失败（预期）/ 0 跳过** |
 | **组合场景（跨 kind）** | ✅ `setup` 可含多个 kind，`act` 按动作形状分派；实测证明 root 的假 provider 会穿透到子 agent |
 | 验证 | ✅ `pnpm run gate`：**276 测试** ＋ 导出的 **20 条场景**（gate 默认排除 6 条 `fixture` 场景——它们测的是外部被测对象） |
+
+> 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（4 个模型工具 / 5 个子命令 /
+> 10 个 kind / 17 个断言词 / 约 130 个取证字段 / 2 个质量守卫 / 3 个通用检查器），
+> 只列**已实现并实测**的能力。
 | **真实 DSH 验证（host 半）** | ✅ **14 通过 / 0 失败 / 2 跳过 / 0 错误**——独立 headless profile 实测，未改动 desktop profile |
 | **真实 DSH 验证（client 半 + HTTP bridge）** | ✅ 独立 web profile 实测：「测试」标签渲染、控制台显示 16 条场景 |
 
