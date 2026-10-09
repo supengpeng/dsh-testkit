@@ -23,30 +23,33 @@
 /testkit export    /testkit reload
 ```
 
-## 3. 场景类型：10 个 kind
+## 3. 场景类型：12 个 kind
 
 每个 kind 对应一类"可干预的扩展点"。`requires` 是**运行时能力声明**——
 宿主缺这个能力时场景会**跳过并说明原因**，而不是失败。
 
 | kind | requires | 干什么 |
 |---|---|---|
-| `tool` | `tools` | 注册临时工具 / 按声明制造返回行为 / 经**真实工具管道**调用并取证 |
+| `tool` | `tools` | 注册临时工具 / 按声明制造返回行为 / 经**真实工具管道**调用并取证；两条 waterfall：`tools/pre-execute`（dispatch 前决策）与 `tools/post-execute`（结果改写/阻塞） |
 | `prompt` | `systemPrompt` | 注册系统提示的 section / context / variable，并主动组装一次以取证 |
 | `llm` | `llm` | 接管 `llm/stream`：输出、失败注入、用量伪造全部由声明决定（**零上游请求**） |
 | `interaction` | — | 模拟人的回答与审批决策（接管 `user-questions/request` 与 `approval/request`） |
-| `session` | `commands` | 注册临时人类命令并驱动它 |
+| `session` | `commands` ＋ `sessions` ＋ `goals` | 四个分支：临时人类命令 / `session/flush` 检查点 / `ctx.goals` 目标状态机 / **只读**观察 `session/event` |
 | `resource` | — | 假 web provider（含"不可用"与"抛错"两条降级路径） |
 | `agent` | `subagents` ＋ `agentTeams` | 两条通道：`one-shot` 派生**真实**子 agent；`teammate` **复用 Agent Teams** 创建 durable 队友并断言 roster（⚠️ 会真调模型、花 token） |
 | `ui` | — | 在隔离 `node:vm` 里加载 **client 半真实产物**，验证契约与 slot / 词典注册 |
 | `shell` | `subprocess` | 跑外部命令（`argv` 数组，**无 shell 解析**）并取证输出与退出码 |
 | `file` | — | 读文件 / 列目录 / **搜内容**（对应 grep）；**纯离线** |
+| `fs` | `fs` | 驱动**宿主文件服务**：沙箱策略（`read-only` / `workspace-write`）、写意图（`createIfAbsent` / `replaceIfVersion`）、陈旧版本保护 |
+| `compaction` | `sessions` ＋ `compaction` | 会话历史压缩边界：压力策略**该压才压**、非法范围被拒、`compactNow` 缺 agent 上下文时如实不可用（**只作用于隔离会话**） |
 
 > **两个纯离线 kind**：`ui` 与 `file` 不依赖任何宿主服务，所以在 CI 轨里也**不会**被跳过。
+> `fs` **不在此列**——它测的正是宿主服务的语义（沙箱与版本），CI 轨里会跳过。
 
 ## 4. 场景数据
 
 - **一案一 YAML**（`cases/TK-XXXX.yaml`），加一条场景理想情况下**只加文件、不改代码**
-- **27 条场景**，分布：`shell=6` `tool=4` `interaction=3` `file=3` `llm=2` `session=2` `resource=2` `agent=3` `prompt=1` `ui=1`
+- **34 条场景**，分布：`shell=6` `tool=6` `session=4` `interaction=3` `file=3` `agent=3` `llm=2` `resource=2` `fs=2` `prompt=1` `ui=1` `compaction=1`
 - **索引** `cases/index.yaml` 由守卫自动维护，禁止手工编辑
 - **溯源**：场景可带 `source.issue`（真实 issue 派生的场景必须带）
 
@@ -60,7 +63,7 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 ```
 
 - 取值路径前缀：`fx.*`（取证）/ `env.*`（场景变量）/ 容器
-- **约 145 个取证字段**（`fx.*`），由 `verify:docs` 守卫保证"文档里写的字段一定真实存在"
+- **约 235 个取证字段**（`fx.*`），由 `verify:docs` 守卫保证"文档里写的字段一定真实存在"
 
 ## 6. 执行引擎
 
@@ -132,10 +135,14 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 ## 实测验证状态
 
 ```
-gate            297 项单测 + 20 条导出场景          全绿
-真实 DSH 全量    27 条中 26 条 active → 25 通过 / 1 失败 / 0 跳过   见下
+gate            372 项单测 + 26 条导出场景          全绿
+真实 DSH 全量    27 条时点的读数：26 条 active → 25 通过 / 1 失败 / 0 跳过   见下
                 （TK-0027 是 draft：团队通道留痕不可逆，按需单跑）
 team 通道        TK-0027 在独立 headless 新进程 passed（703ms，真 spawnTeammate）
+tool waterfall   TK-0028 / TK-0029 在同一条独立 headless 新进程 2/2 passed
+fs 语义          TK-0030 / TK-0031 在同一条独立 headless 新进程 2/2 passed
+session 面       TK-0032 / TK-0033 在同一条独立 headless 新进程 2/2 passed
+compaction 面    TK-0034 在同一条独立 headless 新进程 passed
 client 半       typecheck 通过，bundle 可加载
 ```
 

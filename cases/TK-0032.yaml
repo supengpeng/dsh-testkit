@@ -1,0 +1,65 @@
+# TK-0032 —— session/flush 持久化检查点
+#
+# ## 它补的是分类学里 session 行的 ⚠️
+#
+# 那一行写着「`session/event`、`session/flush`、`ctx.goals`（未实现）」。
+# 本条覆盖其中的 `session/flush`。
+#
+# ## 契约（实测自活宿主：`cordis_inspect_query Service: sessions`）
+#
+# ```ts
+# sessions.flush(session) → Promise<boolean>
+# ```
+#
+# 契约里两句关键的话：
+#   ① 「**THE flush entry point**」——不许自己 dispatch `ctx.parallel('session/flush', …)`，
+#      必须走 store 的入口（它持有 carrier，作用域派发才成立）。
+#   ② 返回值是「after every listener has settled successfully」——
+#      也就是**真的 await 了每个 listener**，不是 fire-and-forget。
+#
+# 所以这条场景的取证里有一个 `fx.sessionFlushDurationMs`：
+# 观察者故意慢 30ms，若宿主没 await，耗时不会反映出它。
+#
+# `events` 分支（只读观察 `session/event`）在 `TK-0033` 里与目标事件一并覆盖。
+
+schema: 1
+id: TK-0032
+title: session/flush 持久化检查点会等观察者结算
+kind: session
+severity: medium
+status: active
+tags: [session, host-service]
+
+source:
+  issue: null
+  summary: |
+    会话持久化检查点：经 sessions.flush() 唯一入口触发，验证返回值语义
+    （有没有 listener 参与）与「等每个 listener 结算」的承诺。
+
+runtime:
+  timeoutMs: 30000
+  requires: [commands, sessions]
+
+setup:
+  session:
+    flushObserver:
+      # 慢观察者：用来把"真的 await 了"与"只是派发出去"区分开
+      slowMs: 30
+
+steps:
+  - name: 经唯一入口触发 flush
+    act: { session: { flush: { note: TK-0032 } } }
+    expect:
+      - { ref: fx.sessionFlushSessionId, exists: true }
+      - { ref: fx.sessionFlushNote, is: TK-0032 }
+      - { ref: fx.sessionFlushError, exists: false }
+      - { ref: fx.sessionFlushObserverCalls, atLeast: 1 }
+
+  - name: 契约承诺「等每个 listener 结算完」——慢观察者必须体现在耗时上
+    expect:
+      - { ref: fx.sessionFlushDurationMs, atLeast: 30 }
+      - { ref: fx.sessionFlushObserverDelayMs, is: 30 }
+
+  - name: 返回值如实报告有没有 listener 参与
+    expect:
+      - { ref: fx.sessionFlushParticipated, exists: true }

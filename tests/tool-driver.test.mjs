@@ -87,10 +87,16 @@ test('contentToText：拼接 text 块，忽略非文本块', () => {
 function makeHost({ executeResult, hasGuard = true, hasExecute = true } = {}) {
   const registered = []
   const guards = []
+  const listeners = []
   const host = {
     capabilities: new Set(['tools']),
     env: { dshVersion: 'test', platform: 'test', nodeVersion: 'test' },
     log: () => undefined,
+    /** waterfall 面（`tools/pre-execute` / `post-execute`）要用它；事件名必须真实。 */
+    on(event, listener) {
+      listeners.push({ event, listener })
+      return () => undefined
+    },
     registerTool(definition) {
       registered.push(definition)
       return () => undefined
@@ -119,7 +125,7 @@ function makeHost({ executeResult, hasGuard = true, hasExecute = true } = {}) {
       }
     },
   }
-  return { host, registered, guards }
+  return { host, registered, guards, listeners }
 }
 
 function makeCtx(host, scenario) {
@@ -186,12 +192,19 @@ test('setup：intercept.allow 不安装干预', async () => {
   assert.equal(guards.length, 0, 'allow 是默认行为，不该安装 guard')
 })
 
-test('setup：ask / cancel 抛 SkipCase（明确属 Phase 2）', async () => {
-  const { host } = makeHost()
+test('setup：ask / cancel 走 tools/pre-execute（不再是 Phase 2 跳过）', async () => {
   for (const decision of ['ask', 'cancel']) {
+    const { host, listeners } = makeHost()
     const scenario = { setup: { tool: { intercept: { name: 'bash', decision } } } }
     const ctx = makeCtx(host, scenario)
-    await assert.rejects(() => toolDriver.setup(ctx, scenario), SkipCase)
+    // 曾经这里断言 SkipCase（"需要 pre-execute waterfall，属 Phase 2"）；
+    // 现在它是真实能力面：setup 必须正常返回，并注册到**真实事件名**。
+    await toolDriver.setup(ctx, scenario)
+    assert.equal(ctx.fixture.getNote('interceptVia'), 'tools/pre-execute')
+    assert.ok(
+      listeners.some((l) => l.event === 'tools/pre-execute'),
+      `decision=${decision} 必须注册到 tools/pre-execute`,
+    )
   }
 })
 

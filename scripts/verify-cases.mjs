@@ -44,8 +44,11 @@ if (result.invalid.length > 0) {
   }
 }
 
+// `--write` 会重建索引，所以"新场景未登记 / nextId 落后"这两类问题
+// 本次就会被**写操作本身**修掉，不该算作失败；其余索引问题照常失败。
+const INDEX_WRITABLE = /未登记进索引|nextId/
 const blockingIssues = result.indexIssues.filter(
-  (i) => !i.message.includes('索引文件缺失'),
+  (i) => !i.message.includes('索引文件缺失') && !(write && INDEX_WRITABLE.test(i.message)),
 )
 if (blockingIssues.length > 0) {
   failed = true
@@ -131,7 +134,10 @@ if (write) {
   console.log(`[verify-cases] 已写出 cases/index.yaml（nextId=${index.nextId}，${index.cases.length} 条）`)
 }
 
-if (failed && !write) {
+if (failed) {
+  // 注意：`--write` 只决定"要不要重建索引"，**不能**吞掉校验失败。
+  // 早先这里写的是 `failed && !write`，于是带 --write 跑时无效场景被静默放过
+  // ——实测中真的骗过一次（TK-0030 的 YAML 重复键没被发现，场景凭空少了一条）。
   console.error('\n[verify-cases] 校验未通过')
   process.exit(1)
 }

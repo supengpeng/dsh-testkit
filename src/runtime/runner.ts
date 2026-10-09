@@ -404,6 +404,8 @@ function actionOwnerKind(action: StepAction): ScenarioKind | undefined {
   if ('ui' in action) return 'ui'
   if ('shell' in action) return 'shell'
   if ('file' in action) return 'file'
+  if ('fs' in action) return 'fs'
+  if ('compaction' in action) return 'compaction'
   return undefined
 }
 
@@ -425,6 +427,9 @@ function actionKind(action: StepAction): string {
     if ('glob' in spec && spec.glob !== undefined) return `file:glob:${spec.glob}`
     return `file:search:${('search' in spec ? spec.search?.pattern : undefined) ?? ''}`
   }
+  if ('fs' in action) return `fs:${Object.keys(action.fs as object)[0] ?? 'unknown'}`
+  if ('compaction' in action)
+    return `compaction:${Object.keys(action.compaction as object)[0] ?? 'unknown'}`
   if ('wait' in action) return `wait:${action.wait.ms}ms`
   return `emit:${action.emit.event}`
 }

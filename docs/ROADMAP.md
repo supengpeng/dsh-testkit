@@ -374,6 +374,34 @@ CLI 侧另观察到 teammate 用 `send_message` 把结果回传给 Lead——说
 
 ---
 
+## Phase 10 · 补齐分类学里标记的四个能力缺口 ✅ 完成
+
+**目标**：`docs/ARCHITECTURE.md` §7 的分类学里，`session` 与 `resource` 两行一直挂着 ⚠️
+（部分扩展点未覆盖）。本阶段把它们逐项兑现，并让文档与实现重新对齐。
+
+| # | 能力面 | 状态 |
+|---|---|---|
+| 10.1 | **`tools/pre-execute` + `tools/post-execute`**：dispatch 前决策与结果改写/阻塞 | ✅ 完成（`TK-0028` / `TK-0029`，活宿主实测 2/2 通过） |
+| 10.2 | **DSH 文件服务语义 `ctx.fs`**：沙箱拒绝 / 并发写 / 版本冲突 | ✅ 完成（新增 `kind: fs`；`TK-0030` / `TK-0031` 活宿主实测 2/2 通过） |
+| 10.3 | **session 三件套**：`session/flush` + `ctx.goals` + `session/event` 驱动面 | ✅ 完成（`TK-0032` / `TK-0033` 活宿主实测 2/2；实测发现一半目标是 `@Remote` 方法） |
+| 10.4 | **compaction 边界**：`ctx.compaction` | ✅ 完成（新增 `kind: compaction`；`TK-0034` 活宿主通过） |
+
+### 10.1 已落地
+
+`intercept.decision: ask | cancel` 此前是**明确跳过**的（代码里写着"属 Phase 2"），
+现在走真实 `tools/pre-execute`；`tools/post-execute` 则是新增的能力面。
+
+**契约从哪来**：不猜——以 DSH 自己插件的实现为契约
+（`dsh-experimental-auto-review` 的 pre-execute 监听器、`dsh-hooks-codex` 的 post-execute
+监听器），并用 `practices.md` 原文确认了那条最容易写错的规则：
+**不拥有决策的 listener 必须 `return next()`**。
+
+**验收**：`TK-0028`（deny / cancel / ask 三条决策，且工具本体没跑）与
+`TK-0029`（block 的反馈进入交付内容、replace 改写结果）在真实 DSH 里 2/2 通过；
+另有 17 条单测守着决策形状与"委托"语义。
+
+---
+
 ## 里程碑视图
 
 ```

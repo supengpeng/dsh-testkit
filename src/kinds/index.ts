@@ -14,7 +14,9 @@
  */
 
 import { agentDriver } from './agent.js'
+import { compactionDriver } from './compaction.js'
 import { fileDriver } from './file.js'
+import { fsDriver } from './fs.js'
 import { interactionDriver } from './interaction.js'
 import { llmDriver } from './llm.js'
 import { promptDriver } from './prompt.js'
@@ -39,14 +41,30 @@ export function createDriverRegistry(): DriverRegistry {
   registry.register(uiDriver)
   registry.register(shellDriver)
   registry.register(fileDriver)
+  registry.register(fsDriver)
+  registry.register(compactionDriver)
 
   return registry
 }
 
 export { DriverRegistry, SkipCase } from './types.js'
 export type { Driver, DriverContext, HostFacade, ToolDefinition } from './types.js'
-export { toolDriver } from './tool.js'
-export type { ToolRegisterSpec, ToolInterceptSpec, ToolSetup } from './tool.js'
+export {
+  toolDriver,
+  buildPreDecision,
+  buildPostDecision,
+  pickByCallIndex,
+  summarizeDecision,
+} from './tool.js'
+export type {
+  ToolRegisterSpec,
+  ToolInterceptSpec,
+  ToolSetup,
+  ToolPreExecuteSpec,
+  ToolPostExecuteSpec,
+  PreToolDecisionKind,
+  PostToolDecisionKind,
+} from './tool.js'
 export { promptDriver, VARIABLE_NAME_RE, summarizeAssembly } from './prompt.js'
 export type { PromptSetup } from './prompt.js'
 export { llmDriver, buildChunkPlan, emitChunks, minimalLlmOptions, TESTKIT_LLM_ERROR_CODE } from './llm.js'
@@ -64,8 +82,18 @@ export type {
   InteractionApprovalSpec,
   ApprovalOutcomeLike,
 } from './interaction.js'
-export { sessionDriver, buildCommandDefinition, TESTKIT_COMMAND_ERROR } from './session.js'
-export type { SessionSetup, SessionCommandSpec } from './session.js'
+export {
+  sessionDriver,
+  buildCommandDefinition,
+  extractGoalCode,
+  isMonotonicSeq,
+  TESTKIT_COMMAND_ERROR,
+} from './session.js'
+export type {
+  SessionSetup,
+  SessionCommandSpec,
+  SessionFlushObserverSpec,
+} from './session.js'
 export {
   resourceDriver,
   buildSearchProvider,
@@ -91,3 +119,11 @@ export { shellDriver, readAll, expandArgvTokens, expandTokens } from './shell.js
 export type { ShellSetup } from './shell.js'
 export { fileDriver, matchGlob, expandPathTokens } from './file.js'
 export type { FileSetup } from './file.js'
+export { fsDriver, extractFsCode, describeEntries, summarizeVersion } from './fs.js'
+export type { FsSetup } from './fs.js'
+export {
+  compactionDriver,
+  extractCompactionCode,
+  summarizeEventTypes,
+} from './compaction.js'
+export type { CompactionSetup } from './compaction.js'

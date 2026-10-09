@@ -1,0 +1,107 @@
+# TK-0030 —— ctx.fs 的写意图与陈旧版本保护
+#
+# ## 它补的是分类学里 resource 行的 ⚠️
+#
+# 表里写着「`ctx.fs`、`ctx.subprocess`（未实现）」。其中 `ctx.subprocess` 后来由
+# `kind: shell` 覆盖了，而 **DSH 的 `ctx.fs` 一直是个真缺口**——
+# 既有的 `kind: file` 走的是 `node:fs`，**绕过了宿主文件服务**，
+# 于是沙箱策略、写意图、版本守卫这些语义从来没有被测过。
+#
+# 这条场景覆盖**与后端无关**的那部分语义（任何实现了 fs 服务的宿主都该成立）：
+#   · 写意图 `createIfAbsent`：撞上已存在必须失败
+#   · 写意图 `replaceIfVersion`：陈旧版本必须失败（并发写的核心保护）
+#   · 失败的那两次写**不能落地**（用读回内容验证）
+#
+# 沙箱策略依赖后端是否真的实施，单独放在 `TK-0031`（带探测降级）。
+
+schema: 1
+id: TK-0030
+title: ctx.fs 的写意图与陈旧版本保护
+kind: fs
+severity: medium
+status: active
+tags: [fs, host-service]
+
+source:
+  issue: null
+  summary: |
+    驱动宿主文件服务：createIfAbsent 冲突与 replaceIfVersion 陈旧版本都必须被拒，
+    且被拒的写不得改变文件内容。对应分类学 resource 行里 ctx.fs 的缺口。
+
+runtime:
+  timeoutMs: 30000
+  requires: [fs]
+
+setup:
+  fs: {}
+
+steps:
+  - name: 首次写入建立版本基线
+    act: { fs: { write: { path: a.txt, text: V1 } } }
+    expect:
+      - { ref: fx.fsError, exists: false }
+      - { ref: fx.fsOperation, is: create }
+      - { ref: fx.fsBefore, is: null }
+      - { ref: fx.fsAfter, is: V1 }
+      - { ref: fx.fsVersion, exists: true }
+
+  - name: 用当前版本写入应当成功（版本推进）
+    act:
+      fs:
+        write:
+          path: a.txt
+          text: V2
+          intent: replaceIfVersion
+          expectedVersion: last
+    expect:
+      - { ref: fx.fsError, exists: false }
+      - { ref: fx.fsOperation, is: update }
+      - { ref: fx.fsBefore, is: V1 }
+      - { ref: fx.fsAfter, is: V2 }
+
+  - name: 用**陈旧**版本写入必须被拒
+    act:
+      fs:
+        write:
+          path: a.txt
+          text: V3
+          intent: replaceIfVersion
+          expectedVersion: first
+    expect:
+      - { ref: fx.fsError, exists: true }
+      # 契约明文承诺的码，活宿主实测一致
+      - { ref: fx.fsErrorCode, is: FS_STALE_VERSION }
+
+  - name: createIfAbsent 撞上已存在必须被拒
+    # 实测码是 FS_NOT_OBSERVED ——「已存在的文件必须先被**观测**过才允许覆盖」，
+    # 来自 fs-observation-policy。因为这条理由取决于 profile 装没装该策略，
+    # 所以这里只断言"有稳定错误码"，不把具体码写死（否则换个 profile 就假红）。
+    act:
+      fs:
+        write:
+          path: a.txt
+          text: V4
+          intent: createIfAbsent
+    expect:
+      - { ref: fx.fsError, exists: true }
+      - { ref: fx.fsErrorCode, exists: true }
+
+  - name: 被拒的两次写都没有落地
+    act: { fs: { read: { path: a.txt } } }
+    expect:
+      - { ref: fx.fsError, exists: false }
+      - { ref: fx.fsText, is: V2 }
+
+  - name: stat 能看到这个文件
+    act: { fs: { stat: { path: a.txt } } }
+    expect:
+      - { ref: fx.fsError, exists: false }
+      - { ref: fx.fsExists, is: true }
+      - { ref: fx.fsType, is: file }
+      - { ref: fx.fsVersion, exists: true }
+
+  - name: 目录列举包含刚写的文件
+    act: { fs: { list: { path: . } } }
+    expect:
+      - { ref: fx.fsError, exists: false }
+      - { ref: fx.fsEntryCount, atLeast: 1 }

@@ -441,20 +441,25 @@ await build({
 | kind | 干预点（DSH 侧） | 典型 issue 场景 |
 |---|---|---|
 | `llm` ✅ | `llm/stream` waterfall | 畸形流、中途断流、重试、路由错、token 计数异常 |
-| `tool` ✅ | `ctx.tools.register`、**`ctx.tools.guard`**、`tools/execute` | 工具未注册、参数校验、权限拦截、结果过大、超时、并发调用 |
+| `tool` ✅ | `ctx.tools.register`、**`ctx.tools.guard`**、`tools/execute`、**`tools/pre-execute`**、**`tools/post-execute`** | 工具未注册、参数校验、权限拦截、结果过大、超时、并发调用、结果改写/阻塞 |
 | `prompt` ✅ | `ctx.systemPrompt.section/context/variable`、`assemble()` | 提示词缺失、顺序错乱、变量未替换、上下文超预算 |
 | `interaction` ✅ | `user-questions/request`、`approval/request` | 用户不答、答超时、审批拒绝、连续提问 |
-| `session` ⚠️ | `ctx.commands.register`（**已实现**）；`session/event`、`session/flush`、`ctx.goals`（**未实现**） | 命令行为、会话事件丢失、日志乱序、压缩边界 |
-| `resource` ⚠️ | `ctx.web` 的 search / fetch provider（**已实现**）；`ctx.fs`、`ctx.subprocess`（**未实现**） | 联网失败降级、文件并发写、沙箱拒绝、子进程非零退出 |
+| `session` ✅ | `ctx.commands.register`；`ctx.sessions.flush()`；`ctx.goals`（本地方法）；`session/event`（**只读**观察） | 命令行为、会话事件丢失、日志乱序、目标状态、持久化检查点 |
+| `resource` ⚠️ | `ctx.web` 的 search / fetch provider（**已实现**）；`ctx.fs`、`ctx.subprocess`（**已由别的 kind 覆盖**：`fs` 与 `shell`，本行不再重复实现） | 联网失败降级、文件并发写、沙箱拒绝、子进程非零退出 |
 | `agent` | `ctx.agentLoop` / `ctx.agents`（驱动真实 agent）；`ctx.subagents`（一次性派生）／`ctx.agentTeams`（**复用 Agent Teams** 的可续接队友） | 端到端：模型该做什么、工具链是否走通 |
-| `ui` | client 半 slot / `ctx.theme` | 渲染错、slot 冲突、主题 token 缺失、交互无响应 |
+| `ui` ✅ | client 半 slot / `ctx.theme` | 渲染错、slot 冲突、主题 token 缺失、交互无响应 |
+| `shell` ✅ | `ctx.subprocess`（`argv` 数组，**无 shell 解析**） | 子进程非零退出、输出取证、发包面缺件（#48 一类） |
+| `file` ✅ | `node:fs`（**纯离线**，不经宿主服务） | 内容 / 清单 / 结构性判据（97 条 `file-inspect` 缺口） |
+| `fs` ✅ | `ctx.fs`：`resolve` / `stat` / `readText` / `listDir` / `writeText` / `editText` **＋ 沙箱策略与写意图** | 沙箱拒绝、文件并发写（陈旧版本）、写前观测策略 |
+| `compaction` ✅ | `ctx.compaction`：`compactIfNeeded` / `compactRegion` / `compactNow`（**只在隔离会话上动手**） | 压缩边界、该压才压、非法范围被拒、摘要替换历史 |
 
 > **状态标记**：✅ = 已实现（`src/kinds/*.ts`）。未标记的 kind 会把场景记为
 > **errored 并明说「driver 尚未实现」**，而不是假装跑过。
 >
-> `tool` 只用 `tools.guard`（同步拒绝）+ `tools.execute`（真实管道）；
-> `tools/pre-execute` / `post-execute` 两条 waterfall 留到 Phase 2——
-> 它们的 `next()` 链语义必须先拿活宿主确认，**不猜**。
+> `tool` 的同步拒绝走 `tools.guard`（与注册顺序无关），`tools.execute` 走真实管道；
+> `tools/pre-execute`（dispatch 前决策）与 `tools/post-execute`（结果改写/阻塞）已落地
+> ——`next()` 链语义以 DSH 自身插件的实现为契约实测确认（见
+> [SCENARIO-SPEC §3.2.1](SCENARIO-SPEC.md)），并配套 17 条专项单测。
 
 **归类决策树**（提炼 issue 时使用）：
 ```
@@ -501,7 +506,7 @@ issue 描述的是"界面上看到什么"吗？            → ui
 | — | `ctx.get()` 与属性访问的差异 | 决定能力探测怎么写 | ✅ cordis 4 里 `ctx.someService` 未 `inject` 时**抛错**；`ctx.get(name)` 是唯一安全的可选访问方式（详见下方教训二） |
 | — | **15 条场景在真实 DSH 里的表现** | 插件的实际可用性 | ✅ **14 通过 / 0 失败 / 1 跳过 / 0 错误**（独立 headless profile 实测；跳过的是 agent 类，因该 profile 无 subagents 能力——**这是降级机制正确工作的证据**）。**8 个 driver 全部在真实宿主验证** |
 | R10 | `headless` profile 下 `userQuestions` / `subagents` **探测不到** | 会不会被误判成"宿主缺能力"而跳过场景 | ✅ **已结案**——不是宿主缺能力，而是能力探测**拍了快照**（cordis 激活是异步的）。改惰性求值后两者都可用，`TK-0007/0009/0014` 由 skipped 转为 passed（详见教训三） |
-| — | **十个 kind 是否都有 driver** | 数据层与驱动层是否自洽 | ✅ **全部落地**——`tool` / `prompt` / `llm` / `interaction` / `session` / `resource` / `agent` / `ui` / `shell` / `file`。`verify-cases` 的一致性守卫不再报任何警告 |
+| — | **十个 kind 是否都有 driver** | 数据层与驱动层是否自洽 | ✅ **全部落地**——`tool` / `prompt` / `llm` / `interaction` / `session` / `resource` / `agent` / `ui` / `shell` / `file`。`verify-cases` 的一致性守卫不再报任何警告。（Phase 10 补了 `fs` 与 `compaction`，现为 **12 个**。） |
 | R1/R2/R3/R7 | **client 半（浏览器侧）能否在真实 web profile 里装载并与 host 半通信** | 双半插件的另一半 | ✅ **已在真实 web profile 验证**：bundle 被组合进启动图、`conversation.view` 的「测试」标签渲染、HTTP bridge 4 条路由全部可用（`/list` 返回 200 + 14 条场景）。故 R7 的 `inject` 集合合法 |
 | R11 | **复用 Agent Teams 会不会造成不可逆副作用**（`ctx.agentTeams.spawnTeammate()`） | 场景跑一次就可能污染用户的真实团队 | ✅ **已结案并落成机制**：成员记录只写进 Lead 会话日志、`maxMembers` 是组合配置（DSH 的 Agent Teams profile bundle 设为 8，服务内建默认 16）、**没有删除成员的能力**、名字永不复用。处置：team 通道的场景一律 `status: draft`（默认回归集不含）、driver 每次生成 `tk-<caseId>-<rand>` 唯一名、团队不支持的 setup 字段记入 `fx.teammateIgnoredSetup`（不静默）、teardown 对跑飞的成员 `interrupt`。详见 [SCENARIO-SPEC §3.7](SCENARIO-SPEC.md) |
 

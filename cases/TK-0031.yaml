@@ -1,0 +1,65 @@
+# TK-0031 —— ctx.fs 的沙箱策略：read-only 下写入必须被拒
+#
+# ## 为什么这条场景要"先探测再断言"
+#
+# `ctx.fs` 的契约原文写着：
+#
+# > `sandboxPolicy` … a sandboxing backend fences the write by it,
+# > **the bare backend ignores it.**
+#
+# 也就是说同一个 `read-only` 策略：装了沙箱层的 profile 会拒绝，
+# bare 后端会**照常写入**。不探测就断言"必然被拒"，
+# 这条场景会在另一种 profile 上**假红**（失败原因与被测对象无关）。
+#
+# 所以 `setup.fs.probeSandbox: true` 先拿一个一次性文件按 `read-only` 试写：
+#   · 被拒 → 沙箱存在，继续按真实语义断言
+#   · 写成功 → `SkipCase`（明说"此 profile 的后端不实施沙箱"）
+#
+# 这是本项目那条纪律的又一次兑现：**先确认前提，再断言变化**。
+
+schema: 1
+id: TK-0031
+title: ctx.fs 沙箱策略：read-only 下写入被拒
+kind: fs
+severity: medium
+status: active
+tags: [fs, sandbox]
+
+source:
+  issue: null
+  summary: |
+    宿主文件服务的沙箱面：read-only 策略必须真的拦住写入。
+    宿主后端不实施沙箱策略时跳过（而不是失败），并留下探测证据。
+
+runtime:
+  timeoutMs: 30000
+  requires: [fs]
+
+setup:
+  fs:
+    probeSandbox: true
+
+steps:
+  - name: 探测确认这个宿主真的实施沙箱策略
+    expect:
+      - { ref: fx.fsSandboxProbe, is: denied }
+      # 活宿主实测码
+      - { ref: fx.fsSandboxProbeCode, is: FS_SANDBOX_DENIED }
+
+  - name: read-only 下写入必须被拒
+    act:
+      fs:
+        write:
+          path: blocked.txt
+          text: NOPE
+          sandbox: { mode: read-only }
+    expect:
+      - { ref: fx.fsError, exists: true }
+      - { ref: fx.fsErrorCode, is: FS_SANDBOX_DENIED }
+      - { ref: fx.fsSandboxMode, is: read-only }
+
+  - name: 被拒之后这个文件不应该存在
+    act: { fs: { stat: { path: blocked.txt } } }
+    expect:
+      - { ref: fx.fsError, exists: false }
+      - { ref: fx.fsExists, is: false }

@@ -29,13 +29,13 @@ issue ──提炼──▶ cases/TK-XXXX.yaml ──驱动──▶ src/kinds/*
 | **`ui` driver** | ✅ 在隔离 vm 里加载**真实 client bundle**，验证产物契约与 slot / 词典注册（纯离线） |
 | **`shell` driver** | ✅ 跑外部命令（`argv` 数组）并取证退出码 / stdout / stderr（**由真实 issue 数据驱动**） |
 | **`file` driver** | ✅ 读文件 / 列目录 / **搜内容（`search`，对应 grep）**；纯离线，任何宿主都能跑（**由能力缺口分析驱动**） |
-| **Phase 1 / 2 / 4 / 5 / 6 / 7 / 8 / 9** | ✅ 全部收口——**10 个 driver** 覆盖 10 类干预点，双轨执行可用 |
-| **场景可跑通** | ✅ `cases/TK-0001..0026` 在真实 DSH 里 **25 通过 / 1 失败（预期）/ 0 跳过**；`TK-0027`（team 通道）是 `draft`，只在按 id 单跑时执行 |
+| **Phase 1 / 2 / 4 / 5 / 6 / 7 / 8 / 9 / 10** | ✅ 全部收口——**12 个 driver** 覆盖 12 类干预点，双轨执行可用 |
+| **场景可跑通** | ✅ `cases/TK-0001..0026` 在真实 DSH 里 **25 通过 / 1 失败（预期）/ 0 跳过**；`TK-0027`（team 通道）是 `draft`，只在按 id 单跑时执行；`TK-0028` / `TK-0029`（两条 waterfall）在独立 headless 新进程 **2/2 通过** |
 | **组合场景（跨 kind）** | ✅ `setup` 可含多个 kind，`act` 按动作形状分派；实测证明 root 的假 provider 会穿透到子 agent |
-| 验证 | ✅ `pnpm run gate`：**297 测试** ＋ 导出的 **20 条场景**（gate 默认排除 6 条 `fixture` 场景——它们测的是外部被测对象） |
+| 验证 | ✅ `pnpm run gate`：**372 测试** ＋ 导出的 **26 条场景**（gate 默认排除 6 条 `fixture` 场景——它们测的是外部被测对象） |
 
 > 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（4 个模型工具 / 5 个子命令 /
-> 10 个 kind / 17 个断言词 / 约 130 个取证字段 / 2 个质量守卫 / 3 个通用检查器），
+> 12 个 kind / 17 个断言词 / 约 235 个取证字段 / 2 个质量守卫 / 3 个通用检查器），
 > 只列**已实现并实测**的能力。
 | **真实 DSH 验证（host 半）** | ✅ **14 通过 / 0 失败 / 2 跳过 / 0 错误**——独立 headless profile 实测，未改动 desktop profile |
 | **真实 DSH 验证（client 半 + HTTP bridge）** | ✅ 独立 web profile 实测：「测试」标签渲染、控制台显示 16 条场景 |
@@ -74,7 +74,7 @@ node --test export/scenarios.test.mjs
 
 ### 已能跑通的场景
 
-[`cases/`](cases) 下 **27 条场景**（其中 7 条源自真实 issue 数据；`TK-0027` 为 `draft`）：
+[`cases/`](cases) 下 **34 条场景**（其中 7 条源自真实 issue 数据；`TK-0027` / `TK-0033` 为 `draft`）：
 
 | ID | kind | 测什么 |
 |---|---|---|
@@ -105,6 +105,13 @@ node --test export/scenarios.test.mjs
 | [TK-0025](cases/TK-0025.yaml) | shell | **#22 回归**：`_writer_session` 的三条取值口径（显式优先 / 否则取 cg.session / 都没有为 None） |
 | [TK-0026](cases/TK-0026.yaml) | shell | **#75（⚠️ 0.8.1 仍存在）**：`csre.build_index()` 因 `md_conn_or_none` 拼写笔误抛 ImportError |
 | [TK-0027](cases/TK-0027.yaml) | agent | **team 通道**：`agentTeams.spawnTeammate` 派生真实 teammate，roster 出现成员、回落 `inactive`、产出被取证（`draft`：成员留痕不可逆） |
+| [TK-0028](cases/TK-0028.yaml) | tool | **`tools/pre-execute`**：deny / cancel / ask 三条 dispatch 前决策，且**工具本体确实没跑** |
+| [TK-0029](cases/TK-0029.yaml) | tool | **`tools/post-execute`**：结果被 `block`（反馈进入交付内容）与 `replace`（改写） |
+| [TK-0030](cases/TK-0030.yaml) | fs | **`ctx.fs` 写意图**：`createIfAbsent` 与陈旧版本（`FS_STALE_VERSION`）都必须被拒，且被拒的写不落地 |
+| [TK-0031](cases/TK-0031.yaml) | fs | **`ctx.fs` 沙箱**：`read-only` 下写入被拒（`FS_SANDBOX_DENIED`）；后端不实施沙箱策略时诚实跳过 |
+| [TK-0032](cases/TK-0032.yaml) | session | **`session/flush` 检查点**：经唯一入口派发，且契约「等每个 listener 结算」有实测耗时佐证 |
+| [TK-0033](cases/TK-0033.yaml) | session | **`ctx.goals` 状态机**：`create` 会 arm 自动续轮（driver 默认立刻收回授权）；并实测出「一半目标是 `@Remote` 方法，不能本地直调」（`draft`：留痕） |
+| [TK-0034](cases/TK-0034.yaml) | compaction | **压缩边界**：没有安全范围时不压、非法范围被拒、`compactNow` 缺 agent 上下文时如实不可用（只作用于**隔离会话**） |
 
 ---
 

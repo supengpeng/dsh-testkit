@@ -323,10 +323,30 @@ setup:
 
     intercept:
       name: testkit_guarded
-      decision: deny                   # 已实现：deny（走 tools.guard）
+      decision: deny                   # deny 走 tools.guard（同步、与注册顺序无关）
                                        # allow 是默认行为，显式声明仅表意图
-                                       # ask / cancel 需 pre-execute waterfall → Phase 2
+                                       # ask / cancel 走 tools/pre-execute（见下）
       reason: TESTKIT_GUARD_DENIED     # deny 时回给调用方的理由
+
+    # ── dispatch 之前：tools/pre-execute（真实 waterfall）──
+    preExecute:
+      name: testkit_pre_target         # 缺省继承 register.name
+      decision: deny                   # allow | deny | ask | cancel
+      decisions: [deny, cancel, ask]   # 或按第 N 次调用取不同决策
+      reason: TESTKIT_PRE_REASON
+      code: TESTKIT_PRE_DENIED         # deny 时写进 info.code
+      displayReason: { en: ask why, zh: 询问理由 }   # ask 专用
+      awaitDownstream: false           # true = 先 await next() 读下游决策再决定
+      prepend: false                   # true = 排到 listener 链最前
+
+    # ── 结果已产生之后：tools/post-execute（真实 waterfall）──
+    postExecute:
+      name: testkit_post_target
+      action: block                    # accept | replace | block
+      actions: [block, replace]        # 或按第 N 次调用取不同动作
+      feedback: TESTKIT_BLOCKED        # block 的反馈文本
+      text: TESTKIT_REPLACED           # replace 的替换文本（优先于 value）
+      value: { ok: true }              # replace 的替换值
 ```
 
 **为什么用平级键而不是 `returns: { throw: ... }`**：返回值本身可能恰好长得像指令对象
@@ -349,16 +369,43 @@ setup:
 > `fx.callError contains <拒绝理由>` **加上** `fx.resultText notContains <工具本体返回值>`。
 > 只看前者，会被"报了错但其实也跑过"蒙混过去。`cases/TK-0003.yaml` 就是这条纪律的示范。
 
-### 3.2.1 尚未支持的 intercept 形态
+### 3.2.1 两条 waterfall 的契约（实测，别猜）
 
-| 形态 | 为什么没做 | 计划 |
-|---|---|---|
-| `decision: ask` | 需要 `tools/pre-execute` waterfall 的 `next()` 链语义，必须先拿活宿主确认 | Phase 2 |
-| `decision: cancel` | 同上 | Phase 2 |
-| `rewriteResult` | 需要 `tools/post-execute` waterfall | Phase 2 |
+```js
+ctx.on('tools/pre-execute',  async (exec, next) => { … })          // dispatch 之前
+ctx.on('tools/post-execute', async (exec, result, next) => { … })  // 结果已产生之后
+```
 
-这些情况下 driver 会抛 `SkipCase`（场景记为 **skipped 而非 failed**），
-并在 `skipReason` 里说明原因——不会假装执行过。
+**最重要的一条**：不拥有决策时必须 `return next()`——直接返回 `undefined`
+会把链断在自己这里，别人的决策全部失效。
+（DSH 开发指引原文：*a waterfall listener that does not own the decision must return `next()`*；
+证据：`dsh-experimental-auto-review` 与 `dsh-hooks-codex` 的真实监听器。）
+
+driver 写出的决策形状与真实 `PreToolDecision` / `PostToolDecision` 对齐：
+
+| decision | 形状 |
+|---|---|
+| `allow`（pre）/ `accept`（post） | 不拥有决策 → `next()` |
+| `deny` | `{ kind:'deny', reason, info:{ name, code, reason? } }` |
+| `cancel` | `{ kind:'cancel' }` |
+| `ask` | `{ kind:'ask', reason?, displayReason? }`（无可用答者时 DSH 会降级为拒绝） |
+| `replace` | `{ kind:'accept', content:[…] }` 或 `{ kind:'accept', value }` |
+| `block` | `{ kind:'block', feedback:[{ type:'text', text }] }` |
+
+**driver 写出的取证**：
+
+| ref | 含义 |
+|---|---|
+| `fx.preExecuteCount` / `fx.preExecuteCalls` | 匹配到的调用次数与记录（`{ index, name, args }`） |
+| `fx.preExecuteDecision` | 本层返回的决策摘要（`{ kind, reason, code }`） |
+| `fx.preExecuteDownstream` | `awaitDownstream: true` 时读到的**下游**决策摘要 |
+| `fx.postExecuteCount` / `fx.postExecuteCalls` | 匹配到的调用次数与记录（含 `isError` 与 `resultText`） |
+| `fx.postExecuteOriginal` | 监听器收到的**原始**结果文本（改写前的证据） |
+| `fx.postExecuteDecision` | 本层返回的决策摘要 |
+| `fx.interceptVia` | `intercept` 的 ask/cancel 实际走的通道（`tools/pre-execute`） |
+
+> 只对 `name` 匹配的调用生效；不匹配时**必须委托**（有专项单测守着这条）。
+> 场景见 `cases/TK-0028.yaml`（三条 pre 决策）与 `cases/TK-0029.yaml`（block 与 replace）。
 
 ### 3.3 `kind: prompt` —— 提示词注入（**已实现**）
 
@@ -484,7 +531,7 @@ steps:
 > 而本 driver 用全局注册。agent 作用域下的事件是否会被全局 listener 收到，
 > 需要在活宿主上确认——已列入待验证项，**不要在活宿主验证前把它当既定事实**。
 
-### 3.5 `kind: session` —— 人类命令（**部分实现**）
+### 3.5 `kind: session` —— 会话与目标面（**已实现**）
 
 ```yaml
 kind: session
@@ -537,9 +584,71 @@ steps:
 | `fx.commandText` | 结果文本 |
 | `fx.commandError` | 异常路径的错误描述 |
 
-> **尚未实现**：`session/event` 事件观测、`session/flush`、`ctx.goals` 相关。
-> 它们在 DSH 里是 `Scoped<Session>` 事件或需要活跃会话，与 `interaction` 的 R9
-> 同属「作用域 / 生命周期」类问题——**留到活宿主验证之后再动**，免得再做一次白工。
+**另外三个分支**（Phase 10 补的）：
+
+```yaml
+setup:
+  session:
+    flushObserver: { slowMs: 30 }   # 注册 session/flush 观察者（慢一点，用来验证"真的 await 了"）
+    eventObserver: true             # 注册 session/event 只读观察者
+
+steps:
+  - act: { session: { flush: { note: 检查点 } } }        # ctx.sessions.flush()
+    expect:
+      - { ref: fx.sessionFlushParticipated, exists: true }
+      - { ref: fx.sessionFlushDurationMs, atLeast: 30 }  # 契约：等每个 listener 结算完
+
+  - act: { session: { goal: { op: create, objective: 目标 } } }   # ctx.goals
+    expect:
+      - { ref: fx.goalCreatedActivation, is: armed }
+      - { ref: fx.goalAfterDisarmActivation, is: disarmed }        # driver 的安全阀
+
+  - act: { session: { events: { limit: 10 } } }          # 只读观察
+    expect: [{ ref: fx.sessionEventSeqMonotonic, is: true }]
+```
+
+> ⚠️ **`events` 分支只读，绝不写入。** DSH 的纪律原文：不要用新的 `type` 追加会话事件
+> ——读取方只接受带 `ignorable: true` 的未知事件，而 `Session.append()` **设不了**这个标记，
+> 于是那个会话会**拒绝重开**。所以这里只监听、只记录类型与序号。
+
+> ⚠️ **`goal` 的 `create` 会 arm 自动续轮**（`goal-round-driver` 会一直唤醒模型）。
+> driver 默认在 create 之后**立刻 `disarm`**（只清进程内授权、不动持久 phase），
+> 并把两个状态都写进取证：`fx.goalCreatedActivation` 看 armed、
+> `fx.goalAfterDisarmActivation` 看 disarmed。要保留 armed 得显式写 `disarmAfter: false`。
+
+> 🔎 **实测发现：一半的目标操作是 `@Remote` 方法，不能本地直调。**
+> `get` / `create` / `disarm` / `block` 是本地方法；
+> 而 `pause` / `resume` / `complete` / `clear` / `edit` 带 `@Remote` 标记——
+> 本地直调会崩在内部属性访问上（`…(reading 'transition')` / `…(reading 'prepareMutation')`），
+> 那不是 `GoalError`，而是缺少远程通道上下文。
+> driver 把这种崩溃翻译成 `fx.goalRemoteOpRequired is true` 的明确诊断。
+> 连带后果：**teardown 的 `clear` 往往不可用**，这类场景创建过的目标可能留在会话里
+> ——这也是它必须写成 `draft` 的原因之一。
+>
+> 另外实测：`block` 的 `code` 必须是 **lower-kebab-case**（`GOAL_XXX` 会被服务拒绝）。
+
+**取证**：
+
+| ref | 含义 |
+|---|---|
+| `fx.sessionTargetId` | 本场景认定的当前会话 id（事件过滤用） |
+| `fx.sessionFlushSessionId` / `fx.sessionFlushNote` | flush 的目标会话与备注 |
+| `fx.sessionFlushDurationMs` | flush 耗时（慢观察者的存在证明它真的 await 了） |
+| `fx.sessionFlushParticipated` | `sessions.flush()` 的返回值：有没有 listener 参与 |
+| `fx.sessionFlushObserverCalls` / `fx.sessionFlushObserverDelayMs` | 观察者被调用次数与它声明的慢速 |
+| `fx.sessionFlushSeqBefore` / `fx.sessionFlushSeqAfter` | flush 前后的会话序号 |
+| `fx.sessionFlushError` | flush 失败原文 |
+| `fx.sessionEventCount` / `fx.sessionEvents` / `fx.sessionEventTypes` | 只读观察到的事件（计数 / 最近若干条 / 类型去重） |
+| `fx.sessionEventSeqMonotonic` | 事件序号是否严格递增（抓"日志乱序"） |
+| `fx.goalOp` / `fx.goalError` / `fx.goalErrorCode` | 目标操作、失败原文与尽力提取的稳定码 |
+| `fx.goalRemoteOpRequired` | 该操作是 `@Remote` 方法、本地直调不可用 |
+| `fx.goalId` / `fx.goalRevision` / `fx.goalPhase` / `fx.goalActivation` / `fx.goalObjective` | 最近一次目标视图 |
+| `fx.goalCreatedPhase` / `fx.goalCreatedActivation` / `fx.goalAfterDisarmActivation` | create 当时与收回授权后的状态 |
+| `fx.goalExists` / `fx.goalClearedRevision` | 当前是否还有目标 / clear 返回的墓碑 revision |
+| `fx.goalTeardownCleared` / `fx.goalTeardownError` | teardown 补 clear 的结果 |
+
+> 场景样例：[`TK-0032`](../cases/TK-0032.yaml)（flush）、
+> [`TK-0033`](../cases/TK-0033.yaml)（goals + 事件观察）。
 
 ### 3.6 `kind: resource` —— 外部资源（**部分实现：web 面**）
 
@@ -808,7 +917,8 @@ steps:
 > **它不是什么**：不验证**渲染结果**（React 组件长什么样、像素对不对）。那是浏览器的事。
 
 > **`requires` 为空**——纯离线，所以**在任何宿主（含 CI 轨）里都能跑**。
-> 这在八个 kind 里是唯一的：其它都多少依赖宿主能力。
+> 这在当时的八个 kind 里是唯一的：其它都多少依赖宿主能力。
+> （后来 `file` 成了第二个纯离线的 kind；`fs` **不是**——它需要宿主的文件服务。）
 
 ---
 
@@ -1005,6 +1115,143 @@ steps:
 > **提炼模式**（来自 `dsh-memory` #37「产物无消费方」）：
 > "某个符号有没有被引用 / 某个约定有没有被破坏"这类**结构性判据**，
 > 用 `search` 固定下来即可。见 [`cases/TK-0023.yaml`](../cases/TK-0023.yaml)。
+
+---
+
+## 3.12 `kind: fs` —— 驱动宿主文件服务（**已实现**）
+
+**它补的是分类学里 `resource` 行的 ⚠️**：表里写着 `ctx.fs` 未实现。
+既有的 `kind: file` 走的是 `node:fs`，**绕过了宿主文件服务**——
+沙箱策略、写意图、陈旧版本保护这些语义从来没有被测过。
+
+```yaml
+kind: fs
+runtime:
+  requires: [fs]
+setup:
+  fs:
+    root: /tmp/xxx         # 缺省自动建临时目录（场景结束删掉）
+    workspace: sub         # workspace-write 的根（相对 root 解析）
+    mode: workspace-write  # 缺省沙箱模式（动作级可覆盖）
+    probeSandbox: false    # true = 先探测后端是否真的实施沙箱
+
+steps:
+  - act: { fs: { write: { path: a.txt, text: 'v1' } } }
+    expect: [{ ref: fx.fsOperation, is: create }]
+
+  - act:
+      fs: { write: { path: a.txt, text: 'v2', intent: replaceIfVersion, expectedVersion: last } }
+    expect: [{ ref: fx.fsBefore, is: v1 }]
+
+  - act:
+      fs: { write: { path: a.txt, text: 'v3', intent: replaceIfVersion, expectedVersion: first } }
+    expect: [{ ref: fx.fsErrorCode, is: FS_STALE_VERSION }]
+```
+
+**动作**：`resolve` / `stat` / `read` / `list` / `write` / `edit`（一个动作一个操作）。
+`write` 支持写意图（`createIfAbsent` / `replaceIfVersion`）、期望版本来源（`first` / `last`）
+与动作级沙箱覆盖（`sandbox: { mode, workspace }`）。
+
+**取证**：
+
+| ref | 含义 |
+|---|---|
+| `fx.fsRoot` / `fx.fsWorkspace` / `fx.fsSetupMode` | 本轮的工作根、沙箱根与缺省模式 |
+| `fx.fsAction` | 这一步做的操作 |
+| `fx.fsTargetPath` / `fx.fsTargetKeyPresent` | `resolve` 的结果（显示路径 + 是否给了稳定 targetKey） |
+| `fx.fsExists` / `fx.fsType` / `fx.fsSize` / `fx.fsVersion` | `stat` / `resolve` 的元数据（不存在时 `fx.fsExists is false`） |
+| `fx.fsText` / `fx.fsTextLength` | `read` 的内容与长度 |
+| `fx.fsEntries` / `fx.fsEntryCount` | `list` 的目录项（已投影成 `{name,type,size}`） |
+| `fx.fsOperation` / `fx.fsBefore` / `fx.fsAfter` | 写入结果（`create` / `update` 与前后内容） |
+| `fx.fsWriteIntent` / `fx.fsExpectedVersion` | 这次写用的意图与守卫版本（已折叠显示） |
+| `fx.fsSandboxMode` / `fx.fsSandboxWorkspace` | 这次调用实际传下去的沙箱策略 |
+| `fx.fsSandboxProbe` / `fx.fsSandboxProbeCode` | `probeSandbox` 的探测结论与错误码 |
+| `fx.fsError` / `fx.fsErrorCode` | 失败原文与尽力提取的稳定错误码（成功时为 `undefined`） |
+
+**为什么必须有 `probeSandbox`**：契约原文写着 *a sandboxing backend fences the write by it,
+**the bare backend ignores it***。同一个 `read-only` 策略，装了沙箱层的 profile 会拒绝，
+bare 后端会照常写入。不探测就断言"必然被拒"，这条场景会在另一种 profile 上**假红**。
+探测被拒 ⇒ 继续按真实语义断言；写成功 ⇒ **跳过**（明说此宿主不实施沙箱）。
+
+> **活宿主实测的两个码**（2026-10-10，desktop 组合）：
+> 陈旧版本写 → `FS_STALE_VERSION`；`read-only` 沙箱写 → `FS_SANDBOX_DENIED`。
+>
+> 另外 `createIfAbsent` 撞上已存在时报的是 **`FS_NOT_OBSERVED`**
+> （"没先读过就不许覆盖"，来自 `fs-observation-policy`）——这条**取决于 profile
+> 装没装该策略**，所以场景只断言"有稳定错误码"，不把具体码写死。
+> 这也是"替身必须与真实契约一致"的一次现场纠正：单测的假服务最初自造了
+> `FS_ALREADY_EXISTS`，实测后已改回真实语义。
+
+> **与 `kind: file` 的分工**：`file` 用 `node:fs`，**纯离线**，任何宿主都能跑；
+> `fs` 用 `ctx.fs`，测的正是宿主的沙箱与版本语义，因此在 CI 轨（headless 最小宿主）里会**跳过**。
+
+> 场景样例：[`TK-0030`](../cases/TK-0030.yaml)（写意图与陈旧版本）、
+> [`TK-0031`](../cases/TK-0031.yaml)（沙箱与探测降级）。
+
+---
+
+## 3.13 `kind: compaction` —— 会话历史压缩边界（**已实现**）
+
+**它补的是分类学里 session 行的「压缩边界」**，也是 Phase 10 四个能力缺口里的最后一个。
+
+### ⚠️ 安全约定：只在隔离会话上动手
+
+`compactRegion` / `compactNow` 会**改写会话历史**（把选中的 surface 范围换成摘要节点）。
+在用户正在用的会话上做这件事是破坏性的，所以本 driver 的缺省目标是**自己创建的隔离会话**：
+
+```ts
+sessions.create()   // 不绑定 agent 生命周期 ⇒ 契约保证 "persists nothing"
+```
+
+```yaml
+kind: compaction
+runtime:
+  requires: [sessions, compaction]
+setup:
+  compaction:
+    target: isolated        # 缺省：自建隔离会话（`current` 仅供只读用途）
+    seed: empty             # 或 current（把当前会话已提交事件复制进来）
+    provider: ''            # 可选：summarization 的路由
+    model: ''
+
+steps:
+  - act: { compaction: { inspect: {} } }                     # 只读探测
+  - act: { compaction: { ifNeeded: { trigger: pressure } } } # 让宿主决定该不该压
+  - act: { compaction: { region: { start: 1, end: 4 } } }    # 强制压缩一段范围
+  - act: { compaction: { now: {} } }                         # 需要真实 agent 上下文
+```
+
+**取证**：
+
+| ref | 含义 |
+|---|---|
+| `fx.compactionTarget` / `fx.compactionIsolated` / `fx.compactionSessionId` | 目标来源与是不是隔离会话 |
+| `fx.compactionSeededEvents` | 隔离会话 seed 了多少条事件 |
+| `fx.compactionAction` | 这一步做的操作 |
+| `fx.compactionTrigger` | `pressure` / `context-overflow` |
+| `fx.compactionResultNull` | 宿主判定"没有可压的安全范围" |
+| `fx.compactionCompactionId` / `fx.compactionStartSeq` / `fx.compactionSummarySeq` / `fx.compactionEndSeq` | 压缩结果的身份与边界 |
+| `fx.compactionShadowedCount` / `fx.compactionShadowedTokenCount` / `fx.compactionSummaryText` | 被遮蔽的条目数 / token 数 / 摘要文本 |
+| `fx.compactionRegionStart` / `fx.compactionRegionEnd` | 请求压缩的范围 |
+| `fx.compactionSeq` / `fx.compactionSurfaceNodes` / `fx.compactionEventCount` / `fx.compactionEventTypes` | 只读探测（序号 / surface 节点 / 事件分布） |
+| `fx.compactionHasRunMaintenance` / `fx.compactionUnsupported` | `compactNow` 需要 agent 上下文时的如实记录 |
+| `fx.compactionError` / `fx.compactionErrorCode` | 失败原文与尽力提取的稳定码 |
+
+> 🔎 **实测：新建会话不是零事件。** `sessions.create()` 出来的会话自带 3 条 bootstrap 事件
+> ——`permission/preset`、`sandbox/mode`、`approval/policy`（都是非 surface 事件）。
+> 所以"空会话"的可压范围确实是 0（`surface.nodes` 为空），但**事件计数不是 0**；
+> 断言写成 `compactionEventCount is 0` 会当场假红。
+
+> 🔎 **实测：不存在的范围会被明确拒绝。** 空 surface 上压 `[1,1]` 得到
+> `compactRegion: start seq 1 not found in surface`。契约原文也列出了另外几类：
+> "rejects active, missing, reversed, or unbalanced ranges"。
+
+> **刻意留白**：**真压缩**（产生 `CompactionResult`）这条正向路径目前不作为回归项——
+> 它需要一段 **balanced** 的 surface 范围（tool call 与 result 必须配对）加一次真实模型摘要调用。
+> `TK-0034` 覆盖的是边界语义（该压才压 / 非法范围被拒 / `compactNow` 缺上下文时不可用）。
+> 要跑正向路径得显式构造范围并接受 token 成本——**这是留白，不是遗漏**。
+
+> 场景样例：[`TK-0034`](../cases/TK-0034.yaml)。
 
 ---
 

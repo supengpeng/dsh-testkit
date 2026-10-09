@@ -39,6 +39,10 @@ const CAPABILITY_SERVICE: Record<HostCapability, string> = {
   subagents: 'subagents',
   // Agent Teams 协作面（实验包）；缺失即 team 通道不可用
   agentTeams: 'agentTeams',
+  // 会话存储与目标服务（session driver 的 flush / goal 面）
+  sessions: 'sessions',
+  goals: 'goals',
+  compaction: 'compaction',
   storage: 'storage',
   timer: 'timer',
   // client 半的注册表

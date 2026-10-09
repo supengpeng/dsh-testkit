@@ -1,0 +1,75 @@
+# TK-0029 —— tools/post-execute：结果**已经被产生**之后的阻塞与改写
+#
+# ## 它与 pre-execute 的分工
+#
+#   · `tools/pre-execute`  → 决定**要不要执行**（TK-0028）
+#   · `tools/post-execute` → 决定**执行结果以什么面目交付**（本条）
+#
+# 后者是真实插件改结果的地方；DSH 开发指引也提醒：
+# 「观察最终结果用 `tools/result`，`tools/post-execute` 只用来**变换**结果」。
+#
+# ## 真实契约
+#
+# ```js
+# ctx.on('tools/post-execute', async (exec, result, next) => { … })
+# return { kind: 'block', feedback: [{ type: 'text', text: '…' }] }
+# return { kind: 'accept', content: [...] }        // 改写内容
+# return { kind: 'accept', value }                 // 改写值
+# return next()                                    // 不改
+# ```
+#
+# 证据：`@deepseek-ai/dsh-hooks-codex` 的 `PostToolUse` 监听器（block 用 feedback、
+# 改写走 `{ ...downstream, additionalContexts }`）。
+#
+# ## 为什么必须先有"原始结果"的取证
+#
+# `fx.postExecuteOriginal` 记录的是**监听器收到的**结果文本。
+# 没有它，"改写后是 X"无法区分「改写生效」与「工具本来就返回 X」——
+# 这正是 TK-0016 那条组合场景教会我们的事：先固定前提，再断言变化。
+
+schema: 1
+id: TK-0029
+title: tools/post-execute 能阻塞与改写已产生的结果
+kind: tool
+severity: medium
+status: active
+tags: [tool, waterfall]
+
+source:
+  issue: null
+  summary: |
+    post-execute 面自检：工具本体正常返回后，经真实 dispatch 管线验证
+    block（带 feedback 的阻塞）与 replace（改写内容）两条路径。
+
+runtime:
+  timeoutMs: 30000
+  requires: [tools]
+
+setup:
+  tool:
+    register:
+      name: testkit-post-target
+      returns: ORIGINAL_VALUE
+    postExecute:
+      actions: [block, replace]
+      text: TESTKIT_REPLACED
+      feedback: TESTKIT_BLOCKED
+
+steps:
+  - name: 第 1 次：结果被 block，反馈进入交付内容
+    act: { tool: testkit-post-target, args: { step: 1 } }
+    expect:
+      - { ref: fx.postExecuteCount, is: 1 }
+      - { ref: fx.postExecuteDecision.kind, is: block }
+      # 前提：监听器确实收到了工具本体产生的原始结果
+      - { ref: fx.postExecuteOriginal, is: ORIGINAL_VALUE }
+      - { ref: fx.resultText, contains: TESTKIT_BLOCKED }
+      - { ref: fx.callError, exists: true }
+
+  - name: 第 2 次：结果被 replace 改写
+    act: { tool: testkit-post-target, args: { step: 2 } }
+    expect:
+      - { ref: fx.postExecuteCount, is: 2 }
+      - { ref: fx.postExecuteDecision.kind, is: accept }
+      - { ref: fx.postExecuteOriginal, is: ORIGINAL_VALUE }
+      - { ref: fx.resultText, is: TESTKIT_REPLACED }

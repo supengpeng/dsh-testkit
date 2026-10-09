@@ -1,0 +1,89 @@
+# TK-0028 —— tools/pre-execute：dispatch **之前**的三条决策路径
+#
+# ## 它补的是什么
+#
+# 此前 `intercept.decision: ask | cancel` 在 tool driver 里是明确**跳过**的
+# （"需要 tools/pre-execute waterfall，属 Phase 2"）。这条场景把那句话兑现了。
+#
+# ## 真实契约（实测自 DSH 自己的插件，不是猜的）
+#
+# ```js
+# ctx.on('tools/pre-execute', async (exec, next) => {
+#   if (不是我的调用) return next()      // ← 不拥有决策必须委托，否则链断在这里
+#   return { kind: 'deny', reason, info: { name, code, reason? } }
+# })
+# ```
+#
+# 证据：`@deepseek-ai/dsh-experimental-auto-review` 与 `@deepseek-ai/dsh-hooks-codex`
+# 的监听器；DSH 开发指引也写明「不拥有决策的 waterfall listener 必须 `return next()`」。
+#
+# ## 关键断言取向
+#
+# 每一步都同时断言**决策形状**与**工具本体没跑**（`fx.resultValue != SHOULD_NOT_RUN`）。
+# 只看决策形状会漏掉"拦了但工具还是执行了"这类最危险的偏差。
+#
+# `ask` 这一步在无可用答者（或审批策略为 never）时**必须表现为不通过**——
+# 契约原文是 "missing approval support turns `ask` into denial"。
+# 所以这里断言的是「ask 被返回」＋「调用没通过」，而不是"等一个人来点同意"。
+
+schema: 1
+id: TK-0028
+title: tools/pre-execute 的三条决策路径（deny / cancel / ask）
+kind: tool
+severity: medium
+status: active
+tags: [tool, waterfall]
+
+source:
+  issue: null
+  summary: |
+    pre-execute 面自检：经真实 dispatch 管线验证 dispatch 之前的决策，
+    并同时证明「决策生效」与「工具本体没跑」。
+
+runtime:
+  timeoutMs: 30000
+  requires: [tools]
+
+setup:
+  tool:
+    register:
+      name: testkit-pre-target
+      returns: SHOULD_NOT_RUN
+    preExecute:
+      # 一条场景覆盖三种决策：第 N 次调用取第 N 项，越界沿用最后一项
+      decisions: [deny, cancel, ask]
+      reason: TESTKIT_PRE_REASON
+      code: TESTKIT_PRE_DENIED
+      displayReason: { en: testkit pre-execute ask, zh: testkit pre-execute 询问 }
+
+steps:
+  - name: 第 1 次：deny 带稳定错误码，且工具本体没跑
+    act: { tool: testkit-pre-target, args: { step: 1 } }
+    expect:
+      - { ref: fx.preExecuteCount, is: 1 }
+      - { ref: fx.preExecuteDecision.kind, is: deny }
+      - { ref: fx.preExecuteDecision.code, is: TESTKIT_PRE_DENIED }
+      - { ref: fx.resultValue, isNot: SHOULD_NOT_RUN }
+      - { ref: fx.callError, exists: true }
+
+  - name: 第 2 次：cancel 走规范化取消结果
+    act: { tool: testkit-pre-target, args: { step: 2 } }
+    expect:
+      - { ref: fx.preExecuteCount, is: 2 }
+      - { ref: fx.preExecuteDecision.kind, is: cancel }
+      - { ref: fx.resultValue, isNot: SHOULD_NOT_RUN }
+      - { ref: fx.callError, exists: true }
+
+  - name: 第 3 次：ask 在无可用答者时也必须不通过
+    act: { tool: testkit-pre-target, args: { step: 3 } }
+    expect:
+      - { ref: fx.preExecuteCount, is: 3 }
+      - { ref: fx.preExecuteDecision.kind, is: ask }
+      - { ref: fx.resultValue, isNot: SHOULD_NOT_RUN }
+      - { ref: fx.callError, exists: true }
+
+  - name: 三次调用的顺序与入参都可溯源
+    expect:
+      - { ref: fx.preExecuteCalls, length: 3 }
+      - { ref: fx.preExecuteCalls.0.args.step, is: 1 }
+      - { ref: fx.preExecuteCalls.2.args.step, is: 3 }

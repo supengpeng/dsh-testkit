@@ -41,10 +41,64 @@ export interface MinimalToolsService {
   registeredNames(): string[]
 }
 
-export function createToolsService(): MinimalToolsService {
+/** 需要 cordis 的 `waterfall` 最小面（headless 宿主把它传进来）。 */
+interface WaterfallContextLike {
+  waterfall?: (...args: unknown[]) => unknown
+}
+
+export function createToolsService(ctx?: WaterfallContextLike): MinimalToolsService {
   const registry = new Map<string, ToolDefinitionLike>()
   const guards: Array<(execution: { name?: string; arguments?: unknown }) => string | undefined> = []
   let executions = 0
+
+  /**
+   * 触发一条 dispatch 管线的 waterfall（与真实管道**同形**）。
+   *
+   * 为什么替身必须带上它：`tools/pre-execute` / `tools/post-execute` 是 tool 类场景的
+   * **被测行为本身**。替身若不触发，CI 轨会给出"假红"——场景在活宿主通过、
+   * 在 CI 里失败，而失败原因与产品无关。这正是本文件头注那条纪律的又一兑现。
+   */
+  const waterfall = async (
+    event: string,
+    args: readonly unknown[],
+    fallback: unknown,
+  ): Promise<unknown> => {
+    const fn = ctx?.waterfall
+    if (typeof fn !== 'function') return fallback
+    try {
+      return await Promise.resolve(fn.call(ctx, ctx, event, ...args, () => fallback))
+    } catch {
+      // 真实管道里 listener 抛错会中断调用；替身不该比真实更宽容，但这里
+      // 只保证"不把宿主错误变成替身错误"——抛错的监听器由场景自己断言。
+      return fallback
+    }
+  }
+
+  const failure = (message: string, content?: unknown): Record<string, unknown> => ({
+    isError: true,
+    error: { message },
+    content:
+      Array.isArray(content) && content.length > 0
+        ? content
+        : [{ type: 'text', text: message }],
+  })
+
+  const kindOf = (decision: unknown): string | undefined =>
+    decision !== null && typeof decision === 'object'
+      ? ((decision as { kind?: unknown }).kind as string | undefined)
+      : undefined
+
+  const textOf = (content: unknown): string =>
+    Array.isArray(content)
+      ? content
+          .map((block) =>
+            block !== null && typeof block === 'object'
+              ? (block as { text?: unknown }).text
+              : undefined,
+          )
+          .filter((text): text is string => typeof text === 'string')
+          .join('\n')
+      : ''
 
   return {
     get executions() {
@@ -87,24 +141,58 @@ export function createToolsService(): MinimalToolsService {
         }
       }
 
+      const effectiveSignal = signal ?? new AbortController().signal
+      const exec = {
+        callId: `headless-${executions}`,
+        name: String(name ?? ''),
+        arguments: args,
+        signal: effectiveSignal,
+      }
+
+      // ① dispatch **之前**：tools/pre-execute（不拥有决策的 listener 会 return next()，
+      //    这里的兜底就是链尾的 allow）
+      const pre = await waterfall('tools/pre-execute', [exec], { kind: 'allow' })
+      const preKind = kindOf(pre)
+      if (preKind === 'deny') {
+        const reason = (pre as { reason?: unknown }).reason
+        return failure(typeof reason === 'string' ? reason : 'denied by tools/pre-execute')
+      }
+      if (preKind === 'cancel') return failure('cancelled by tools/pre-execute')
+      // 契约原文：missing approval support turns `ask` into denial
+      if (preKind === 'ask') return failure('approval unavailable: ask degraded to denial')
+
       const definition = name === undefined ? undefined : registry.get(name)
       if (!definition || typeof definition.execute !== 'function') {
         const message = `UNKNOWN_TOOL: ${String(name)}`
         return { isError: true, error: { message }, content: [{ type: 'text', text: message }] }
       }
 
-      const effectiveSignal = signal ?? new AbortController().signal
+      let outcome: Record<string, unknown>
       try {
         const value = await definition.execute(args, { signal: effectiveSignal })
         const content =
           typeof definition.output?.render === 'function'
             ? definition.output.render(args, value)
             : [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }]
-        return { isError: false, value, content }
+        outcome = { isError: false, value, content }
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        return { isError: true, error: { message }, content: [{ type: 'text', text: message }] }
+        outcome = failure(error instanceof Error ? error.message : String(error))
       }
+
+      // ② 结果**已产生之后**：tools/post-execute（兜底为 accept）
+      const post = await waterfall('tools/post-execute', [exec, outcome], { kind: 'accept' })
+      const postKind = kindOf(post)
+      if (postKind === 'block') {
+        const feedback = (post as { feedback?: unknown }).feedback
+        const text = textOf(feedback)
+        return failure(text !== '' ? text : 'blocked by tools/post-execute', feedback)
+      }
+      if (postKind === 'accept' && post !== undefined) {
+        const record = post as { content?: unknown; value?: unknown }
+        if (Array.isArray(record.content)) return { ...outcome, content: record.content }
+        if ('value' in record) return { ...outcome, value: record.value }
+      }
+      return outcome
     },
   }
 }

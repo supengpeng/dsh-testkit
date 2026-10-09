@@ -111,7 +111,8 @@ export async function createHeadlessHost(
   }
 
   const ctx = new Context()
-  const tools = createToolsService()
+  // tools 替身要触发 pre/post-execute waterfall，所以需要 ctx（见 services.ts 的头注）
+  const tools = createToolsService(ctx)
   const commands = createCommandsService()
   const systemPrompt = createSystemPromptService()
   const web = createWebService()

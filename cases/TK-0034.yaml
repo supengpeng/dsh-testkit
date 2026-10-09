@@ -1,0 +1,83 @@
+# TK-0034 —— compaction 的边界语义：该压才压，非法范围必须被拒
+#
+# ## 它补的是分类学里 session 行提到的「压缩边界」
+#
+# ## ⚠️ 为什么这条场景只走"边界"而不走"真压缩"
+#
+# `compactRegion` / `compactNow` 会**改写会话历史**（把选中的 surface 范围换成摘要节点），
+# 在用户正在用的会话上做这件事是破坏性的。所以本 driver 的约定是：
+# **只在自己创建的隔离会话上动手**——`sessions.create()` 出来的会话若不绑定 agent
+# 生命周期，契约明确写着 "persists nothing"（纯内存、不落盘、不进任何人的对话）。
+#
+# 这条场景因此覆盖三类**边界**语义，全部零 token、零副作用：
+#   ① 没有压力（`compactIfNeeded` → `null`）——契约原文：
+#      "Return `null` when no safe range can be compacted"，所以 null 是**正确行为**
+#   ② 非法范围必须被拒——契约原文："rejects active, missing, reversed, or unbalanced ranges"
+#   ③ `compactNow` 需要 `runMaintenance`（真实 agent 上下文），隔离会话下**如实记为不可用**，
+#      而不是伪造一个假的 maintenance 回调把失败推后
+#
+# 未覆盖的是"**真压缩**产生 `CompactionResult`"这条正向路径，原因写在
+# SCENARIO-SPEC §3.13：它需要一段**balanced** 的 surface 范围（tool call 与 result 配对）
+# 加一次真实模型摘要调用。要跑它得显式构造范围并接受 token 成本，
+# 目前不作为回归项——**这里是刻意留白，不是忘了写**。
+
+schema: 1
+id: TK-0034
+title: compaction 边界：该压才压，非法范围必须被拒
+kind: compaction
+severity: medium
+status: active
+tags: [compaction, host-service]
+
+source:
+  issue: null
+  summary: |
+    会话历史压缩的边界：隔离会话上验证「没有安全范围时不压」、
+    「非法范围被拒」、「compactNow 缺少 agent 上下文时如实不可用」。
+
+runtime:
+  timeoutMs: 30000
+  requires: [sessions, compaction]
+
+setup:
+  # 缺省即自建隔离会话（不落盘、不碰当前会话）
+  compaction: {}
+
+steps:
+  - name: 先固定前提——隔离会话确实存在且没有 surface 节点
+    act: { compaction: { inspect: {} } }
+    expect:
+      - { ref: fx.compactionIsolated, is: true }
+      # 实测：`sessions.create()` 出来的会话**并非零事件**——它自带几条 bootstrap
+      # 事件（surface 节点仍为 0），所以这里断言"非空"而不是写死 0。
+      - { ref: fx.compactionEventCount, atLeast: 1 }
+      - { ref: fx.compactionSeq, atLeast: 1 }
+      - { ref: fx.compactionSurfaceNodes, is: 0 }
+      - { ref: fx.compactionEventTypes, exists: true }
+
+  - name: 没有压力时不该压（返回 null 是正确行为）
+    act: { compaction: { ifNeeded: { trigger: pressure } } }
+    expect:
+      - { ref: fx.compactionError, exists: false }
+      - { ref: fx.compactionTrigger, is: pressure }
+      - { ref: fx.compactionResultNull, is: true }
+
+  - name: 上下文溢出触发同样要"有可压范围才压"
+    act: { compaction: { ifNeeded: { trigger: context-overflow } } }
+    expect:
+      - { ref: fx.compactionError, exists: false }
+      - { ref: fx.compactionTrigger, is: context-overflow }
+      - { ref: fx.compactionResultNull, is: true }
+
+  - name: 强制压缩一个不存在的范围必须被拒
+    act: { compaction: { region: { start: 1, end: 1 } } }
+    expect:
+      - { ref: fx.compactionError, exists: true }
+      # 实测原文：`compactRegion: start seq 1 not found in surface`
+      - { ref: fx.compactionError, contains: not found in surface }
+
+  - name: compactNow 需要真实 agent 上下文，隔离会话下如实记为不可用
+    act: { compaction: { now: {} } }
+    expect:
+      - { ref: fx.compactionHasRunMaintenance, is: false }
+      - { ref: fx.compactionUnsupported, exists: true }

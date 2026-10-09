@@ -109,6 +109,14 @@ test('端到端：cases/ 下的全部场景在 headless 宿主里按要求通过
     'TK-0024',
     'TK-0025',
     'TK-0026',
+    // fs 类：headless 最小宿主不提供 fs 能力（沙箱与版本语义只能在活宿主验证）
+    'TK-0030',
+    'TK-0031',
+    // session/flush 面：headless 最小宿主不提供 sessions 能力
+    'TK-0032',
+    // compaction 面：headless 最小宿主不提供 sessions / compaction 能力
+    'TK-0034',
+    // 注意：TK-0033（goals）是 draft，默认全量集里本来就不会出现
   ])
   for (const c of value.cases.filter((c) => c.verdict === 'skipped')) {
     assert.ok(String(c.skipReason).length > 0, '跳过必须给出原因')
@@ -124,10 +132,11 @@ test('端到端：cases/ 下的全部场景在 headless 宿主里按要求通过
   assert.ok(value.reportPath !== null, '应写出报告文件')
   assert.equal(value.writeError, null)
 
-  // 工具执行次数：TK-0001 / TK-0002 各一次、TK-0003 与 TK-0017 各一次
-  // （**被 guard 拦下也算一次 execute**——这正是我们要观测的）。
+  // 工具执行次数：TK-0001 / TK-0002 各一次、TK-0003 与 TK-0017 各一次；
+  // TK-0028 三次（deny / cancel / ask，都被 pre-execute 拦下）、TK-0029 两次。
+  // （**被 guard 或 waterfall 拦下也算一次 execute**——这正是我们要观测的。）
   // 注意：每新增一条会调用工具的 tool 类场景，都要同步这个数字。
-  assert.equal(tools.executions, 4)
+  assert.equal(tools.executions, 9)
 })
 
 test('端到端：TK-0003 的 guard 真的拦下了执行（工具本体未运行）', async () => {
@@ -179,6 +188,21 @@ test('端到端：场景互不污染（逐条跑与批量跑结果一致）', as
     'TK-0017',
     'TK-0018',
     'TK-0019',
+    'TK-0020',
+    'TK-0021',
+    'TK-0022',
+    'TK-0023',
+    'TK-0024',
+    'TK-0025',
+    'TK-0026',
+    // TK-0027 是 draft（team 通道会真的建一个队友并永久留痕），绝不能被批量遍历选中
+    'TK-0028',
+    'TK-0029',
+    'TK-0030',
+    'TK-0031',
+    'TK-0032',
+    'TK-0034',
+    // TK-0033 是 draft（会往会话日志写目标事件），绝不能被批量遍历选中
   ]) {
     const one = await post(single.routes, 'run', { ids: [id] })
     singleRuns.push(one.payload.value.totals)
@@ -197,8 +221,8 @@ test('端到端：按 kind 选择器也能选中对应场景', async () => {
   const { routes } = await boot()
 
   const tool = await post(routes, 'run', { kinds: ['tool'] })
-  assert.equal(tool.payload.value.totals.total, 4)
-  assert.equal(tool.payload.value.totals.passed, 4)
+  assert.equal(tool.payload.value.totals.total, 6)
+  assert.equal(tool.payload.value.totals.passed, 6)
 
   const prompt = await post(routes, 'run', { kinds: ['prompt'] })
   assert.equal(prompt.payload.value.totals.total, 1)
@@ -210,7 +234,8 @@ test('端到端：按 kind 选择器也能选中对应场景', async () => {
   assert.equal(interaction.payload.value.totals.total, 3)
 
   const session = await post(routes, 'run', { kinds: ['session'] })
-  assert.equal(session.payload.value.totals.total, 2)
+  // TK-0010 / TK-0011（命令）+ TK-0032（flush）；TK-0033（goals）是 draft，不计入
+  assert.equal(session.payload.value.totals.total, 3)
 
   const resource = await post(routes, 'run', { kinds: ['resource'] })
   assert.equal(resource.payload.value.totals.total, 2)

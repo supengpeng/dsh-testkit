@@ -17,6 +17,10 @@ export type ScenarioKind =
   | 'ui'
   | 'shell'
   | 'file'
+  /** 宿主的文件服务语义（沙箱 / 写意图 / 版本冲突），区别于纯离线的 `file`。 */
+  | 'fs'
+  /** 会话历史压缩边界（`ctx.compaction`），只在**隔离会话**上动手。 */
+  | 'compaction'
 
 /** 宿主能力名，对应 DSH 侧的服务/扩展点。 */
 export type HostCapability =
@@ -35,6 +39,12 @@ export type HostCapability =
   | 'subagents'
   /** Agent Teams 协作面（实验包 `dsh-experimental-agent-team`）。 */
   | 'agentTeams'
+  /** 会话存储（`ctx.sessions`）：`flush` 检查点、隔离会话创建。 */
+  | 'sessions'
+  /** 目标服务（`ctx.goals`）。 */
+  | 'goals'
+  /** 会话历史压缩（`ctx.compaction`）。 */
+  | 'compaction'
   | 'storage'
   | 'timer'
   | 'client'
@@ -103,8 +113,30 @@ export type InteractionAction =
     }
   | { approval: { toolName: string; reason?: string; callId?: string } }
 
-/** `session` 动作：触发一次人类命令。 */
-export type SessionAction = { command: { name: string; input?: string } }
+/** `goal` 子动作：操作当前 agent 的目标（`ctx.goals`）。 */
+export type GoalAction =
+  | { op: 'get' }
+  | { op: 'create'; objective: string; maxGoalRounds?: number; disarmAfter?: boolean }
+  | { op: 'edit'; objective?: string; maxGoalRounds?: number }
+  | { op: 'pause' | 'resume' | 'complete' | 'clear' | 'disarm' }
+  | { op: 'block'; code: string; message: string }
+
+/**
+ * `session` 动作：会话与目标面（四个分支，来源各不同）。
+ *
+ *   · `command` —— 人类命令（Phase 2 起）
+ *   · `flush`   —— `ctx.sessions.flush()`：会话日志的持久化检查点
+ *   · `goal`    —— `ctx.goals`：会话自带的目标状态机
+ *   · `events`  —— **只读**观察 `session/event`（post-commit 追加流）
+ *
+ * `events` 刻意只读：DSH 的纪律是「不要用新的 type 追加会话事件」
+ * （`Session.append()` 无法设置 `ignorable`，那样写过的会话会**拒绝重开**）。
+ */
+export type SessionAction =
+  | { command: { name: string; input?: string } }
+  | { flush: { note?: string } }
+  | { goal: GoalAction }
+  | { events: { waitMs?: number; limit?: number } }
 
 /** `resource` 动作：触发一次外部资源访问。 */
 export type ResourceAction =
@@ -161,6 +193,72 @@ export type ShellAction = {
   env?: Record<string, string>
 }
 
+/**
+ * `fs` 动作：驱动 **DSH 的 `ctx.fs` 文件服务**（不是 Node 原生 fs）。
+ *
+ * 与 `file` 的分工：
+ *   · `file` = 纯离线读文件（`node:fs`），零依赖，任何宿主都能跑
+ *   · `fs`   = 宿主的文件服务语义：沙箱策略、写意图、版本冲突
+ *
+ * 真正的价值在后两类——`node:fs` **测不到** DSH 的沙箱边界与陈旧版本保护。
+ */
+export type FsAction =
+  | { resolve: { path: string; cwd?: string } }
+  | { stat: { path: string } }
+  | { read: { path: string } }
+  | { list: { path: string } }
+  | {
+      write: {
+        path: string
+        text: string
+        /** 缺省 = 无条件覆盖。 */
+        intent?: 'unconditional' | 'createIfAbsent' | 'replaceIfVersion'
+        /** `replaceIfVersion` 用哪个版本：`last`（最近一次观测）或 `first`（首次观测）。 */
+        expectedVersion?: 'first' | 'last'
+        /** 覆盖 setup 的沙箱策略（用它可以测"越界被拒"）。 */
+        sandbox?: {
+          mode: 'read-only' | 'workspace-write' | 'danger-full-access'
+          /** `workspace-write` 的根；缺省取 setup.fs.workspace。 */
+          workspace?: string
+        }
+      }
+    }
+  | {
+      edit: {
+        path: string
+        oldString: string
+        newString: string
+        replaceAll?: boolean
+        /** 版本守卫的来源；省略即无守卫（无条件编辑）。 */
+        expectedVersion?: 'first' | 'last'
+      }
+    }
+
+/**
+ * `compaction` 动作：驱动会话历史压缩（`ctx.compaction`）。
+ *
+ * **安全约定**：driver 只在自己创建的**隔离会话**上动手（`sessions.create()`，
+ * 不绑定 agent 就不落盘）。`region` / `now` 会真的改写会话历史，
+ * 所以它们绝不能作用在用户正在用的会话上。
+ */
+export type CompactionAction =
+  | {
+      /** 让宿主的压力策略决定"要不要压"——理论上无副作用。 */
+      ifNeeded: { trigger?: 'pressure' | 'context-overflow' }
+    }
+  | {
+      /** 强制压缩一段 surface 范围（**会改写会话历史**，且可能调模型生成摘要）。 */
+      region: { start: number; end: number }
+    }
+  | {
+      /** 手动压缩：需要 `runMaintenance`（真实 agent 上下文），隔离会话下不可用。 */
+      now: Record<string, never>
+    }
+  | {
+      /** 只读：报目标会话的序号、surface 节点数与事件分布。 */
+      inspect: Record<string, never>
+    }
+
 /** 步骤可执行的动作。 */
 export type StepAction =
   | { tool: string; args?: Record<string, unknown> }
@@ -181,6 +279,10 @@ export type StepAction =
   | { shell: ShellAction }
   /** 读文件 / 列目录并取证内容（纯离线，任何宿主都能跑）。 */
   | { file: FileAction }
+  /** 驱动宿主文件服务：沙箱策略、写意图、版本冲突（需要 `fs` 能力）。 */
+  | { fs: FsAction }
+  /** 驱动会话历史压缩（需要 `compaction` 能力；只作用于隔离会话）。 */
+  | { compaction: CompactionAction }
   | { wait: { ms: number } }
   | { emit: { event: string; payload?: unknown } }
 
@@ -218,6 +320,8 @@ export const SCENARIO_KINDS: readonly ScenarioKind[] = [
   'ui',
   'shell',
   'file',
+  'fs',
+  'compaction',
 ] as const
 
 /** 当前规范版本。 */

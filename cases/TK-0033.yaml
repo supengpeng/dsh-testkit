@@ -1,0 +1,91 @@
+# TK-0033 —— ctx.goals 目标状态机与只读事件观察
+#
+# ## 它补的是分类学里 session 行的最后一格
+#
+# 那一行写着「`ctx.goals`（未实现）」。目标状态机与"会话/目标的状态"归在一起，
+# 所以它由 `kind: session` 覆盖，而不是另开 kind。
+#
+# ## ⚠️ 它有留痕，所以是 draft
+#
+# 契约原文：目标服务 **backed exclusively by the owning session log**——
+# 每次变更都往**当前会话日志**追加事件；`create` 还会 **arm 自动续轮**。
+# 本 driver 的两道安全阀：
+#   ① `create` 之后**默认立刻 `disarm`**（只清进程内授权，不动持久 phase），
+#      并把 armed / disarmed 两个状态都写进取证。
+#   ② teardown 对本场景创建过的目标补一次 `clear`。
+#
+# ## 实测发现：一半的操作是 `@Remote` 方法，本地直调会崩
+#
+# `get` / `create` / `disarm` / `block` 是本地方法，直调正常；
+# 而 `pause` / `resume` / `complete` / `clear` / `edit` 在 DSH 里带 `@Remote` 标记，
+# **本地直调**会崩在内部属性访问上（`Cannot read properties of undefined
+# (reading 'transition')` / `…(reading 'prepareMutation')`）——这不是 GoalError，
+# 是缺少远程通道上下文。
+#
+# 所以本 case **不假装**能走完 pause/resume/complete，而是把这个事实固定成回归网：
+# driver 把它翻译成 `fx.goalRemoteOpRequired = true` 的明确诊断。
+# 这也解释了为什么 teardown 的 `clear` 往往会失败——目标会留在会话里。
+
+schema: 1
+id: TK-0033
+title: ctx.goals 目标状态机与只读事件观察
+kind: session
+severity: medium
+# draft：目标事件会写进当前会话日志（不可逆留痕），不进默认回归集
+status: draft
+tags: [session, goals, manual]
+
+source:
+  issue: null
+  summary: |
+    驱动宿主的目标状态机：create 会 arm 自动续轮（driver 默认立刻收回授权）；
+    本地可驱动的方法（get / disarm / block）逐一验证；
+    @Remote 方法本地直调必须给出明确诊断，而不是让人去读堆栈。
+
+runtime:
+  timeoutMs: 30000
+  requires: [commands, goals, sessions]
+
+setup:
+  session:
+    eventObserver: true
+
+steps:
+  - name: create 会 arm，driver 默认立刻收回授权
+    act: { session: { goal: { op: create, objective: dsh-testkit 目标自检, maxGoalRounds: 3 } } }
+    expect:
+      - { ref: fx.goalError, exists: false }
+      - { ref: fx.goalOp, is: create }
+      - { ref: fx.goalCreatedPhase, is: active }
+      # 契约：create 会 arm 自动续轮
+      - { ref: fx.goalCreatedActivation, is: armed }
+      # 安全阀：driver 默认紧接着 disarm（只清进程内授权，phase 不变）
+      - { ref: fx.goalAfterDisarmActivation, is: disarmed }
+      - { ref: fx.goalObjective, is: dsh-testkit 目标自检 }
+
+  - name: get 读回同一个目标（本地方法）
+    act: { session: { goal: { op: get } } }
+    expect:
+      - { ref: fx.goalExists, is: true }
+      - { ref: fx.goalPhase, is: active }
+      - { ref: fx.goalActivation, is: disarmed }
+
+  - name: block 是本地方法，稳定 code 会写进目标
+    # 实测：code 必须是 lower-kebab-case（`GOAL_XXX` 这种大写会被服务拒绝）。
+    # 这条格式约束由服务自己校验，driver 不替它兜底——如实记录它的报错即可。
+    act: { session: { goal: { op: block, code: goal-blocked-by-testkit, message: 测试阻塞 } } }
+    expect:
+      - { ref: fx.goalError, exists: false }
+      - { ref: fx.goalPhase, is: blocked }
+
+  - name: pause 是 @Remote 方法 —— 本地直调必须给出明确诊断
+    act: { session: { goal: { op: pause } } }
+    expect:
+      - { ref: fx.goalError, exists: true }
+      - { ref: fx.goalRemoteOpRequired, is: true }
+
+  - name: 只读观察：目标变更确实写进了会话事件流，且序号单调
+    act: { session: { events: { limit: 10 } } }
+    expect:
+      - { ref: fx.sessionEventSeqMonotonic, is: true }
+      - { ref: fx.sessionEventCount, atLeast: 1 }
