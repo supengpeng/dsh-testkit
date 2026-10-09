@@ -28,6 +28,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import type { CaseRegistry } from './cases/registry.js'
+import { resolvePolicy, type PolicyOptions } from './executor/policy.js'
 import type { DriverRegistry, HostFacade } from './kinds/types.js'
 import { writeRunArtifacts } from './report/json.js'
 import { renderMarkdown } from './report/markdown.js'
@@ -49,6 +50,13 @@ export interface HttpBridgeDeps {
   host: HostFacade
   runsDir: () => string
   defaultTimeoutMs: () => number
+  /**
+   * 成本闸门的默认值（插件配置）。
+   *
+   * 与工具面同样的纪律：**总是**构造策略并传入（省略即 `DEFAULT_POLICY`，
+   * `allowModel: false`），client 半的「跑一下」按钮不能成为绕过闸门的后门。
+   */
+  policyDefaults?: () => PolicyOptions
 }
 
 /** 统一的响应信封，风格沿用 dsh-free-search 的 bridge。 */
@@ -99,6 +107,9 @@ export function makeBridgeRoutes(deps: HttpBridgeDeps): WebRouteLike[] {
           ...(ids ? {} : { status: ['active'] }),
         },
         defaultTimeoutMs: deps.defaultTimeoutMs(),
+        // 与工具面一致：总是带闸门，client 半不是绕过成本闸门的后门。
+        // 放权由人走命令面（`/testkit run --allow-model`），bridge 只读配置默认值。
+        policy: resolvePolicy(deps.policyDefaults?.() ?? {}),
       })
 
       const write = await writeRunArtifacts(summary, deps.runsDir())
@@ -106,6 +117,7 @@ export function makeBridgeRoutes(deps: HttpBridgeDeps): WebRouteLike[] {
       return {
         runId: summary.runId,
         totals: summary.totals,
+        policySnapshot: summary.policySnapshot ?? null,
         reportPath: write.artifacts?.markdownPath ?? null,
         writeError: write.error ?? null,
         cases: summary.cases.map((c) => ({
@@ -116,6 +128,10 @@ export function makeBridgeRoutes(deps: HttpBridgeDeps): WebRouteLike[] {
           durationMs: c.durationMs,
           error: c.error ?? null,
           skipReason: c.skipReason ?? null,
+          // 归因 / 复现 / 用量是与 verdict 并列的证据，UI 要能直接展示
+          failureCategory: c.failureCategory ?? null,
+          minimalRepro: c.minimalRepro ?? null,
+          usage: c.usage ?? null,
         })),
       }
     },

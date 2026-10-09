@@ -1,0 +1,78 @@
+# dsh-testkit 的 CI 质量门。
+#
+# ## 为什么是这些组合
+#
+#   · Node 22.x / 24.x —— package.json 的 engines 要求 `>=22.19`；本机开发用 24.x。
+#     两档都跑，才能发现"只在某一档 Node 上成立"的假设（glob、`node --test` 行为、
+#     `fs` 新 API 等都会随大版本变）。
+#   · ubuntu / windows / macos —— 本仓大量 driver 做的是**路径与外部进程**相关取证
+#     （shell / file / fs driver、临时目录、大小写、换行符、`PATHEXT`）。
+#     单平台绿**不能**代表可移植，而这类 bug 在开发机上永远复现不出来。
+#
+# ## 为什么只跑 `pnpm run gate`
+#
+# gate 就是开发者本机那条命令：编译 host 半 → 构建 client 半 → 校验场景 →
+# 校验文档 → 适配层边界守卫 → 全量单测 → 导出 CI 用例并跑一遍 → client 半 typecheck。
+# 不在这里另拼一套步骤，是为了避免"CI 绿但本地红"的双标准——
+# 那种情况下 CI 的绿是**假绿**。
+#
+# ## 为什么不需要任何 secret
+#
+# 场景里凡是"会真的调模型/外部对象"的用例都有成本分级与标签隔离，
+# gate 默认不跑它们（见 docs/FEATURES.md 与 docs/ROADMAP.md 的成本闸门部分）。
+# 所以 CI 上不需要任何 API key —— 一个需要 secret 才能变绿的门，迟早会变成
+# "在 fork 上永远红"的门。
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# 同一分支的连续推送取消旧运行：既省额度，也避免旧结论盖住新结论。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# 只需要读仓库：本工作流不发布、不写回。
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: gate · node ${{ matrix.node }} · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # 一个平台红不该掩盖其它平台的结果——9 个组合的结果都要能看到。
+      fail-fast: false
+      matrix:
+        node: ['22.x', '24.x']
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # 版本与 pnpm-lock.yaml 及本机一致（node_modules/.modules.yaml 记录 pnpm@11.7.0）。
+      # 钉死大版本以内的精确版本，避免"昨天还绿、今天 pnpm 发版就红"。
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: 安装 Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      # --frozen-lockfile：lockfile 与 package.json 不一致时**直接失败**，
+      # 而不是在 CI 上偷偷改写依赖树。本仓不加新依赖是硬约束，这条是它的机器化身。
+      - name: 安装依赖（严格按 lockfile）
+        run: pnpm install --frozen-lockfile
+
+      # 唯一的质量门：与开发者本机同一条命令。
+      - name: 质量门（pnpm run gate）
+        run: pnpm run gate

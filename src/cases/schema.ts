@@ -40,6 +40,7 @@ const CASE_ID_RE = /^TK-\d{4}$/
 const KINDS = new Set<string>(SCENARIO_KINDS)
 const SEVERITIES = new Set(['low', 'medium', 'high'])
 const STATUSES = new Set(['active', 'draft', 'retired', 'blocked'])
+const COST_CLASSES = new Set(['none', 'low', 'high'])
 
 // 注：`setup` 的子键与 kind 同名（`setup.tool` / `setup.llm` / …），
 // 这样 runner 能按 key 把 setup 分派给对应 driver。
@@ -141,6 +142,28 @@ export function validateScenario(
     } else if (raw.runtime.repeat !== undefined) {
       const repeat = Number(raw.runtime.repeat)
       if (!Number.isInteger(repeat) || repeat < 1) push('runtime.repeat', 'repeat 必须是 >= 1 的整数')
+    }
+  }
+
+  // ---- 成本与预算 ----
+  //
+  // `cost` 决定这条场景在什么闸门下才被允许执行（见 src/executor/policy.ts）：
+  // 拼错成 `cost: hgih` 会让闸门按 driver 的默认档位处理，**静默放行真实模型调用**，
+  // 所以这里必须校验取值，而不是宽容跳过。
+  if (raw.cost !== undefined && !COST_CLASSES.has(String(raw.cost))) {
+    push('cost', `cost 只能是 none | low | high，实际 ${JSON.stringify(raw.cost)}`)
+  }
+  if (raw.budget !== undefined) {
+    if (!isPlainObject(raw.budget)) {
+      push('budget', 'budget 必须是对象（{ maxModelCalls, maxTokens }）')
+    } else {
+      for (const key of ['maxModelCalls', 'maxTokens'] as const) {
+        const value = raw.budget[key]
+        if (value === undefined) continue
+        if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+          push(`budget.${key}`, `${key} 必须是 >= 0 的整数`)
+        }
+      }
     }
   }
 

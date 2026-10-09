@@ -52,6 +52,23 @@ export type HostCapability =
 export type Severity = 'low' | 'medium' | 'high'
 export type CaseStatus = 'active' | 'draft' | 'retired' | 'blocked'
 
+/**
+ * 成本分级（见 `src/executor/policy.ts`）。
+ *
+ *   · `none` —— 纯离线：不调模型、不起外部进程
+ *   · `low`  —— 本地副作用：起进程 / 写文件，但没有模型成本
+ *   · `high` —— **真实模型调用**（CI 默认不允许，必须显式 `--allow-model`）
+ */
+export type CostClass = 'none' | 'low' | 'high'
+
+/** 预算上限；超限直接判失败（而不是"继续跑完再看账单"）。 */
+export interface BudgetSpec {
+  /** 真实模型调用次数上限。 */
+  maxModelCalls?: number
+  /** token 上限；driver 上报 token 时才可强制。 */
+  maxTokens?: number
+}
+
 /** case 的溯源信息。 */
 export interface ScenarioSource {
   /** 来源 issue；无 URL 时写文本标识，确实是手工构造的写 null。 */
@@ -312,6 +329,15 @@ export interface Scenario {
   tags?: string[]
   source: ScenarioSource
   runtime?: RuntimeSpec
+  /**
+   * 成本分级；缺省 = 按参与 driver 的 `cost()` 取**最高**的一档。
+   *
+   * 显式写它有两个用途：给高成本场景兜底，或把只做只读动作的场景降到 `none`
+   * （例如 `compaction` 的 `inspect` / `dump` 不调模型）。
+   */
+  cost?: CostClass
+  /** 预算上限；只在 `cost: low | high` 时有意义。 */
+  budget?: BudgetSpec
   /** 条件段；字段集由 kind 决定。 */
   setup: Record<string, unknown>
   steps: Step[]

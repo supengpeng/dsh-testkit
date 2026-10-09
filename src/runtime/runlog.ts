@@ -4,9 +4,34 @@
  * 纯数据，无 DSH 依赖；报告层（report/*）只读这些结构。
  */
 
-import type { Assertion } from '../cases/types.js'
+import type { Assertion, CostClass } from '../cases/types.js'
 
 export type CaseVerdict = 'passed' | 'failed' | 'skipped' | 'errored'
+
+/**
+ * 失败归因（见 `src/analysis/classify.ts` 的判定表）。
+ *
+ * 为什么要有它：只有 `failed` 一个词的话，"被测对象有 bug"和"用例自己写错了"
+ * 在报告里长得一模一样，读者无法据此决定下一步是谁的活。
+ */
+export type FailureCategory = 'product_bug' | 'case_bug' | 'driver_bug' | 'env' | 'flaky'
+
+/** 成本闸门的判定结果（为什么跑 / 为什么不跑）。 */
+export interface PolicyDecision {
+  allowed: boolean
+  /** 人类可读的判定依据；`allowed: false` 时就是跳过原因。 */
+  reason: string
+  /** 该场景最终采用的成本档位。 */
+  cost: CostClass
+  /** 判定依据来自哪里：场景显式声明，还是 driver 默认档位。 */
+  source: 'scenario' | 'driver' | 'default'
+}
+
+/** 一次运行的模型用量记账（driver 上报；无法上报时不猜）。 */
+export interface UsageRecord {
+  modelCalls: number
+  tokens: number
+}
 
 export interface AssertionOutcome {
   assertion: Assertion
@@ -51,6 +76,22 @@ export interface CaseOutcome {
   releaseFailures: Array<{ label: string; error: string }>
   /** 该 case 的来源 issue，便于报告里溯源。 */
   sourceIssue: string | null
+  /**
+   * 每一轮 repeat 的通过情况（`repeat > 1` 时才记）。
+   *
+   * 为什么需要：`repeat` 的现有语义是把多轮断言**合并**进同一份 steps，
+   * 于是"三轮里失败一轮"和"三轮全失败"在报告里不可区分。
+   * 这个字段让 flaky 判定（`src/analysis/classify.ts`）有据可依。
+   */
+  rounds?: boolean[]
+  /** 失败归因；通过 / 跳过时为 undefined。 */
+  failureCategory?: FailureCategory
+  /** 成本闸门判定（无论允许还是拒绝都记）。 */
+  policy?: PolicyDecision
+  /** 该 case 的模型用量记账。 */
+  usage?: UsageRecord
+  /** 最小复现指引（见 `src/analysis/repro.ts`）。 */
+  minimalRepro?: string
 }
 
 export interface RunTotals {
@@ -59,6 +100,14 @@ export interface RunTotals {
   failed: number
   skipped: number
   errored: number
+}
+
+/** 本次运行采用的闸门快照（进报告，便于复现"当时为什么这么判"）。 */
+export interface PolicySnapshot {
+  allowModel: boolean
+  allowLowCost: boolean
+  /** 沙箱策略快照（键值直接来自 ExecutionPolicy.sandbox）。 */
+  sandbox: Record<string, unknown>
 }
 
 export interface RunSummary {
@@ -70,6 +119,8 @@ export interface RunSummary {
   platform: string
   totals: RunTotals
   cases: CaseOutcome[]
+  /** 本次运行的闸门快照；未启用闸门（纯库调用）时为 undefined。 */
+  policySnapshot?: PolicySnapshot
 }
 
 export function emptyTotals(): RunTotals {

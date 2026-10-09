@@ -402,6 +402,57 @@ CLI 侧另观察到 teammate 用 `send_message` 把结果回传给 Lead——说
 
 ---
 
+## Phase 11 · 0.2.0 内核与 P0 第一批
+
+**目标**：P0 不是"再加能力"，而是**把"跑一次要花多少"与"结果怎么读"变成可声明、可判定、
+可复现的东西**，并把架构边界与 CI 从文档承诺变成机器守卫。本阶段**不新增 kind**（12 个不变）。
+
+| # | 交付物 | 状态 |
+|---|---|---|
+| 11.1 | **成本闸门**：`ExecutionPolicy`（`src/executor/policy.ts`）＋场景 `cost` / `budget`；被拒 → **skipped + 理由**，预算超限 → failed 且归因 `env` | ✅ |
+| 11.2 | **用量记账**：`UsageMeter`，driver 经 `DriverContext.usage` 上报（**下界**语义，token 不猜） | ✅ |
+| 11.3 | **报告标准化**：`runs/<RUN-ID>/junit.xml` ＋ `schemas/run-report.schema.json` ＋ 失败归因 / 最小复现（`src/analysis/`） | ✅ |
+| 11.4 | **CI 与徽章**：`.github/workflows/ci.yml`（Node 22/24 × ubuntu/windows/macos，唯一入口 `pnpm run gate`）＋ README 四个 badge | ✅ |
+| 11.5 | **自举契约**：`tests/self-bootstrap.test.mjs`——kind ↔ driver 同集、driver 元信息、**llm 零上游请求由宿主计数证明**、无 `bin` 的事实 | ✅ |
+| 11.6 | **适配层守卫**：`src/adapters/dsh/tools.ts` ＋ `scripts/check-adapter-boundary.mjs`（`verify:adapter` 进 gate；注释里的包名不算） | ✅ |
+| 11.7 | **打包面守卫进 gate**：`schemas/` 补进 `files` 与 `exports`，`verify:pack`（`scripts/check-pack-files.mjs`）进 gate——修掉"装出来缺 schema" | ✅ |
+
+### 验收
+
+`pnpm run gate` 全链绿：编译 → 构建 client 半 → 校验场景 → 校验文档 → **适配层边界** →
+**打包面** → 全量单测 → 导出 CI 用例并跑一遍 → client 半 typecheck。
+
+| 验收点 | 证据（可复跑的命令/用例） |
+|---|---|
+| 适配层是唯一入口 | `node scripts/check-adapter-boundary.mjs` 退出码 0，报「适配目录下 DSH 依赖 1 处」（唯一那座桥）；`tests/adapter-boundary.test.mjs` 覆盖"在 `src/kinds` 下写一行 import 会被抓出来" |
+| 注释不误报 | 同一测试文件里"注释里的包名不误报"用例——这是方案里那条 grep 判据的**误报来源**，必须留在回归里 |
+| 自举契约 | `tests/self-bootstrap.test.mjs`：`SCENARIO_KINDS` 与注册表**同集**；每个 driver 的 `kind`/`description` 非空自洽；llm driver 在 headless 宿主上 `realAdapterCalls = 0`，**并有对照组**证明那个探针有效 |
+| CI 真能解析 | 同一测试文件用本仓 `yaml` 依赖解析 `.github/workflows/ci.yml`，断言矩阵 `2×3`、`--frozen-lockfile`、唯一执行入口是 `pnpm run gate`、不需要 secret |
+| 打包面 | `node scripts/check-pack-files.mjs` 退出码 0，且"入口声明的路径"里**包含** `schemas/run-report.schema.json`（它由 `exports` 推导，删掉那条 exports 守卫就瞎了） |
+| 成本闸门 | `tests/policy-gate.test.mjs`（判定表逐条 / 拒绝即 skipped / 预算超限 / `DRIVER_COST` 覆盖全部 kind） |
+
+> **它证明了什么**：把「不许悄悄花钱」「报告能被 CI 消费」「DSH 依赖只在一层」
+> 「装出来不缺件」这四件事，从**文档承诺**变成**机器判据**。
+> 共同点是：它们原先都不会报错，只会**静默地**变坏（账单悄悄涨、报告没人能读、
+> 升级时改动散落、装机才缺件）。
+
+> **一条被证伪的验收方式**：方案文档给的判据是"grep 到 `@deepseek-ai/dsh-*` 就报"。
+> 实测本仓源码里有 9 处**注释**提到这些包名（引用发行体路径、对照上游实现、说明契约来源），
+> 该判据会把它们全部误报。"判据本身也要测"——所以守卫先剥离注释，且负向用例进了回归。
+
+### 未做 / 推迟（连同**前置条件**，不是"没时间"）
+
+| 未做 | 为什么现在不做 | 前置条件 |
+|---|---|---|
+| **npm scoped rename** | `dsh-testkit` 已被他人占用（registry `200`，maintainer `iiwish`，latest `0.4.4`）——`npm publish` 物理上不可能成功；而改名会改 client bundle 的 module id，**失效方式是静默的** | ① 活宿主（web profile）按 [PUBLISHING.md §5](PUBLISHING.md) 验完四步：V1「测试」标签渲染 / V2 combo URL 出现新名 / V3 `__ModuleLoader__.load` 的 `id` 匹配 / V4 bridge 路由通；② 定下新名 |
+| **独立 CLI** | 本包**刻意没有 `bin`**（已由自举契约守住）。先证明"导出的 CI 用例能在真实 CI 跑通"，再决定 CLI 形状——反过来做会得到第二套与场景数据重复的命令面 | ① 导出轨在至少一个真实仓库的 CI 上跑通；② 明确 CLI **只做 `run` / `list`** 两个子命令，不造第二套引擎 |
+| **step registry + 参数化模板** | 现在（36 条场景）没有出现"同一判据重复三遍、只有参数不同"的实例，此时抽象出来的是**猜的模板**，会把未来场景塞进错误形状 | ① 出现 2–3 组真实的同构不同参场景；② 先写清模板与 `kind` 的关系（模板不能变成第 13 个 kind） |
+| **touchstone 适配器（三阶段）** | 跨项目判据交换要先有**数据流向与隐私约定**（见 [SECURITY.md](../SECURITY.md) §4.4），且对方契约还在动；现在接进来只会把不稳定的形状固化成接口 | ① 对方 schema 与版本策略稳定；② 数据流向 / 脱敏 / 保留策略定稿；③ 阶段一（只读导入）能单独验收 |
+| **输出脱敏 `--redact`** | 本次只写清了数据边界与使用约定（[SECURITY.md](../SECURITY.md) §4.2），**没有实现**——把不存在的保护说成存在比没有保护更危险 | ① 脱敏规则（token/凭据/私钥/用户目录路径形态）与「命中计数进报告」的实现；② 把 SECURITY §4.2 从"待实现"改为"已支持" |
+| **「默认只读沙箱」** | 本次只把**花钱**默认关掉（`allowModel: false`）；沙箱收紧做成**显式开关**。原因：既有场景里有若干 `shell` / `fs` 类本来就会写目录，默认收紧会让基线平白多出一片 skipped（自己制造的假红） | ① 把依赖写目录的既有场景改造成不依赖写权限，或明确把它们归入"需要显式放权"的类别；② 在报告里用 `skipped + reason` 说明为什么没跑 |
+
+---
+
 ## 里程碑视图
 
 ```
@@ -430,3 +481,5 @@ Phase 0 ──▶ Phase 1 ──▶ Phase 2 ──▶ Phase 3 ──▶ Phase 4 
 - [开发文档](DEVELOPMENT.md)
 - [场景数据规范](SCENARIO-SPEC.md)
 - [issue 提炼流程](ISSUE-PIPELINE.md)
+- [发布手册](PUBLISHING.md) —— 发布清单、改名清单与活宿主验证步骤
+- [安全策略](../SECURITY.md) —— 漏洞报告、数据隐私与保留策略

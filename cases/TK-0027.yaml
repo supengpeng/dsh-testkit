@@ -35,6 +35,8 @@ kind: agent
 severity: medium
 # draft = 不进默认回归集（team 成员留痕且不可删除，见头注）
 status: draft
+# 成本：真实模型调用（teammate 通道会派生一个真实队友）。
+cost: high
 tags: [agent, team, manual, cost]
 
 source:

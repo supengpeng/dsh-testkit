@@ -7,10 +7,32 @@
  *   - 默认串行：活宿主状态共享，串行结果最可预测
  *   - 每个 case 独立超时；超时记 failed（区别于 errored）
  *   - 夹具释放必须在 finally 里，无论成败
+ *   - **成本闸门**：`RunRequest.policy` 省略 = 不启用闸门（库语义不变）；
+ *     传入时按 cost 档位判定，拒绝一律记 `skipped`（"没跑" ≠ "跑挂了"）
  */
 
+import { classifyCase } from '../analysis/classify.js'
+import { buildMinimalReproForScenario } from '../analysis/repro.js'
 import type { CaseFilter, CaseRegistry } from '../cases/registry.js'
-import { SCENARIO_KINDS, type HostCapability, type Scenario, type ScenarioKind, type StepAction } from '../cases/types.js'
+import {
+  SCENARIO_KINDS,
+  type CostClass,
+  type HostCapability,
+  type Scenario,
+  type ScenarioKind,
+  type StepAction,
+} from '../cases/types.js'
+import {
+  BudgetExceeded,
+  checkBudget,
+  checkSandboxAction,
+  evaluateScenario,
+  maxCost,
+  policySnapshot,
+  UsageMeter,
+  type ExecutionPolicy,
+  type SandboxPolicy,
+} from '../executor/policy.js'
 import {
   DriverRegistry,
   SkipCase,
@@ -27,6 +49,7 @@ import {
   type AssertionOutcome,
   type CaseOutcome,
   type CaseVerdict,
+  type PolicyDecision,
   type RunSummary,
   type StepOutcome,
 } from './runlog.js'
@@ -43,6 +66,14 @@ export interface RunRequest {
   onProgress?: (event: RunProgress) => void
   /** 默认超时（毫秒），可被 case 的 runtime.timeoutMs 覆盖。 */
   defaultTimeoutMs?: number
+  /**
+   * 成本闸门。
+   *
+   * **省略 = 不启用闸门**——这是刻意的库语义：既有嵌入方与 386 条既有测试
+   * 不该因为引入闸门而改变行为。插件面（`testkit_run`、client bridge、`/testkit run`）
+   * 一律显式构造并传入，默认 `allowModel: false`（见 `src/executor/policy.ts`）。
+   */
+  policy?: ExecutionPolicy
 }
 
 export type RunProgress =
@@ -62,7 +93,7 @@ export function makeRunId(now: Date = new Date()): string {
 
 /** 执行一批场景。 */
 export async function runScenarios(request: RunRequest): Promise<RunSummary> {
-  const { registry, drivers, host, filter, signal, onProgress } = request
+  const { registry, drivers, host, filter, signal, onProgress, policy } = request
   const defaultTimeout = request.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS
 
   const selected = registry
@@ -84,6 +115,7 @@ export async function runScenarios(request: RunRequest): Promise<RunSummary> {
         host,
         signal,
         timeoutMs: scenario.runtime?.timeoutMs ?? defaultTimeout,
+        ...(policy === undefined ? {} : { policy }),
       }),
     )
 
@@ -108,6 +140,8 @@ export async function runScenarios(request: RunRequest): Promise<RunSummary> {
     platform: host.env.platform,
     totals: outcomes.length > 0 ? tallyTotals(outcomes) : emptyTotals(),
     cases: outcomes,
+    // 快照进报告：复现"当时为什么这么判"（策略对象运行期可变，快照不会）
+    ...(policy === undefined ? {} : { policySnapshot: policySnapshot(policy) }),
   }
 
   onProgress?.({ phase: 'run-end', totals: summary.totals })
@@ -119,6 +153,8 @@ interface RunOneDeps {
   host: HostFacade
   signal?: AbortSignal
   timeoutMs: number
+  /** 省略 = 不启用闸门（见 `RunRequest.policy`）。 */
+  policy?: ExecutionPolicy
 }
 
 /** 跑单条场景。任何路径都必须走到夹具释放。 */
@@ -126,6 +162,7 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
   const t0 = Date.now()
   const fixture = new Fixture()
   const repeat = Math.max(1, scenario.runtime?.repeat ?? 1)
+  const policy = deps.policy
 
   const env: RefEnvironment = {
     dshVersion: deps.host.env.dshVersion,
@@ -133,22 +170,24 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
     nodeVersion: deps.host.env.nodeVersion,
   }
 
-  const finishing = (verdict: CaseVerdict, error?: string, skipReason?: string): CaseOutcome => ({
+  /** 提前收尾（未进入执行阶段）时的 outcome 构造器。 */
+  const finishing = (verdict: CaseVerdict, extra: Partial<CaseOutcome> = {}): CaseOutcome => ({
     id: scenario.id,
     title: scenario.title,
     kind: scenario.kind,
     verdict,
     durationMs: Date.now() - t0,
-    ...(error === undefined ? {} : { error }),
-    ...(skipReason === undefined ? {} : { skipReason }),
     steps: [],
     notes: fixture.snapshot(),
     releaseFailures: [],
     sourceIssue: scenario.source.issue,
+    ...extra,
   })
 
   if (!deps.drivers.get(scenario.kind)) {
-    return finishing('errored', `kind=${scenario.kind} 的 driver 尚未实现（见 docs/ROADMAP.md Phase 1）`)
+    return finishing('errored', {
+      error: `kind=${scenario.kind} 的 driver 尚未实现（见 docs/ROADMAP.md Phase 1）`,
+    })
   }
 
   // 参与本场景 setup 的 driver：主 kind ＋ `setup` 里出现的 kind 键。
@@ -161,9 +200,43 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
   for (const kind of setupKinds) {
     const found = deps.drivers.get(kind)
     if (!found) {
-      return finishing('errored', `setup 里出现了 kind=${kind}，但没有对应 driver`)
+      return finishing('errored', { error: `setup 里出现了 kind=${kind}，但没有对应 driver` })
     }
     setupDrivers.push(found)
+  }
+
+  // ---- 成本闸门 ----
+  //
+  // 顺序刻意放在能力判定**之前**：能力缺失时的 skipped 只是"这台宿主跑不了"，
+  // 而成本拒绝是"这次运行没被授权"，后者是更根本的原因，报告里应当先说它。
+  let decision: PolicyDecision | undefined
+  let limits = { maxModelCalls: 0, maxTokens: 0 }
+
+  if (policy !== undefined) {
+    const involved = involvedDriverCosts(scenario, deps.drivers)
+    const evaluated = evaluateScenario({
+      ...(scenario.cost === undefined ? {} : { scenarioCost: scenario.cost }),
+      driverCost: involved.cost,
+      ...(scenario.budget === undefined ? {} : { budget: scenario.budget }),
+      policy,
+    })
+    decision = evaluated.decision
+    limits = evaluated.limits
+
+    // 参与 driver 没声明 cost()：按保守默认档（high）处理，并如实把来源记成 default。
+    if (!involved.declared) decision.source = 'default'
+
+    if (!decision.allowed) {
+      // 「没跑」和「跑挂了」必须是两回事：拒绝一律 skipped + 原因 + 判定依据。
+      return finishing('skipped', { skipReason: decision.reason, policy: decision })
+    }
+
+    // 沙箱开关（显式收紧时才生效；默认值不改变既有行为）。
+    // 预检而不是跑到一半才拒：拒绝要让整条 case 的结论可复现。
+    const violation = sandboxViolation(scenario, policy.sandbox)
+    if (violation !== undefined) {
+      return finishing('skipped', { skipReason: violation, policy: decision })
+    }
   }
 
   // 能力判定：所有参与 driver 的 requires ∪ case.runtime.requires
@@ -173,7 +246,10 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
   }
   const missing = [...required].filter((cap) => !deps.host.capabilities.has(cap))
   if (missing.length > 0) {
-    return finishing('skipped', undefined, `宿主缺少能力：${missing.join(', ')}`)
+    return finishing('skipped', {
+      skipReason: `宿主缺少能力：${missing.join(', ')}`,
+      ...(decision === undefined ? {} : { policy: decision }),
+    })
   }
 
   const controller = new AbortController()
@@ -186,13 +262,24 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
     controller.abort()
   }, deps.timeoutMs)
 
-  const ctx: DriverContext = { host: deps.host, fixture, scenario, signal: controller.signal }
+  // 闸门启用才记账；未启用时 driver 拿到的 usage 是 undefined（不许悄悄记账）
+  const usage = policy === undefined ? undefined : new UsageMeter()
+  const ctx: DriverContext = {
+    host: deps.host,
+    fixture,
+    scenario,
+    signal: controller.signal,
+    ...(usage === undefined ? {} : { usage }),
+  }
 
   let steps: StepOutcome[] = []
   let releaseFailures: Array<{ label: string; error: string }> = []
   let verdict: CaseVerdict = 'passed'
   let error: string | undefined
   let skipReason: string | undefined
+  /** 每轮是否"干净"（无硬失败断言、未超时）；repeat > 1 时进 outcome.rounds。 */
+  const rounds: boolean[] = []
+  let budgetError: BudgetExceeded | undefined
 
   try {
     for (let round = 1; round <= repeat; round += 1) {
@@ -202,30 +289,60 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
         if (controller.signal.aborted) throw new Error('aborted')
       }
 
-      const roundSteps = await runSteps(ctx, deps.drivers, env, deps.host)
+      const roundResult = await runSteps(
+        ctx,
+        deps.drivers,
+        env,
+        deps.host,
+        usage === undefined ? undefined : { usage, limits },
+      )
+      const roundSteps = roundResult.steps
+
+      // 这一轮的结论必须单独记：多轮断言被合并进同一份 steps 之后，
+      // 「三轮里失败一轮」和「三轮全失败」在报告里长得一模一样，
+      // 而 flaky 判定（src/analysis/classify.ts）只能靠这个数组。
+      rounds.push(!timedOut && !hasHardFailure(roundSteps))
       steps = round === 1 ? roundSteps : mergeSteps(steps, roundSteps)
 
       // 每轮结束即拆夹具，保证下一轮环境干净
       const roundRelease = await fixture.release()
       if (roundRelease.failures.length > 0) releaseFailures = releaseFailures.concat(roundRelease.failures)
+
+      // 预算超限就立刻停：继续跑只是把账单做大
+      if (roundResult.budgetError !== undefined) {
+        budgetError = roundResult.budgetError
+        break
+      }
     }
 
-    if (timedOut) {
+    if (budgetError !== undefined) {
+      verdict = 'failed'
+      error = `${budgetError.name}: ${budgetError.message}`
+    } else if (timedOut) {
       verdict = 'failed'
       error = `超时（> ${deps.timeoutMs}ms）`
-    } else if (steps.some((s) => s.assertions.some((a) => !a.ok && !a.soft))) {
+    } else if (hasHardFailure(steps)) {
       verdict = 'failed'
     }
   } catch (err) {
     if (err instanceof SkipCase) {
       verdict = 'skipped'
       skipReason = err.message
+    } else if (err instanceof BudgetExceeded) {
+      verdict = 'failed'
+      error = `${err.name}: ${err.message}`
     } else if (timedOut) {
       verdict = 'failed'
       error = `超时（> ${deps.timeoutMs}ms）`
     } else {
       verdict = 'errored'
       error = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+    }
+
+    // 没跑完的轮次如实补 false：否则"第 2 轮炸了"会在 rounds 里凭空消失，
+    // 抖动判定就少了一轮证据。只在已经跑过至少一轮、且不是主动跳过时补。
+    if (verdict !== 'skipped' && rounds.length > 0) {
+      while (rounds.length < repeat) rounds.push(false)
     }
   } finally {
     clearTimeout(timer)
@@ -245,7 +362,7 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
     }
   }
 
-  return {
+  const outcome: CaseOutcome = {
     id: scenario.id,
     title: scenario.title,
     kind: scenario.kind,
@@ -257,7 +374,103 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
     notes: fixture.snapshot(),
     releaseFailures,
     sourceIssue: scenario.source.issue,
+    ...(rounds.length > 1 ? { rounds } : {}),
+    ...(decision === undefined ? {} : { policy: decision }),
+    ...(usage === undefined ? {} : { usage: usage.snapshot() }),
   }
+
+  // 归因必须落在**最终对象**上：classifyCase 要读 rounds / policy / releaseFailures，
+  // 所以顺序不能提前（提前构造等于喂给它半成品）。
+  const category = classifyCase(outcome)
+  if (category !== undefined) outcome.failureCategory = category
+
+  // 最小复现只写给"跑挂了"的：通过的没必要；跳过的原因已经在 skipReason 里说清了。
+  if (outcome.verdict === 'failed' || outcome.verdict === 'errored') {
+    const failing = firstFailingStep(steps)
+    outcome.minimalRepro = buildMinimalReproForScenario(scenario, failing)
+  }
+
+  return outcome
+}
+
+/** 是否存在"硬失败"断言（软断言不算）。 */
+function hasHardFailure(steps: readonly StepOutcome[]): boolean {
+  return steps.some((s) => s.assertions.some((a) => !a.ok && !a.soft))
+}
+
+/** 第一条硬失败步骤的下标；没有则 undefined（最小复现用它点出"看哪一步"）。 */
+function firstFailingStep(steps: readonly StepOutcome[]): number | undefined {
+  const index = steps.findIndex((s) => s.assertions.some((a) => !a.ok && !a.soft))
+  return index === -1 ? undefined : index
+}
+
+/**
+ * 参与本场景的 driver 的最高成本档位。
+ *
+ * 参与 = 主 kind ＋ `setup` 键 ＋ **每步 act 的归属 kind**。最后一项不能漏：
+ * `scenario.kind: tool` 而某步 act 了 `{ shell: … }` 的组合场景确实存在，
+ * 只看 kind 会把 shell 的 `low` 漏看成本场景的 `none`。
+ *
+ * 没声明 `cost()` 的 driver 按 **`high`（保守）** 处理，并把 `declared` 置 false：
+ * 闸门的原则是"不认识的东西不默认放行"。缺 driver 的 kind 直接跳过——
+ * 那种情况会在运行时报 engine 错，不该被伪装成"成本问题"。
+ */
+function involvedDriverCosts(
+  scenario: Scenario,
+  drivers: DriverRegistry,
+): { cost: CostClass; declared: boolean } {
+  const kinds = new Set<ScenarioKind>(setupKindsOf(scenario))
+  for (const step of scenario.steps ?? []) {
+    if (!step.act) continue
+    const owner = actionOwnerKind(step.act)
+    if (owner !== undefined) kinds.add(owner)
+  }
+
+  let cost: CostClass = 'none'
+  let declared = true
+  for (const kind of kinds) {
+    const driver = drivers.get(kind)
+    if (driver === undefined) continue
+    const declaredCost = driver.cost?.()
+    if (declaredCost === undefined) {
+      declared = false
+      cost = maxCost(cost, 'high')
+      continue
+    }
+    cost = maxCost(cost, declaredCost)
+  }
+  return { cost, declared }
+}
+
+/**
+ * 沙箱预检：任一步的动作命中沙箱拒绝规则，整条 case 记 skipped。
+ *
+ * 为什么预检而不是执行到那一步才拒：拒的是**整条 case 的授权**，
+ * 跑了一半再拒会留下"部分副作用 + 半份证据"，既不可复现也不好读。
+ */
+function sandboxViolation(scenario: Scenario, sandbox: SandboxPolicy): string | undefined {
+  const steps = scenario.steps ?? []
+  for (const [i, step] of steps.entries()) {
+    if (!step.act) continue
+    const reason = checkSandboxAction(step.act, sandbox)
+    if (reason !== undefined) {
+      const name = step.name === undefined ? '' : `「${step.name}」`
+      return `${reason}（第 ${i + 1} 步${name}）`
+    }
+  }
+  return undefined
+}
+
+/** 每步之后要过的预算关（闸门未启用时整块不传）。 */
+interface BudgetGuard {
+  usage: UsageMeter
+  limits: { maxModelCalls: number; maxTokens: number }
+}
+
+interface RoundSteps {
+  steps: StepOutcome[]
+  /** 超限时带出：已经跑过的步骤原样保留，不因为对账失败就丢掉证据。 */
+  budgetError?: BudgetExceeded
 }
 
 async function runSteps(
@@ -265,7 +478,8 @@ async function runSteps(
   drivers: DriverRegistry,
   env: RefEnvironment,
   host: HostFacade,
-): Promise<StepOutcome[]> {
+  budget?: BudgetGuard,
+): Promise<RoundSteps> {
   const out: StepOutcome[] = []
 
   for (const [i, step] of ctx.scenario.steps.entries()) {
@@ -321,9 +535,20 @@ async function runSteps(
 
     outcome.durationMs = Date.now() - t0
     out.push(outcome)
+
+    // 每步之后对账：超限立刻停（而不是"跑完再看账单"），
+    // 并把已经产生的 steps 原样带出去——对账失败不该吞掉现场证据。
+    if (budget !== undefined) {
+      try {
+        checkBudget(budget.usage.snapshot(), budget.limits)
+      } catch (err) {
+        if (err instanceof BudgetExceeded) return { steps: out, budgetError: err }
+        throw err
+      }
+    }
   }
 
-  return out
+  return { steps: out }
 }
 
 /**

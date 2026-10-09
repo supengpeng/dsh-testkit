@@ -8,9 +8,11 @@
  * 都是人类命令——模型够不到，闸门才成立。
  */
 
+import { FAILURE_CATEGORY_LABEL } from './analysis/classify.js'
 import { packageRoot } from './config.js'
 import type { CaseRegistry } from './cases/registry.js'
 import type { ScenarioKind } from './cases/types.js'
+import { resolvePolicy, type PolicyOptions } from './executor/policy.js'
 import type { CommandDefinition, CommandResultLike, DriverRegistry, HostFacade } from './kinds/types.js'
 import type { PipelineStore } from './pipeline/index.js'
 import { writeRunArtifacts } from './report/json.js'
@@ -27,6 +29,8 @@ export interface CommandDeps {
   pipeline: PipelineStore
   /** 重新扫描 scenes 目录，返回一行人类可读的结论。 */
   reload: () => string
+  /** 成本闸门的默认值（来自插件配置）；省略 = `DEFAULT_POLICY`。 */
+  policyDefaults?: () => PolicyOptions
 }
 
 const USAGE = [
@@ -36,9 +40,14 @@ const USAGE = [
   '  /testkit run TK-0001 TK-0002     跑指定场景',
   '  /testkit run --kind tool         按类型跑',
   '  /testkit run --tag boundary      按标签跑',
+  '  /testkit run --allow-model       本次放行 high 档（**真实模型调用**，默认拒绝）',
+  '  /testkit run --allow-low-cost    本次放行 low 档（起进程 / 写文件）',
   '  /testkit report [runId]          查看报告',
   '  /testkit export [outDir]         导出为可在 CI 跑的自包含测试文件',
   '  /testkit reload                  重新扫描场景目录',
+  '',
+  '成本闸门：默认不允许真实模型调用（high 档会被记 skipped 并写明原因）；',
+  '放权只有这条路——工具面（模型可调）只能收紧，不能提权。',
   '',
   '提炼闸门（要不要提炼、要不要落地，都由你决定）：',
   '  /testkit issue                   查看台账与当前批次',
@@ -78,21 +87,31 @@ export function defineTestkitCommands(deps: CommandDeps): CommandDefinition[] {
             const selection = parseSelection(argv)
             if (selection.error) return { kind: 'error', text: selection.error }
 
+            // 命令面由**人**发起：`--allow-model` / `--allow-low-cost` 可以显式放权
+            // （这是唯一的放权入口；工具面只能收紧，见 src/tools.ts 的 buildPolicy）。
+            const policy = resolvePolicy(
+              withCommandOverrides(deps.policyDefaults?.() ?? {}, selection.overrides),
+            )
+
             const summary = await runScenarios({
               registry: deps.registry,
               drivers: deps.drivers,
               host: deps.host,
               filter: selection.filter,
               signal,
+              policy,
             })
             const write = await writeRunArtifacts(summary, deps.runsDir())
             const t = summary.totals
             const lines = [
               `Run ${summary.runId} — 合计 ${t.total}：✅ ${t.passed} · ❌ ${t.failed} · ⏭️ ${t.skipped} · 💥 ${t.errored}`,
+              describePolicy(summary),
             ]
             for (const c of summary.cases.filter((x) => x.verdict !== 'passed')) {
               const why = c.error ?? c.skipReason ?? '存在未通过断言'
-              lines.push(`  ${c.verdict === 'skipped' ? '⏭️' : c.verdict === 'failed' ? '❌' : '💥'} ${c.id} ${c.title} — ${why}`)
+              const category =
+                c.failureCategory === undefined ? '' : `［${FAILURE_CATEGORY_LABEL[c.failureCategory]}］`
+              lines.push(`  ${c.verdict === 'skipped' ? '⏭️' : c.verdict === 'failed' ? '❌' : '💥'} ${c.id} ${c.title} — ${why}${category}`)
             }
             lines.push(write.artifacts ? `报告：${write.artifacts.markdownPath}` : `⚠️ 报告写入失败：${write.error}`)
             return { kind: 'success', text: lines.join('\n') }
@@ -335,6 +354,8 @@ function renderList(deps: CommandDeps): string {
 
 interface SelectionResult {
   filter: { ids?: string[]; kinds?: ScenarioKind[]; tags?: string[]; status: string[] }
+  /** 命令面显式放权（人类发起，可以**提权**；工具面不行）。 */
+  overrides?: { allowModel?: boolean; allowLowCost?: boolean }
   error?: string
 }
 
@@ -342,6 +363,7 @@ function parseSelection(argv: string[]): SelectionResult {
   const ids: string[] = []
   const kinds: string[] = []
   const tags: string[] = []
+  const overrides: { allowModel?: boolean; allowLowCost?: boolean } = {}
 
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i]!
@@ -355,6 +377,10 @@ function parseSelection(argv: string[]): SelectionResult {
       if (!value) return { filter: { status: ['active'] }, error: '--tag 需要一个值' }
       tags.push(value)
       i += 1
+    } else if (token === '--allow-model') {
+      overrides.allowModel = true
+    } else if (token === '--allow-low-cost') {
+      overrides.allowLowCost = true
     } else if (token.startsWith('-')) {
       return { filter: { status: ['active'] }, error: `未知选项：${token}` }
     } else {
@@ -369,7 +395,33 @@ function parseSelection(argv: string[]): SelectionResult {
       ...(tags.length > 0 ? { tags } : {}),
       status: ['active'],
     },
+    ...(Object.keys(overrides).length === 0 ? {} : { overrides }),
   }
+}
+
+/**
+ * 把命令行的放权开关合进配置默认值。
+ *
+ * 只处理 `true`（放权）：收紧走工具面/配置，命令面的这两个开关语义就是"我这次要它跑"。
+ */
+function withCommandOverrides(
+  base: PolicyOptions,
+  overrides?: { allowModel?: boolean; allowLowCost?: boolean },
+): PolicyOptions {
+  if (overrides === undefined) return base
+  const cost = { ...base.cost }
+  if (overrides.allowModel === true) cost.allowModel = true
+  if (overrides.allowLowCost === true) cost.allowLowCost = true
+  return { ...base, cost }
+}
+
+/** 一行闸门摘要（人类命令面看的就是这一行）。 */
+function describePolicy(summary: {
+  policySnapshot?: { allowModel: boolean; allowLowCost: boolean }
+}): string {
+  const snapshot = summary.policySnapshot
+  if (snapshot === undefined) return '成本闸门：未启用'
+  return `成本闸门：allowModel=${snapshot.allowModel} · allowLowCost=${snapshot.allowLowCost}`
 }
 
 /** 按空格切分，支持单/双引号包裹。 */

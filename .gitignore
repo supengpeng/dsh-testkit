@@ -1,7 +1,11 @@
 # 构建产物
 lib/
-export/
-export-all/
+# ⚠️ 必须锚定到包根（`/export/`）：不带前导斜杠的 `export/` 会连
+# `src/export/**` 一起忽略，于是 CI 轨生成器（src/export/node-test.ts、write.ts）
+# **从未入库**——本地能构建、克隆出来就缺件（实测：`git ls-files src/export` 为空）。
+# 这是真的踩过，别改回去。
+/export/
+/export-all/
 
 # 运行产物（每次 run 都会新增，不入库）
 runs/

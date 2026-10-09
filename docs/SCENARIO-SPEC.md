@@ -86,6 +86,8 @@ steps:
 | `severity` | enum | 否 | `low` \| `medium` \| `high`，默认 `medium` |
 | `status` | enum | 否 | `active`（默认）\| `draft` \| `retired` \| `blocked` |
 | `tags` | string[] | 否 | 自由标签，便于筛选。见下面的**约定标签** |
+| `cost` | enum | 否 | `none` \| `low` \| `high`，**成本档位**；缺省按参与 driver 的默认表取最高档。详见 §2.2.1 |
+| `budget` | object | 否 | `{ maxModelCalls, maxTokens }`，`0`/缺省 = 不限；只在 `cost: low \| high` 时有意义。详见 §2.2.2 |
 | `source` | object | 是 | 溯源，见下 |
 
 **约定标签**：
@@ -133,6 +135,81 @@ runtime:
 tools  commands  systemPrompt  approval  userQuestions  session  fs
 subprocess  web  webServer  agentLoop  storage  timer  client
 ```
+
+### 2.2.1 成本档位：`cost`
+
+`cost` 把「这次运行允不允许花钱」变成**场景数据里的一等公民**——在此之前，
+"跑全部 active 场景"会把真实模型调用悄悄塞进 CI 与日常回归，没人能事先声明跑一次最多花多少。
+
+三档：
+
+| 档位 | 含义 | 典型 kind |
+|---|---|---|
+| `none` | **纯离线**：不调模型、不起外部进程、不写文件 | `llm`（接管流）、`tool`、`prompt`、`ui`、`file` |
+| `low` | **本地副作用**：起进程 / 写文件，但**没有模型成本** | `shell`、`fs` |
+| `high` | **真实模型调用** | `agent`（派生真实子 agent）、`compaction`（真压缩） |
+
+**缺省规则**：不写 `cost` 时，取**参与这条场景的 driver**默认档位里的**最高档**。
+默认表集中在 `src/kinds/index.ts` 的 `DRIVER_COST`（一处集中，便于逐条审阅）：
+
+| 默认档位 | kind |
+|---|---|
+| `none` | `llm` `tool` `prompt` `interaction` `session` `resource` `ui` `file` |
+| `low` | `shell` `fs` |
+| `high` | `compaction` `agent` |
+
+组合场景（`setup` 里出现多个 kind，见 §3.9）取**参与者的最高档**：
+一条组合场景里只要出现 `agent`，整条就是 `high`。判定结果会如实记下档位的来源
+`source`：`scenario`（场景显式声明）/ `driver`（按默认表）。
+
+**逃生舱：显式降档。** driver 的默认档位回答的是"**这一类 kind 通常有多贵**"，
+对具体动作未必成立。`compaction` 就是最典型的一条：`compactNow` 确实要一次真实模型摘要，
+但「没有安全范围时不压」「非法范围被拒」「缺 agent 上下文时如实不可用」这些**边界**路径
+一个 token 都不花。这类场景应显式写 `cost: none` 降档——
+`cases/TK-0034.yaml` 正是这么标注的，理由写在该文件头注里。
+
+**闸门如何消费它**（实现见 `src/executor/policy.ts`）：
+
+| 档位 | 默认 | 放行条件 |
+|---|---|---|
+| `none` | 放行 | 任何配置下都放行 |
+| `low` | 放行 | `cost.allowLowCost`（默认 `true`） |
+| `high` | **拒绝** | `cost.allowModel`（默认 `false`），必须显式放权 |
+
+**放权入口只有一个：人类命令面** `/testkit run --allow-model` / `--allow-low-cost`。
+
+`testkit_run` 的工具参数 `allowModel` / `allowLowCost` / `maxModelCalls` / `allowFileWrite`
+只能**收紧**、不能提权：`false` 一律生效；`true` 只在配置本身已允许时才有效果；
+`maxModelCalls` 取 `min(配置, 参数)`。**理由**：闸门若能被模型自己打开，就只是装饰——
+「默认拒绝」必须把唯一的开闸权留在人类手里。
+
+被闸门拒绝的场景记为 **skipped（不是 failed）**，并带上判定理由（`skipReason` 与 `policy` 快照）。
+「没跑」和「跑了但不对」是两件事，混在一起会让报告失去意义。
+
+### 2.2.2 预算上限：`budget`
+
+场景可以给自己加**上限**：
+
+```yaml
+cost: high
+budget:
+  maxModelCalls: 2     # 模型调用次数上限；0 / 缺省 = 不限
+  maxTokens: 20000     # token 上限；0 / 缺省 = 不限
+```
+
+超限的行为是直接**判 failed**，错误信息以固定前缀「预算超限：」开头、并写清"上限 N，已用 M"
+（它会被原样摘进报告，所以要能独立读懂）。归因落到 `env`：
+**预算超限是运行条件不足，不是被测对象的判定结论**——同一条场景放宽预算后可能就绿了，
+把它记成"产品有 bug"是错误归因。
+
+`budget` 只能**收紧**、不能放宽：实际生效上限是 `min(策略上限, 场景预算)`（`0` 视为不限）。
+否则场景数据自己就能绕开本次运行的预算约束。
+
+> **限界（如实声明，别把它当账单）**：用量记账是**下界**——
+> 1 个高成本 `act` 记 1 次调用；driver 不主动上报 token 就记 0。
+> 因此 `maxModelCalls` 是**保守闸门**（超了必拦，但别指望它精确到"实际调了几次"），
+> `maxTokens` 只在 driver 真的上报 token 时才真正强制。
+> 宁可如实说"没上报"，也不编一个看起来精确的数字。
 
 ### 2.3 条件段：`setup`
 
@@ -1358,6 +1435,8 @@ cases:
 - `schema: 1` 固定；**新增可选字段不算破坏性变更**，不必升版本
 - 删除/改名已有字段 → 升 `schema: 2`，且 loader 需保留对 v1 的读取兼容
 - 每个 case 自带 `schema`，loader 按 case 的版本分别解析
+- `cost` 与 `budget`（§2.2.1 / §2.2.2）属于**新增可选字段**：不写的场景行为不变，
+  因此 `schema` 保持 `1`。报告里多出来的闸门快照 / 用量 / 归因同样是**只增不改**的字段
 
 ---
 

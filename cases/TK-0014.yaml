@@ -12,6 +12,9 @@ title: 派生的子 agent 能完成最小任务并正常收尾
 kind: agent
 severity: medium
 status: active
+# 成本：真实模型调用。driver 默认档位已是 high（见 src/kinds/index.ts 的 DRIVER_COST），
+# 这里显式写下来，让读 cases/ 的人不必再去查代码就知道这条会花钱、需要 --allow-model。
+cost: high
 tags: [agent, end-to-end]
 
 source:

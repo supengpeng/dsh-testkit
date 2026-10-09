@@ -1,18 +1,22 @@
 /**
  * HostFacade 的 DSH 适配实现。
  *
- * **本文件是全项目唯一直接依赖 DSH 具体 API 的地方。**
+ * **本文件是全项目唯一把 DSH 具体 API 翻译成窄接口 `HostFacade` 的地方。**
  * 这样 DSH 升级时改动收敛在这里，driver 与引擎层可以脱离宿主单测。
  *
+ * 对 `@deepseek-ai/dsh-*` 这个包级别的依赖进一步下沉到了 `src/adapters/dsh/`：
+ * 本文件只从 `./adapters/dsh/tools.js` 取 `defineTool`，不直接 import DSH 内部包。
+ * 这条边界由 `scripts/check-adapter-boundary.mjs` 机器守卫（注释里提到包名不算违反）。
+ *
  * 已按实测契约对齐：
- *   - 工具：`defineTool()`（@deepseek-ai/dsh-tools）+ `ctx.tools.register(def) → disposer`
+ *   - 工具：`defineTool()`（经适配层 `src/adapters/dsh/tools.ts`）+ `ctx.tools.register(def) → disposer`
  *   - 命令：`ctx.commands.register({ name, description, input?, recordInput?, handler(invocation) })`
  *   - 服务获取：`ctx.get("<key>")`（可选，需 undefined 检查），缺失即视为不具备该能力
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { defineTool } from '@deepseek-ai/dsh-tools'
 
+import { defineTool } from './adapters/dsh/tools.js'
 import type { HostCapability } from './cases/types.js'
 import type {
   CommandDefinition,

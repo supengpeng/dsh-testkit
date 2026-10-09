@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-testkit.invalid/schemas/run-report.schema.json",
+  "title": "dsh-testkit 运行报告（run.json）",
+  "description": "runs/<RUN-ID>/run.json 的结构契约。字段语义以 src/runtime/runlog.ts 为准，新增字段时两边同步。全部可选字段都允许缺省——一次运行不一定启用成本闸门、不一定有 repeat 轮次、不一定能上报用量。",
+  "type": "object",
+  "required": [
+    "runId",
+    "startedAt",
+    "finishedAt",
+    "casesDir",
+    "dshVersion",
+    "platform",
+    "totals",
+    "cases"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "startedAt": {
+      "type": "string"
+    },
+    "finishedAt": {
+      "type": "string"
+    },
+    "casesDir": {
+      "type": "string"
+    },
+    "dshVersion": {
+      "type": "string"
+    },
+    "platform": {
+      "type": "string"
+    },
+    "totals": {
+      "$ref": "#/$defs/totals"
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/caseOutcome"
+      }
+    },
+    "policySnapshot": {
+      "$ref": "#/$defs/policySnapshot"
+    }
+  },
+  "$defs": {
+    "totals": {
+      "description": "RunTotals：五个计数，total = cases.length。",
+      "type": "object",
+      "required": ["total", "passed", "failed", "skipped", "errored"],
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "type": "integer"
+        },
+        "passed": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "integer"
+        },
+        "errored": {
+          "type": "integer"
+        }
+      }
+    },
+    "caseOutcome": {
+      "description": "CaseOutcome：一条用例的完整结果。",
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "kind",
+        "verdict",
+        "durationMs",
+        "steps",
+        "notes",
+        "releaseFailures",
+        "sourceIssue"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "verdict": {
+          "enum": ["passed", "failed", "skipped", "errored"]
+        },
+        "durationMs": {
+          "type": "number"
+        },
+        "skipReason": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stepOutcome"
+          }
+        },
+        "notes": {
+          "description": "夹具取证快照；键集由场景自由决定，故不加约束。",
+          "type": "object"
+        },
+        "releaseFailures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/releaseFailure"
+          }
+        },
+        "sourceIssue": {
+          "type": ["string", "null"]
+        },
+        "rounds": {
+          "description": "每一轮 repeat 的通过情况（repeat > 1 时才记）。",
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          }
+        },
+        "failureCategory": {
+          "description": "失败归因；通过 / 跳过时缺省。枚举与 src/runtime/runlog.ts 的 FailureCategory 严格一致。",
+          "enum": ["product_bug", "case_bug", "driver_bug", "env", "flaky"]
+        },
+        "policy": {
+          "$ref": "#/$defs/policyDecision"
+        },
+        "usage": {
+          "$ref": "#/$defs/usageRecord"
+        },
+        "minimalRepro": {
+          "type": "string"
+        }
+      }
+    },
+    "stepOutcome": {
+      "description": "StepOutcome：一步的执行结果。",
+      "type": "object",
+      "required": ["name", "assertions", "durationMs"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "action": {
+          "type": "object",
+          "required": ["kind", "ok"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "ok": {
+              "type": "boolean"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assertionOutcome"
+          }
+        },
+        "durationMs": {
+          "type": "number"
+        },
+        "notes": {
+          "description": "该步的取证增量（相对上一步）。",
+          "type": "object"
+        }
+      }
+    },
+    "assertionOutcome": {
+      "description": "AssertionOutcome：一条断言的判定结果。",
+      "type": "object",
+      "required": ["assertion", "ok", "actual", "message", "soft"],
+      "additionalProperties": false,
+      "properties": {
+        "assertion": {
+          "$ref": "#/$defs/assertion"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "actual": {
+          "description": "断言实际取到的值，类型由 ref 指向的数据决定。"
+        },
+        "message": {
+          "type": "string"
+        },
+        "soft": {
+          "type": "boolean"
+        }
+      }
+    },
+    "assertion": {
+      "description": "Assertion：一行一个断言词；断言词集合归 cases 层维护，这里不锁死 additionalProperties，新增断言词不应让报告 Schema 拒绝。",
+      "type": "object",
+      "required": ["ref"],
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "is": {},
+        "isNot": {},
+        "notIs": {},
+        "exists": {
+          "type": "boolean"
+        },
+        "notExists": {
+          "type": "boolean"
+        },
+        "contains": {
+          "type": ["string", "array"]
+        },
+        "notContains": {
+          "type": ["string", "array"]
+        },
+        "matches": {
+          "type": "string"
+        },
+        "atLeast": {
+          "type": "number"
+        },
+        "atMost": {
+          "type": "number"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "lengthAtLeast": {
+          "type": "integer"
+        },
+        "lengthAtMost": {
+          "type": "integer"
+        },
+        "throws": {
+          "type": "boolean"
+        },
+        "soft": {
+          "type": "boolean"
+        }
+      }
+    },
+    "releaseFailure": {
+      "description": "夹具释放时的失败项。",
+      "type": "object",
+      "required": ["label", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "policyDecision": {
+      "description": "PolicyDecision：成本闸门的判定结果。",
+      "type": "object",
+      "required": ["allowed", "reason", "cost", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "cost": {
+          "enum": ["none", "low", "high"]
+        },
+        "source": {
+          "enum": ["scenario", "driver", "default"]
+        }
+      }
+    },
+    "usageRecord": {
+      "description": "UsageRecord：一次运行的模型用量记账。",
+      "type": "object",
+      "required": ["modelCalls", "tokens"],
+      "additionalProperties": false,
+      "properties": {
+        "modelCalls": {
+          "type": "number"
+        },
+        "tokens": {
+          "type": "number"
+        }
+      }
+    },
+    "policySnapshot": {
+      "description": "PolicySnapshot：本次运行采用的闸门快照。",
+      "type": "object",
+      "required": ["allowModel", "allowLowCost", "sandbox"],
+      "additionalProperties": false,
+      "properties": {
+        "allowModel": {
+          "type": "boolean"
+        },
+        "allowLowCost": {
+          "type": "boolean"
+        },
+        "sandbox": {
+          "description": "沙箱策略快照；键集由 ExecutionPolicy.sandbox 决定。",
+          "type": "object"
+        }
+      }
+    }
+  }
+}

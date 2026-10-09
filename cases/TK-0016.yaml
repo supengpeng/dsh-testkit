@@ -30,6 +30,8 @@ title: 假 web provider 能影响子 agent 里的工具调用
 kind: agent
 severity: high
 status: active
+# 成本：真实模型调用（组合场景：resource setup + agent act）。
+cost: high
 tags: [agent, resource, combined]
 
 source:

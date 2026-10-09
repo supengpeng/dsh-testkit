@@ -1,5 +1,15 @@
 # dsh-testkit
 
+[![CI](https://github.com/supengpeng/dsh-testkit/actions/workflows/ci.yml/badge.svg)](https://github.com/supengpeng/dsh-testkit/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/dsh-testkit.svg)](https://www.npmjs.com/package/dsh-testkit)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D22.19-339933.svg)](package.json)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+> ⚠️ **npm 上的 `dsh-testkit` 现在不属于本仓。** 那个名字已被另一个项目占据
+> （`iiwish/dsh-testkit`，latest `0.4.4`，2026-09-10 发布），所以上面那个
+> **npm version 徽章显示的是别人的版本**——本包尚未发布，也**不能**用这个名字发布。
+> 改名是发布前的硬前提：依据、全量引用清单与活宿主验证步骤见 [docs/PUBLISHING.md](docs/PUBLISHING.md)。
+
 > DSH（DeepSeek Harness）测试插件。**把 issue 提炼成可复现的测试场景，再让插件去造出那些场景。**
 > 提炼是**逐批、由人决定**的：人开批 → 模型只能提交提案 → 人批准才进 `cases/`（见[提炼闸门](docs/ISSUE-PIPELINE.md)）。
 
@@ -10,6 +20,32 @@ issue ──提炼──▶ cases/TK-XXXX.yaml ──驱动──▶ src/kinds/*
 ```
 
 插件的测试对象不锁定：DSH 宿主能力、第三方插件、端到端行为，都由「场景 kind」决定。
+
+---
+
+## 安装
+
+本包有两种身份，装法不同：
+
+```powershell
+# ① 作为 DSH 插件（host 半 + client 半）
+$DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
+
+# 从本地路径装（开发时用这个）
+& $DSH plugin --profile desktop add <本仓绝对路径>
+
+# 或从 git 装（注意：本包没有 bin，装的是插件本体）
+& $DSH plugin --profile desktop add git+ssh://git@github.com/supengpeng/dsh-testkit.git
+
+# ② 作为库 / CI 用例的依赖（⚠️ 只有"改名并发布之后"才成立）
+#    npm 上的 `dsh-testkit` 现在属于另一个项目——见文首提示。
+#    在那之前请用 ① 的本地路径或 git 形式。
+npm install -D dsh-testkit
+```
+
+> 本包**刻意没有 `bin`**（不是 CLI）。"命令行可用"这件事由 DSH 的
+> `/testkit` 人类命令与导出的 `node:test` 用例承担，见
+> [docs/PUBLISHING.md](docs/PUBLISHING.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
 ---
 
@@ -34,10 +70,14 @@ issue ──提炼──▶ cases/TK-XXXX.yaml ──驱动──▶ src/kinds/*
 | **场景可跑通** | ✅ `cases/TK-0001..0026` 在真实 DSH 里 **25 通过 / 1 失败（预期）/ 0 跳过**；`TK-0028`…`TK-0034`（两条 waterfall / `ctx.fs` / session 三件套 / compaction 边界）在独立 headless 新进程 **7/7 通过**；`TK-0035`（真压缩）单跑通过。`TK-0027` / `TK-0033` / `TK-0035` 是 `draft`（留痕或花 token） |
 | **组合场景（跨 kind）** | ✅ `setup` 可含多个 kind，`act` 按动作形状分派；实测证明 root 的假 provider 会穿透到子 agent |
 | **issue 提炼闸门** | ✅ **要不要提炼、要不要落地都由人定**：人开批次 → 模型只提交提案（质量预检不过不落盘）→ 人批准才进 `cases/`；未结案不允许开下一批（三个闸门都有回归测试，见 `tests/pipeline-gate.test.mjs`） |
-| 验证 | ✅ `pnpm run gate`：**386 测试** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
+| **成本闸门（0.2.0 第一批）** | ✅ 场景可声明 `cost`（`none`/`low`/`high`）与 `budget`；`high`（**真调模型**）默认拒绝，被拒记为 **skipped + 理由**；预算超限判 failed 并归因 `env`。默认档位表在 `src/kinds/index.ts` 的 `DRIVER_COST` |
+| **报告标准化** | ✅ `runs/<RUN-ID>/junit.xml`（CI 消费）＋ `schemas/run-report.schema.json`（结构契约）＋ 失败归因与最小复现（`src/analysis/`）；md / json / junit 三种格式**同源** |
+| **CI 与自举契约** | ✅ `.github/workflows/ci.yml`：Node 22/24 × ubuntu/windows/macos 共 9 组，唯一入口 `pnpm run gate`（不另拼一套，避免假绿） |
+| **适配层守卫** | ✅ `src/adapters/dsh/` 是全仓**唯一**允许依赖 `@deepseek-ai/dsh-*` 的目录，由 `scripts/check-adapter-boundary.mjs` 机器守卫（注释里的包名不算） |
+| 验证 | ✅ `pnpm run gate`：**444 测试** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
 
 > 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（6 个模型工具 / 6 个子命令 /
-> 12 个 kind / 17 个断言词 / 约 235 个取证字段 / 2 个质量守卫 / 3 个通用检查器），
+> 12 个 kind / 17 个断言词 / 约 238 个取证字段 / 4 个质量守卫 / 4 个检查器），
 > 只列**已实现并实测**的能力。
 | **真实 DSH 验证（host 半）** | ✅ **14 通过 / 0 失败 / 2 跳过 / 0 错误**——独立 headless profile 实测，未改动 desktop profile |
 | **真实 DSH 验证（client 半 + HTTP bridge）** | ✅ 独立 web profile 实测：「测试」标签渲染、控制台显示 16 条场景 |
@@ -159,24 +199,26 @@ $DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 
 ```
 dsh-testkit/
-├── docs/            ① 架构 / 开发 / 场景规范 / issue 流程 / 迭代计划
+├── docs/            ① 架构 / 开发 / 场景规范 / issue 流程 / 迭代计划 / 发布 / 安全
 ├── src/
 │   ├── cases/       ② 数据层：YAML 类型、校验、装载、注册表
 │   ├── kinds/       ③ 驱动层：kind → driver（每类干预点一个）
 │   ├── runtime/     ④ 引擎层：夹具、执行、断言、取值、记录
-│   ├── report/      ⑤ 报告层：Markdown / JSON
+│   ├── report/      ⑤ 报告层：Markdown / JSON / JUnit
 │   ├── headless/    ⑥ headless 宿主：契约一致的最小服务集（CI 轨的载体）
 │   ├── export/      ⑦ 导出层：生成自包含的 node:test 文件
 │   ├── client/      ⑧ client 半：浏览器侧控制台
-│   ├── host-facade.ts  ⑨ **全项目唯一直接依赖 DSH API 的文件**
-│   ├── http.ts      ⑩ client 通道（webServer 路由）
-│   ├── tools.ts     ⑪ 模型工具面
-│   └── commands.ts  ⑫ 人类命令面
-├── cases/           ⑬ 场景数据：一案一 YAML（真源）
-├── pipeline/        ⑭ 提炼闸门：批次台账 `ledger.json` + 提案 `proposals/`（批准后才进 cases/）
-├── scripts/         ⑮ 构建 client 半 / 校验场景 / 校验文档 / 导出 CI 用例
-│                    ⑮′ 另含三个**通用检查器**（见下）与 fixture 准备 / 提炼工具
-├── tests/           ⑯ 插件自身的单元测试（含 headless 宿主的测试）
+│   ├── adapters/dsh/  ⑨ 适配层：**全仓唯一允许依赖 `@deepseek-ai/dsh-*` 的目录**（机器守卫）
+│   ├── host-facade.ts ⑩ 窄接口 `HostFacade` 的装配（只经适配层取 DSH 原语）
+│   ├── http.ts      ⑪ client 通道（webServer 路由）
+│   ├── tools.ts     ⑫ 模型工具面
+│   └── commands.ts  ⑬ 人类命令面
+├── cases/           ⑭ 场景数据：一案一 YAML（真源）
+├── pipeline/        ⑮ 提炼闸门：批次台账 `ledger.json` + 提案 `proposals/`（批准后才进 cases/）
+├── scripts/         ⑯ 构建 client 半 / 校验场景 / 校验文档 / 适配层守卫 / 导出 CI 用例
+│                    ⑯′ 另含**通用检查器**（见下）、串行化编译闸门与 fixture 准备 / 提炼工具
+├── tests/           ⑰ 插件自身的单元测试（含 headless 宿主与自举契约）
+├── .github/         ⑱ CI 工作流：2 档 Node × 3 个平台的 `pnpm run gate`
 ├── runs/            运行产物（git 忽略）
 ├── export/          导出的 CI 用例（git 忽略，gate 会重新生成并跑）
 ├── .fixtures/       外部被测对象（git 忽略；`scripts/fetch-fixtures.mjs` 准备）
@@ -185,15 +227,18 @@ dsh-testkit/
 
 ### 可复用的检查器
 
-这三个脚本是**从真实 issue 形态提炼出来的通用判据**，任何 npm 包都能用：
+下面三个脚本是**从真实 issue 形态提炼出来的通用判据**，任何 npm 包都能用；
+第四个是**本仓自己的结构守卫**（它守的是"适配层是唯一入口"这条架构承诺）：
 
 | 脚本 | 抓什么 | 源自 |
 |---|---|---|
 | `check-pack-files.mjs` | `files` 白名单是否覆盖入口声明的文件 | `dsh-memory#48` |
 | `check-python-topimports.mjs` | 包内非相对顶层导入是否被打进包（"装机后才炸"） | `dsh-memory#12/#48` |
 | `check-git-installable.mjs` | 从 git 安装会不会得到没有入口文件的空壳 | `dsh-memory#2` |
+| `check-adapter-boundary.mjs` | `@deepseek-ai/dsh-*` 的 import / `import()` / `require()` 是否只出现在 `src/adapters/dsh/` 下（**注释里的包名不算**） | 本仓架构承诺 |
 
 用法：`node scripts/<name>.mjs <包目录>`，退出码 0/1。
+适配层守卫也接进了 gate 链（`pnpm run verify:adapter`），所以它不会只躺在脚本目录里。
 
 ---
 
@@ -203,7 +248,7 @@ dsh-testkit/
 
 **2. 一切干预可回滚。** DSH 的扩展点天然是「注册即返回 disposer」，所以「制造测试条件」=「安装可回滚的注册」。所有 driver 的注册都必须经 `Fixture.add()` 登记，场景结束逆序释放——这是活宿主测试不互相污染的前提。
 
-**3. 双半分离、单点适配。** driver 不直接依赖 cordis `Context`，而是依赖窄接口 `HostFacade`；对 DSH 的真实调用全部收敛在 `src/host-facade.ts`。好处是核心逻辑（断言、夹具、校验、执行）可以脱离宿主单测，DSH 升级时改动也集中在一处。
+**3. 双半分离、单点适配。** driver 不直接依赖 cordis `Context`，而是依赖窄接口 `HostFacade`；对 DSH 的真实调用收敛在 `src/host-facade.ts`，而 `@deepseek-ai/dsh-*` 这个包级别的依赖进一步收敛在 `src/adapters/dsh/`。好处是核心逻辑（断言、夹具、校验、执行）可以脱离宿主单测，DSH 升级时改动集中在一层——而且这层边界由 `scripts/check-adapter-boundary.mjs` **机器守住**，不靠 review 记忆。
 
 ---
 
@@ -213,9 +258,12 @@ dsh-testkit/
 |---|---|
 | [架构设计](docs/ARCHITECTURE.md) | 双半架构、概念模型、kind 分类学、设计决策、风险清单 |
 | [开发文档](docs/DEVELOPMENT.md) | 环境、构建、安装、调试、HMR、真实验证流程、排障、代码约定 |
-| [场景数据规范](docs/SCENARIO-SPEC.md) | `cases/*.yaml` 的完整字段规范（含组合场景） |
+| [场景数据规范](docs/SCENARIO-SPEC.md) | `cases/*.yaml` 的完整字段规范（含组合场景、`cost` / `budget` 两个成本字段） |
 | [issue 提炼流程](docs/ISSUE-PIPELINE.md) | 从一个 issue 到一条可复现场景的五步法 ＋ **提炼闸门**（要不要提炼 / 要不要落地，由人按批决定） |
-| [迭代计划](docs/ROADMAP.md) | Phase 0–7 的目标、交付物与验收标准 |
+| [迭代计划](docs/ROADMAP.md) | Phase 0–11 的目标、交付物与验收标准 |
+| [发布与改名清单](docs/PUBLISHING.md) | 0.2.0 发布清单、npm scoped rename 的全量引用与耦合点、活宿主验证步骤 |
+| [安全策略与数据隐私](SECURITY.md) | 漏洞报告渠道与范围、响应承诺；report / fixture 的数据边界与保留策略 |
+| [变更日志](CHANGELOG.md) | 每个版本改了什么、怎么迁移、明确推迟了什么以及为什么 |
 
 ---
 

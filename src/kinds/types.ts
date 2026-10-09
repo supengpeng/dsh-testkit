@@ -8,7 +8,8 @@
  *   3. driver 作者面对的是窄接口，不容易写出跨场景污染
  */
 
-import type { HostCapability, Scenario, ScenarioKind, StepAction } from '../cases/types.js'
+import type { CostClass, HostCapability, Scenario, ScenarioKind, StepAction } from '../cases/types.js'
+import type { UsageMeter } from '../executor/policy.js'
 import type { Fixture } from '../runtime/fixture.js'
 
 /** 工具的注册定义。
@@ -97,6 +98,14 @@ export interface DriverContext {
   readonly fixture: Fixture
   readonly scenario: Scenario
   readonly signal: AbortSignal
+  /**
+   * 成本闸门交给 driver 的记账入口（未启用闸门时为 undefined）。
+   *
+   * driver 真的发起了模型调用时调 `usage.recordModelCall()`；拿不到 token 数时
+   * 不要调 `recordTokens()`——**不猜**。语义是下界（真实调用次数 ≥ 记账值），
+   * 所以 `maxModelCalls` 是保守闸门：不会漏拦截，但也不是账单。
+   */
+  readonly usage?: UsageMeter
 }
 
 /** driver 契约。 */
@@ -106,6 +115,15 @@ export interface Driver<S extends Scenario = Scenario> {
   readonly description: string
   /** 声明该 driver 需要宿主具备哪些能力（与 case 的 requires 取并集）。 */
   readonly requires?: readonly HostCapability[]
+
+  /**
+   * 该 driver 默认的**成本档位**（`none` / `low` / `high`）。
+   *
+   * 由注册处（`src/kinds/index.ts` 的 `DRIVER_COST` 表）统一注入，driver 文件本身
+   * 不各自声明：12 个文件各写一遍必然漂移，而"这条场景会不会花钱"必须能一处看全。
+   * 省略时闸门按**保守默认**处理（见 runner 的 cost 解析），不默认放行。
+   */
+  cost?(): CostClass
 
   /** 安装干预。所有注册必须经 `fx.add()` 登记。 */
   setup(ctx: DriverContext, scenario: S): Promise<void> | void

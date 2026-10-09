@@ -47,6 +47,8 @@ kind: compaction
 severity: medium
 # draft：会调模型生成摘要（花 token），不进默认回归集
 status: draft
+# 成本：真实模型调用（摘要由模型生成，见头注的实测读数）。
+cost: high
 tags: [compaction, cost, manual]
 
 source:

@@ -27,6 +27,11 @@ title: compaction 边界：该压才压，非法范围必须被拒
 kind: compaction
 severity: medium
 status: active
+# 成本：显式降档为 none。本条只走**边界**语义（该压才压 / 非法范围被拒 /
+# compactNow 缺 agent 上下文），文件头注的判据原文就是「零 token、零副作用」：
+# 非法范围在任何摘要调用之前就被服务拒绝。所以它不需要 --allow-model 也能跑——
+# 这正是 `cost` 字段存在的意义：driver 默认档位（compaction = high）对这条过严。
+cost: none
 tags: [compaction, host-service]
 
 source:

@@ -78,7 +78,7 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 ```
 
 - 取值路径前缀：`fx.*`（取证）/ `env.*`（场景变量）/ 容器
-- **约 235 个取证字段**（`fx.*`），由 `verify:docs` 守卫保证"文档里写的字段一定真实存在"
+- **约 238 个取证字段**（`fx.*`），由 `verify:docs` 守卫保证"文档里写的字段一定真实存在"
 
 ## 6. 执行引擎
 
@@ -90,11 +90,21 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 | **每步取证增量** | 多步场景里同名 key 不互相覆盖，早期步骤的现场可追溯 |
 | **惰性能力探测** | 宿主缺能力 → 跳过并说明原因，而不是失败（cordis 激活是异步的） |
 | **超时与取消** | 单场景超时 + `AbortSignal` 贯穿 |
+| **成本闸门** | 按场景 `cost` 档位（缺省取参与 driver 的最高档）判定放行：`none` 恒放行、`low` 需 `allowLowCost`、`high`（真调模型）**默认拒绝**；被拒记为 skipped 并带理由，不伪装成失败 |
+| **预算上限** | 场景可写 `budget: { maxModelCalls, maxTokens }`（`0` = 不限），只能收紧不能放宽；超限判 failed 并归因 `env`（运行条件不足，不是产品结论） |
+| **失败归因 + 最小复现** | 失败给出机器可读的类别与一段可直接复跑的最小复现（`src/analysis/`），报告与 `testkit_run` 都能看到 |
 
 ## 7. 报告
 
 - **Markdown 报告** `runs/<RUN-ID>/report.md`（人读）
 - **JSON 报告** `runs/<RUN-ID>/run.json`（机读，含逐步断言与取证）
+- **JUnit XML** `runs/<RUN-ID>/junit.xml`（**CI 消费**：`testsuites` 根、按 kind 分 `testsuite`、
+  每条场景一个 `testcase`；failed → `<failure>`、errored → `<error>`、skipped → `<skipped message>`，
+  XML 特殊字符与控制字符已转义/剔除）
+- **JSON Schema** `schemas/run-report.schema.json`（draft 2020-12）覆盖 `run.json` 的结构，
+  新增字段一律允许缺省——它是**契约**，不是"最好别改"的建议
+- **失败归因**：概览表带「归因」列；"需要关注"段给出归因标签、最小复现、repeat 轮次、
+  闸门判定（`policy`）与用量（`usage`）
 - **两种表面**：模型工具面 / 人类命令面**共用同一份实现**，避免漂移
 
 ## 8. 界面（client 半）
@@ -109,18 +119,23 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 |---|---|
 | `verify:cases` | **架构一致性**：每个 kind 必须有 driver、索引自洽、`setup` 键合法（能抓 `setup.tolls` 这类笔误）、无孤儿场景 |
 | `verify:docs` | **文档漂移**：链接存在、`fx.*` 字段存在、`pnpm run <script>` 存在、`scripts/*.mjs` 存在、`cases/` 场景计数一致 |
+| `verify:adapter` | **适配层边界**：`@deepseek-ai/dsh-*` 的静态 import / `import()` / `require()` 只允许出现在 `src/adapters/dsh/` 下（`@deepseek-ai/cordis`、`@deepseek-ai/schemastery` 不算；**注释里的包名不算**） |
+| `verify:pack` | **打包面**：`files` 白名单是否覆盖 `main` / `types` / `exports` / `dsh.bundle.patch` 声明的路径（入口一改，检查自动跟着变）。它就是 §10 的 `check-pack-files.mjs`，本版才接进 gate |
 
-> 这两个守卫都是**踩坑之后加的**——文档与实现静默漂移过一次。
+> 这四个守卫都是**踩坑之后加的**——文档与实现静默漂移过一次，
+> "DSH 依赖散落各处"只有机器查得出来，"装出来缺件"更是只有发包面才看得见。
 
-## 10. 三个通用检查器
+## 10. 四个检查器
 
-从真实 issue 形态提炼，**任何 npm 包都能用**，退出码 0/1：
+三个是**从真实 issue 形态提炼、任何 npm 包都能用**的通用判据，
+第四个是**本仓自己的结构守卫**；退出码统一 0/1：
 
 | 脚本 | 抓什么 | 源自 |
 |---|---|---|
 | `check-pack-files.mjs <包目录>` | `files` 白名单是否覆盖入口声明的文件 | #48 |
 | `check-python-topimports.mjs <包目录>` | 包内**非相对顶层导入**是否被打进包（"装机后才炸"） | #12 / #48 |
 | `check-git-installable.mjs <包目录>` | 从 git 安装会不会得到没有入口文件的**空壳** | #2 |
+| `check-adapter-boundary.mjs <包目录>` | DSH 内部包依赖是否越出 `src/adapters/dsh/` | 本仓架构承诺 |
 
 ## 11. 提炼工具链
 
@@ -160,7 +175,7 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 ## 实测验证状态
 
 ```
-gate            386 项单测 + 26 条导出场景          全绿
+gate            444 项单测 + 26 条导出场景          全绿
 真实 DSH 全量    27 条时点的读数：26 条 active → 25 通过 / 1 失败 / 0 跳过   见下
                 （TK-0027 是 draft：团队通道留痕不可逆，按需单跑）
 team 通道        TK-0027 在独立 headless 新进程 passed（703ms，真 spawnTeammate）

@@ -16,7 +16,7 @@ import type { Context } from '@deepseek-ai/cordis'
 
 import { CaseRegistry } from './cases/registry.js'
 import { defineTestkitCommands } from './commands.js'
-import { resolveConfig, type Config as ConfigShape } from './config.js'
+import { policyDefaultsFromConfig, resolveConfig, type Config as ConfigShape } from './config.js'
 import { createHostFacade } from './host-facade.js'
 import { BRIDGE_PREFIX, makeBridgeRoutes, type WebRouteLike } from './http.js'
 import { createDriverRegistry } from './kinds/index.js'
@@ -141,6 +141,8 @@ function applyInner(ctx: Context, config: ConfigShape): void {
         defaultTimeoutMs: () => resolved.defaultTimeoutMs,
         maxInvalidReported: () => resolved.maxInvalidReported,
         pipeline,
+        // 成本闸门默认值（allowModel 默认 false）；工具面只能在此基础上收紧
+        policyDefaults: () => policyDefaultsFromConfig(resolved),
       })
       for (const tool of tools) {
         installEffect(ctx, () => host.registerTool(tool), `dsh-testkit: tool ${tool.name}`, log)
@@ -163,6 +165,8 @@ function applyInner(ctx: Context, config: ConfigShape): void {
         defaultTimeoutMs: () => resolved.defaultTimeoutMs,
         pipeline,
         reload,
+        // 命令面可以用 --allow-model / --allow-low-cost 显式放权（人类发起）
+        policyDefaults: () => policyDefaultsFromConfig(resolved),
       })
       for (const command of commands) {
         installEffect(
@@ -208,6 +212,7 @@ function applyInner(ctx: Context, config: ConfigShape): void {
       host,
       runsDir: () => resolved.runsDirAbs,
       defaultTimeoutMs: () => resolved.defaultTimeoutMs,
+      policyDefaults: () => policyDefaultsFromConfig(resolved),
     })
     for (const route of routes) {
       installEffect(

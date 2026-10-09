@@ -5,9 +5,11 @@
  * 越窄越不容易与宿主既有工具冲突，也越好向模型解释。
  */
 
+import { FAILURE_CATEGORY_LABEL } from './analysis/classify.js'
 import { packageRoot } from './config.js'
 import type { CaseRegistry } from './cases/registry.js'
 import type { ScenarioKind } from './cases/types.js'
+import { resolvePolicy, tightenLimit, type ExecutionPolicy, type PolicyOptions, type SandboxPolicy } from './executor/policy.js'
 import type { DriverRegistry, HostFacade, ToolDefinition } from './kinds/types.js'
 import type { PipelineStore } from './pipeline/index.js'
 import { runScenarios, type RunProgress } from './runtime/runner.js'
@@ -30,6 +32,13 @@ export interface ToolDeps {
    * 批准落地的能力只挂在命令面，模型够不到。这是闸门成立的前提。
    */
   pipeline: PipelineStore
+  /**
+   * 成本闸门的**默认值**（来自插件配置；见 `src/config.ts` 的 `policyDefaultsFromConfig`）。
+   *
+   * 省略 = `DEFAULT_POLICY`（仍是 `allowModel: false`）。工具面**总是**构造策略并传入，
+   * 因此这里缺省也不会回到"随便调模型"的旧行为。
+   */
+  policyDefaults?: () => PolicyOptions
 }
 
 const NO_ARGS = { type: 'object', properties: {}, additionalProperties: false } as const
@@ -114,6 +123,24 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
           kinds: { type: 'array', items: { type: 'string' }, description: '按场景类型选择' },
           tags: { type: 'array', items: { type: 'string' }, description: '按标签选择' },
           timeoutMs: { type: 'number', description: '覆盖默认超时' },
+          allowModel: {
+            type: 'boolean',
+            description:
+              '是否允许真实模型调用（high 档）。只能**收紧**：配置未放权时传 true 无效；' +
+              '放权由人执行 /testkit run --allow-model。默认 false。',
+          },
+          allowLowCost: {
+            type: 'boolean',
+            description: '是否允许 low 档（起进程 / 写文件）。只能收紧，默认取配置值。',
+          },
+          maxModelCalls: {
+            type: 'number',
+            description: '本次运行的模型调用次数上限（0 = 不限）。只能比配置更严。',
+          },
+          allowFileWrite: {
+            type: 'boolean',
+            description: '是否允许写文件（fs 的 write / edit）。只能收紧，默认取配置值。',
+          },
         },
         additionalProperties: false,
       },
@@ -129,12 +156,16 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
           ...(ids ? {} : { status: ['active'] }),
         }
 
+        // 闸门**总是**构造（默认 allowModel=false）；见 buildPolicy 的两条纪律。
+        const policy = buildPolicy(deps, args)
+
         const progress: string[] = []
         const summary = await runScenarios({
           registry,
           drivers,
           host,
           filter,
+          policy,
           ...(exec.signal ? { signal: exec.signal } : {}),
           ...(typeof args.timeoutMs === 'number' ? { defaultTimeoutMs: args.timeoutMs } : {}),
           onProgress: (event: RunProgress) => {
@@ -155,6 +186,7 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
         // 曾因为写死 status=active 而静默选中 0 条）
         lines.push(`选择器：${describeFilter(filter)}`)
         lines.push(`合计 ${t.total} — ✅ ${t.passed} · ❌ ${t.failed} · ⏭️ ${t.skipped} · 💥 ${t.errored}`)
+        lines.push(describePolicy(summary))
         if (t.total === 0) {
           lines.push('没有选中任何场景：省略选择器只跑 active；draft 场景需显式按 id 点名。')
         }
@@ -167,7 +199,16 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
           lines.push('需要关注：')
           for (const c of attention) {
             const why = c.error ?? c.skipReason ?? '存在未通过断言'
-            lines.push(`- ${c.id} ${c.title} → ${c.verdict}：${why}`)
+            // 归因是**分流建议**（谁该来看），不是判决：原始证据仍要一并给出
+            const category =
+              c.failureCategory === undefined ? '' : `［${FAILURE_CATEGORY_LABEL[c.failureCategory]}］`
+            lines.push(`- ${c.id} ${c.title} → ${c.verdict}${category}：${why}`)
+            if (c.usage !== undefined && c.usage.modelCalls > 0) {
+              lines.push(`  用量：模型调用 ${c.usage.modelCalls} 次 · token ${c.usage.tokens}`)
+            }
+            if (c.minimalRepro !== undefined) {
+              for (const line of c.minimalRepro.split('\n')) lines.push(`  ${line}`)
+            }
           }
         }
 
@@ -358,6 +399,46 @@ function asStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined
   const out = value.filter((v): v is string => typeof v === 'string')
   return out.length > 0 ? out : undefined
+}
+
+/**
+ * 构造本次运行的策略。两条纪律（写在这里是因为工具面是**模型可调**的）：
+ *
+ *   ① **总是**构造并传入：省略 `policy` 等于"不启用闸门"，工具面绝不能因为
+ *      忘了传而回到"随便调模型"的旧行为；
+ *   ② 工具参数只能**收紧**，不能提权：`allowModel: true` 只有在配置本身已允许时
+ *      才有效果；`false` 一律生效。放权是人的事，交给命令面
+ *      `/testkit run --allow-model`。这样"模型自己给自己开模型权限"这条路是堵死的。
+ */
+function buildPolicy(deps: ToolDeps, args: Record<string, unknown>): ExecutionPolicy {
+  const base: PolicyOptions = deps.policyDefaults?.() ?? {}
+  const cost: NonNullable<PolicyOptions['cost']> = { ...base.cost }
+  const sandbox: Partial<SandboxPolicy> = { ...base.sandbox }
+
+  if (args.allowModel === false) cost.allowModel = false
+  if (args.allowLowCost === false) cost.allowLowCost = false
+  if (typeof args.maxModelCalls === 'number') {
+    // 0 = 不限；给定值只能比配置更严（`tightenLimit` 是唯一实现处，避免两处口径漂移）
+    cost.maxModelCalls = tightenLimit(cost.maxModelCalls ?? 0, args.maxModelCalls)
+  }
+  if (args.allowFileWrite === false) sandbox.allowFileWrite = false
+
+  return resolvePolicy({
+    cost,
+    sandbox,
+    ...(base.approval === undefined ? {} : { approval: base.approval }),
+  })
+}
+
+/** 把本次生效的闸门渲染成一行，让"为什么被跳过"在工具输出里自证。 */
+function describePolicy(summary: { policySnapshot?: { allowModel: boolean; allowLowCost: boolean; sandbox: Record<string, unknown> } }): string {
+  const snapshot = summary.policySnapshot
+  if (snapshot === undefined) return '成本闸门：未启用'
+  const sandbox = snapshot.sandbox as { allowShell?: unknown; allowFileWrite?: unknown }
+  return (
+    `成本闸门：allowModel=${snapshot.allowModel} · allowLowCost=${snapshot.allowLowCost}` +
+    ` · shell=${String(sandbox.allowShell)} · fileWrite=${String(sandbox.allowFileWrite)}`
+  )
 }
 
 /** 把选择器渲染成一行，让报告与工具回显都能解释「为什么是 0 条」。 */

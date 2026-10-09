@@ -144,7 +144,10 @@ const isMain =
   process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 
 function main() {
-  const packageRoot = resolve(process.argv[2] ?? join(here, '..'))
+  // 默认包根 = 本脚本所在目录的上一级（`scripts/` → 包根）。
+  // 曾经写成 `join(here, '..')`，多跳了一级 → 不带参数跑会去找工作区目录的
+  // package.json 然后 exit 1（只有显式传路径才正常）。别再加那一跳。
+  const packageRoot = resolve(process.argv[2] ?? here)
   const pkgPath = join(packageRoot, 'package.json')
   if (!existsSync(pkgPath)) {
     console.error(`[check-git-installable] 找不到 package.json：${pkgPath}`)
