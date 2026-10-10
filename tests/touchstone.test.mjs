@@ -45,7 +45,7 @@ import {
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
@@ -560,19 +560,26 @@ test('阶段三：复跑脚本与结果解析（纯函数）', () => {
   assert.deepEqual(payload, { ok: true, runId: 'R1', totals: { total: 1 } })
   assert.equal(parseRerunPayload('没有标记'), undefined)
 
-  // 与包不在同一棵树（Windows 上可能连盘符都不同）：说明符必须仍然**解得到** libDir。
-  // 相对形态做不到时退回绝对 `file://` URL —— 生成一个跑不起来的脚本才是真的糟。
+  // 与包不在同一棵树（Windows 上可能连盘符都不同）：说明符**必须解得到 libDir**。
+  //   · POSIX：完全不同的绝对树也能表示成相对路径（`../../../../elsewhere/lib`）——那是合法的；
+  //   · Windows 跨盘符：相对形态表达不了，只能是绝对 `file://` URL。
+  // 判据只认"解回去是不是 libDir"，不认具体形态（macOS 的 realpath 不一致就是这样被抓出来的）。
   const farLib = process.platform === 'win32' ? 'Z:\\elsewhere\\lib' : '/elsewhere/lib'
+  const farOut = join(WORKSPACE, 'export')
   const farScript = generateRerunScript({
     libDir: farLib,
     casesDir: join(WORKSPACE, 'cases'),
     caseIds: ['TK-0020'],
-    outDir: join(WORKSPACE, 'export'),
+    outDir: farOut,
   })
-  assert.match(farScript, /file:\/\//, '解不回去时必须退回 file:// URL，而不是生成相对垃圾')
-  assert.ok(
-    farScript.includes(`${pathToFileURL(farLib).href}/cases/registry.js`),
-    '回退后的每条 import 都应指向真实的 libDir',
+  const specMatch = /from "([^"]+)\/cases\/registry\.js"/.exec(farScript)
+  assert.ok(specMatch, '应能从生成的脚本里取出 lib 说明符')
+  const libSpec = specMatch[1]
+  const resolvedLib = libSpec.startsWith('file:') ? fileURLToPath(libSpec) : resolve(farOut, libSpec)
+  assert.equal(
+    norm(resolve(resolvedLib)),
+    norm(resolve(farLib)),
+    `说明符必须解回 libDir，实际算出 ${libSpec} → ${resolvedLib}`,
   )
 })
 
