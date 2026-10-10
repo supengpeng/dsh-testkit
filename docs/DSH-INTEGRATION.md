@@ -22,7 +22,7 @@
 
 | 半 | 入口 | 说明 |
 |---|---|---|
-| host 半 | `main` → `lib/index.js`（`inject = ['tools']`） | 注册 **11 个工具** / **1 个人类命令**（14 个子命令）/ **4 条 HTTP bridge 路由** / cases 热重载 |
+| host 半 | `main` → `lib/index.js`（`inject = ['tools']`） | 注册 **13 个工具**（真源：`src/tools.ts`）/ **1 个人类命令**（子命令表见 `src/commands.ts`）/ **4 条 HTTP bridge 路由** / cases 热重载 |
 | client 半 | `dsh.client` → `./client` → `lib/client.js` | 在 `conversation.view` 插入「测试」标签页；注册 locale 命名空间 `dsh-testkit` |
 
 ## 2. 我们对外**产出**什么格式（这是集成的真正接口）
@@ -76,7 +76,7 @@
 |---|---|---|
 | 改名后的 client 模块 id 与「测试」标签渲染 | 需要跑着 GUI 的 web profile | [PUBLISHING.md](PUBLISHING.md) §5 的 V1–V4 |
 | bridge 路由在真实 web profile 下的行为 | 同上（本机只有 headless 宿主） | 同上 V4 |
-| 官方 Actions/工具链的版本漂移 | 需要真实 GitHub Actions 跑一次 | 首次 push 后看 9 组矩阵读数 |
+| 官方 Actions/工具链的版本漂移 | 需要真实 GitHub Actions 跑一次 | 首次 push 后看 6 组矩阵读数（node 22/24 × ubuntu/windows/macos，见 `.github/workflows/ci.yml:57-59`） |
 
 ---
 

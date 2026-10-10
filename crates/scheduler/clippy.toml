@@ -1,0 +1,21 @@
+# 设计 §6.4 的硬纪律：**判定路径禁用 `std::collections::HashMap` / `HashSet`**。
+#
+# 理由不是风格偏好，而是它在 Rust 上是一个**新引入的**不确定性来源：
+# `HashMap` 默认用 `RandomState`（每进程随机种子），迭代顺序**每次运行都不同**。
+# 本 crate 的产物是"事件序列哈希"（指标 C1 的读数），一旦用它，
+# 同一种子重跑就可能给出不同哈希 —— "同种子 ⇒ 同顺序"当场失效，
+# 而且失败形态是偶发、不可复现的（阶段 2 对拍里会表现为"归因不明的差异"）。
+#
+# 一律用 `BTreeMap` / `BTreeSet`（有序）。本文件让 clippy 的 `disallowed_types`
+# 在本 crate 里把这条纪律变成可执行的守卫；lint 级别在 `src/lib.rs` 以
+# `#![deny(clippy::disallowed_types)]` 打开。
+#
+# 注意 `#![deny(...)]` 是 lib 单元的内层属性，**不覆盖 `tests/`**（它们是独立 crate），
+# 所以另有一条能在 `cargo test` 里跑的文本守卫（`tests/no_hash_collections.rs`，
+# 带合成违规的负向证明）。
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "设计 §6.4：迭代顺序随随机种子变化，判定路径改用 BTreeMap" },
+    { path = "std::collections::HashSet", reason = "设计 §6.4：同上，改用 BTreeSet" },
+    { path = "std::collections::hash_map::RandomState", reason = "设计 §6.4：HashMap 非确定性的来源本身，禁止显式构造" },
+    { path = "std::collections::hash_set::HashSet", reason = "设计 §6.4：同 HashSet" },
+]

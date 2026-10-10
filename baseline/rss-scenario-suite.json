@@ -1,0 +1,16 @@
+{
+    "metric":  "D3",
+    "label":  "scenario-suite",
+    "command":  "C:\\Users\\19059\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\node\\bin\\node.exe --test --test-isolation=none export/scenarios.test.mjs",
+    "method":  "process-level RSS sampling: poll WorkingSet64 + kernel PeakWorkingSet64 every 100ms; D3 = max of samples",
+    "interval_ms":  100,
+    "sample_size":  6,
+    "peak_rss_bytes":  74076160,
+    "peak_rss_mib":  70.645,
+    "peak_workset_sampled_mib":  70.645,
+    "peak_kernel_sampled_mib":  70.645,
+    "sampling_gap_note":  "PeakWorkingSet64 is kernel-accounted but only observed at poll boundaries; the last \u003c100ms before exit is not sampled",
+    "exit_code":  0,
+    "wall_ms":  712.336,
+    "generated_at":  "2026-10-11T00:04:28.9393246+08:00"
+}

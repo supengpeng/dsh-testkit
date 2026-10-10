@@ -1,0 +1,25 @@
+# 阶段 0-D 开始前的仓库状态快照（只读证明用）
+# 采集命令：git status --porcelain ; git rev-parse HEAD
+# 采集时间：2026-10-10（baseline-freezer 首次进入仓库时，尚未写任何交付物）
+# 说明：以下改动全部是本任务开始**之前**就已存在于工作树的（阶段 0 其他成员的工作），
+#       baseline-freezer 未修改其中任何文件。
+
+ M README.md
+ M baseline/exit-before.txt
+ M docs/DSH-INTEGRATION.md
+ M docs/FEATURES.md
+ M docs/OPTIMIZATION-REVIEW-2026-10.md
+ M docs/PUBLISHING.md
+ M docs/ROADMAP.md
+ M docs/rfc/README.md
+ M package.json
+ M scripts/verify-docs.mjs
+?? docs/REWRITE-DESIGN.md
+?? docs/REWRITE-METRICS.md
+?? docs/WINDOWS-ENCODING.md
+?? docs/rfc/0001-rust-core-full-rewrite.md
+?? scripts/check-encoding.mjs
+?? spec/
+?? tests/docs-guard.test.mjs
+
+HEAD = 157c35fa72303d7c561243415c9c40a137749644

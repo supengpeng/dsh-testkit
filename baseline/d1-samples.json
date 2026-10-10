@@ -1,0 +1,124 @@
+{
+  "metric": "D1",
+  "definition": "单条代表用例（TK-0001）端到端墙钟：全新进程，含冷启动",
+  "command": "node bin/dsh-testkit.mjs run --only TK-0001 --json",
+  "case_id": "TK-0001",
+  "sample_size": 7,
+  "warmup": "none",
+  "includes_cold_start": true,
+  "value_ms_median": 453.935,
+  "min_ms": 400.333,
+  "max_ms": 679.333,
+  "mean_ms": 475.333,
+  "all_runs_passed": true,
+  "raw_samples_ms": [
+    679.333,
+    400.333,
+    409.353,
+    497.229,
+    470.493,
+    453.935,
+    416.652
+  ],
+  "generated_at": "2026-10-10T16:03:43.654Z",
+  "samples": [
+    {
+      "run": 1,
+      "wall_ms": 679.333,
+      "exit_code": 0,
+      "run_id": "2026-10-10T16-03-40_bqdp",
+      "totals": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "errored": 0
+      },
+      "parse_error": null
+    },
+    {
+      "run": 2,
+      "wall_ms": 400.333,
+      "exit_code": 0,
+      "run_id": "2026-10-10T16-03-41_f0pm",
+      "totals": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "errored": 0
+      },
+      "parse_error": null
+    },
+    {
+      "run": 3,
+      "wall_ms": 409.353,
+      "exit_code": 0,
+      "run_id": "2026-10-10T16-03-41_45nt",
+      "totals": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "errored": 0
+      },
+      "parse_error": null
+    },
+    {
+      "run": 4,
+      "wall_ms": 497.229,
+      "exit_code": 0,
+      "run_id": "2026-10-10T16-03-42_53wm",
+      "totals": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "errored": 0
+      },
+      "parse_error": null
+    },
+    {
+      "run": 5,
+      "wall_ms": 470.493,
+      "exit_code": 0,
+      "run_id": "2026-10-10T16-03-42_7dgy",
+      "totals": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "errored": 0
+      },
+      "parse_error": null
+    },
+    {
+      "run": 6,
+      "wall_ms": 453.935,
+      "exit_code": 0,
+      "run_id": "2026-10-10T16-03-43_4gua",
+      "totals": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "errored": 0
+      },
+      "parse_error": null
+    },
+    {
+      "run": 7,
+      "wall_ms": 416.652,
+      "exit_code": 0,
+      "run_id": "2026-10-10T16-03-43_xbry",
+      "totals": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "errored": 0
+      },
+      "parse_error": null
+    }
+  ]
+}

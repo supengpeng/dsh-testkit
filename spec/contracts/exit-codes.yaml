@@ -1,0 +1,225 @@
+# spec/contracts/exit-codes.yaml
+#
+# 退出码 0–8 的语义、来源与**实测触发方式**。
+# 真源：src/cli/exit.ts（唯一裁决处 exitCodeForTotals）与 src/cli/index.ts 的 COMMANDS 分派。
+# 目标态：docs/rfc/0001-rust-core-full-rewrite.md §3.3（L118-L132）；迁移约定：docs/REWRITE-DESIGN.md §9.4（L819-L821）。
+#
+# 纪律：本文件的每个读数都由**实际执行**得出（读源码 + 真跑 CLI），不抄文档数字。
+# 文档与代码冲突时：读数以代码为准，冲突写进 drift。
+
+meta:
+  contract: CLI 退出码（对外契约）
+  metric: 'A/B 系列的前置——退出码是 CI 分流依据，不是实现细节'
+  code_source: src/cli/exit.ts
+  dispatch_source: src/cli/index.ts
+  rfc_table: docs/rfc/0001-rust-core-full-rewrite.md §3.3（L118-L132）
+  design_migration: docs/REWRITE-DESIGN.md §9.4（L819-L821）
+  design_rpc_error_map: docs/REWRITE-DESIGN.md §4.5（L372-L385）
+  runtime:
+    node: C:\Users\19059\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe
+    note: 本机没有全局 node/pnpm；下文的 $NODE 即上面这个绝对路径，仓库根记作 $REPO。
+  recompute:
+    - '$NODE $REPO/bin/dsh-testkit.mjs help --json   # 真源读数：exitCodes 数组 + 16 个子命令（含 available 标记）'
+    - '$NODE $REPO/bin/dsh-testkit.mjs help          # 人读的退出码表（由 EXIT_DOC 渲染，一处定义）'
+    - 'node --test tests/cli.test.mjs                # 冻结断言：EXIT 深比较 {OK:0,FAILED:1,USAGE:2,INFRA:3}（tests/cli.test.mjs:507-508）'
+    - 'Select-String -Path src/cli/exit.ts -Pattern ''^\s{2}[A-Z_]+: \d+,''   # 源码枚举：只有 4 条'
+  readouts:
+    implemented_codes: 4          # 0 / 1 / 2 / 3
+    reserved_codes: 2             # 4 / 5
+    planned_new_codes: 3          # 6 / 7 / 8
+    total_rows_in_rfc_table: 9
+    exit_doc_entries: 4
+    help_json_exit_codes: 4
+    code_enumeration_source_lines: 'src/cli/exit.ts:20-29'
+  phase_note: '阶段 0 记录的是**旧实现**的现状口径：只有 0/1/2/3。6/7/8 是 RFC 决定 3 的目标态，代码里尚不存在。'
+
+# ---------------------------------------------------------------- 0 / 1 / 2 / 3 现状 --
+codes:
+  - code: 0
+    symbol: EXIT.OK
+    meaning: 全部 passed / skipped
+    phase: 现状（0-3 逐字不变）
+    relation_to_0_3: 逐字不变（含「选中 0 条归 2」这一条反向约定）
+    declared_in: src/cli/exit.ts:22
+    assigned_in:
+      - 'src/cli/exit.ts:48-50 exitCodeForTotals：failed==0 && errored==0 → OK'
+      - 'src/cli/index.ts:219,223,315-328：help / 无参数路径'
+      - 'src/cli/commands/insight.ts、inspect.ts、transfer.ts、integrate.ts：只读命令成功'
+    semantic_notes:
+      - 'skipped **不是**失败：宿主缺能力是如实告知（src/cli/exit.ts:10）'
+      - '与目标态一致：docs/rfc/0001-rust-core-full-rewrite.md L122'
+    contrast:
+      rpc_error: '§4.5 -32002 能力不可用 → 0（skip）；-32006 需要审批 → 0（skip + 理由）——刻意**不**映射到 5'
+      declared_in: docs/REWRITE-DESIGN.md:379,383,385
+    probe:
+      command: '$NODE $REPO/bin/dsh-testkit.mjs help'
+      observed_exit: 0
+      note: '同一批探测在 2026-10-10T16:01Z 前后执行（与 doctor 的生成时间同批）'
+  - code: 1
+    symbol: EXIT.FAILED
+    meaning: 有 failed / errored
+    phase: 现状（0-3 逐字不变）
+    relation_to_0_3: 逐字不变
+    declared_in: src/cli/exit.ts:24
+    assigned_in:
+      - 'src/cli/exit.ts:48-50：failed>0 或 errored>0 → FAILED'
+      - 'src/cli/commands/inspect.ts:280,284,325,363：expand / registry / fixtures 的校验失败'
+      - 'src/cli/commands/transfer.ts:165-169,208-216：import / export 的内容失败'
+    semantic_notes:
+      - '「有 failed / errored」是唯一判据——各子命令不许自己判断（exit.ts:41-47）'
+      - 'verdict 枚举里的 skipped 不参与（schemas/run-report.schema.json:109）'
+    contrast:
+      rpc_error: '§4.5 -32005 执行超时 → 1（被测对象失败）'
+      declared_in: docs/REWRITE-DESIGN.md:382
+    probe:
+      command: '$NODE $REPO/bin/dsh-testkit.mjs run --cases <TEMP>/tk-exit/cases --only TK-9001 --out <TEMP>/tk-exit/out'
+      setup: '<TEMP>/tk-exit/cases/TK-9001.yaml 是一条 file kind 的临时场景，断言 fx.fileExists is false（必然失败）；该场景**不写入仓库**'
+      observed_exit: 1
+  - code: 2
+    symbol: EXIT.USAGE
+    meaning: 用法错误，或选中 0 条
+    phase: 现状（0-3 逐字不变）
+    relation_to_0_3: 逐字不变
+    declared_in: src/cli/exit.ts:26
+    assigned_in:
+      - 'src/cli/index.ts:232,239,252,258：未知子命令 / 未知选项 / 缺参数值 / 未知 help 目标'
+      - 'src/cli/commands/run.ts:346,356：选择器非法；:523-526 用法错误'
+      - 'src/cli/commands/inspect.ts:89,212,225,434：report 空目录 / list 用法错误'
+      - 'src/cli/commands/transfer.ts:248'
+    semantic_notes:
+      - '「一条都没跑却报成功」是最危险的假绿，所以**选中 0 条刻意归 2**（src/cli/exit.ts:15-16）'
+      - '与目标态一致：docs/rfc/0001-rust-core-full-rewrite.md L122'
+    contrast:
+      rpc_error: '§4.5 -32003 任务已存在 → 2；-32004 任务不存在 → 2'
+      declared_in: docs/REWRITE-DESIGN.md:380,381
+    probe:
+      - command: '$NODE $REPO/bin/dsh-testkit.mjs definitely-not-a-command'
+        observed_exit: 2
+      - command: '$NODE $REPO/bin/dsh-testkit.mjs run --definitely-not-an-option'
+        observed_exit: 2
+      - command: '$NODE $REPO/bin/dsh-testkit.mjs run --only TK-9999 --out <TEMP>/tk-exit/out'
+        observed_exit: 2
+        note: 命中「选中 0 条」
+  - code: 3
+    symbol: EXIT.INFRA
+    meaning: 基础设施错误（宿主 / 目录 / 依赖模块建不起来）
+    phase: 现状（0-3 逐字不变）
+    relation_to_0_3: 逐字不变
+    declared_in: src/cli/exit.ts:28
+    assigned_in:
+      - 'src/cli/index.ts:269,272：run 路径里宿主 / 目录建不起来'
+      - 'src/cli/commands/run.ts:475,512,515'
+      - 'src/cli/commands/insight.ts:119-139：T11/T12 洞察模块未落地时明确报「未就绪」'
+      - 'src/cli/commands/inspect.ts:440'
+    semantic_notes:
+      - '与「选中 0 条」严格区分：目录不存在是基础设施错误，不是「跑 0 条」（tests/cli.test.mjs:302-304）'
+    probe:
+      command: '$NODE $REPO/bin/dsh-testkit.mjs run --cases <TEMP>/tk-exit/no-such-dir'
+      observed_exit: 3
+
+# ---------------------------------------------------------------- 4 / 5 保留 --
+reserved:
+  - code: 4
+    symbol: null
+    meaning: （保留，不用）
+    phase: 保留
+    reason: '与 iiwish/dsh-testkit 的 4 = unsupported 区分开——同名不同义是最贵的坑'
+    declared_in: docs/rfc/0001-rust-core-full-rewrite.md L126,L132
+    in_code: false
+    recompute: 'Select-String -Path src/cli/exit.ts -Pattern ''\b4\b''  # 无命中；EXIT 常量里没有 4'
+  - code: 5
+    symbol: null
+    meaning: （保留，不用）
+    phase: 保留
+    reason: '与 iiwish/dsh-testkit 的 5 = flaky 区分开；本仓 flaky 走 failureCategory: flaky 进报告，**不改退出码**'
+    declared_in: docs/rfc/0001-rust-core-full-rewrite.md L127,L132
+    in_code: false
+    cross_ref:
+      failure_category_enum: schemas/run-report.schema.json:148
+      declared_in: docs/REWRITE-DESIGN.md:385
+    recompute: 'Select-String -Path src/cli/exit.ts -Pattern ''\b5\b''  # 无命中'
+
+# ---------------------------------------------------------------- 6 / 7 / 8 新增 --
+planned_new:
+  - code: 6
+    symbol: null
+    meaning: 协议错误（Rust 与 TS 版本不匹配、握手失败）
+    phase: 新增（目标态，代码里不存在）
+    declared_in: docs/rfc/0001-rust-core-full-rewrite.md L128
+    rpc_trigger: '§4.5 -32001 版本不兼容'
+    rpc_declared_in: docs/REWRITE-DESIGN.md:378
+    in_code: false
+  - code: 7
+    symbol: null
+    meaning: 能力门控失败（严格档下的 Fail 决策）
+    phase: 新增（目标态，代码里不存在）
+    declared_in: docs/rfc/0001-rust-core-full-rewrite.md L129
+    rpc_trigger: '§4.5 -32002 能力不可用（必需时）'
+    rpc_declared_in: docs/REWRITE-DESIGN.md:379
+    in_code: false
+  - code: 8
+    symbol: null
+    meaning: 层级不允许（严格档下 Simulated 结果进入发布门槛判定）
+    phase: 新增（目标态，代码里不存在）
+    declared_in: docs/rfc/0001-rust-core-full-rewrite.md L130
+    in_code: false
+verification_that_6_7_8_do_not_exist_yet:
+  command: 'Select-String -Path src/cli/exit.ts -Pattern ''6|7|8''  # 只命中注释与文档行，EXIT 常量只有 4 条'
+  observed: 'src/cli/exit.ts:20-29 的 EXIT 只有 4 个键'
+
+# ---------------------------------------------------------------- RPC 错误码 → 退出码（目标态） --
+rpc_error_map:
+  source: docs/REWRITE-DESIGN.md §4.5（L372-L385）
+  in_code: false
+  note: '阶段 0 无 Rust 侧，故整表都是**声明**而非读数；登记在此是为了阶段 1 的契约对齐。'
+  rows:
+    - { code: -32700, kind: '标准 JSON-RPC', meaning: Parse, exit_code: null }
+    - { code: -32600, kind: '标准 JSON-RPC', meaning: Invalid Request, exit_code: null }
+    - { code: -32601, kind: '标准 JSON-RPC', meaning: Method not found, exit_code: null }
+    - { code: -32602, kind: '标准 JSON-RPC', meaning: Invalid params, exit_code: null }
+    - { code: -32603, kind: '标准 JSON-RPC', meaning: Internal, exit_code: null }
+    - { code: -32001, kind: 自定义, meaning: 版本不兼容, exit_code: 6 }
+    - { code: -32002, kind: 自定义, meaning: 能力不可用, exit_code: '0（skip）或 7（必需）' }
+    - { code: -32003, kind: 自定义, meaning: 任务已存在, exit_code: 2 }
+    - { code: -32004, kind: 自定义, meaning: 任务不存在, exit_code: 2 }
+    - { code: -32005, kind: 自定义, meaning: 执行超时, exit_code: 1 }
+    - { code: -32006, kind: 自定义, meaning: 需要审批, exit_code: '0（skip + 理由），刻意不是 5' }
+
+# ---------------------------------------------------------------- 漂移 --
+drift:
+  - id: DRIFT-EXIT-1
+    severity: info
+    kind: 计划 vs 现状（非冲突）
+    detail: >
+      README.md:94 与 docs/FEATURES.md:51 记的是现状「退出码冻结 0/1/2/3」，
+      而 docs/REWRITE-DESIGN.md:821 与 RFC §3.3 记的是目标「0-3 逐字不变，4/5 保留，新增 6/7/8」。
+      两者不冲突，但阶段 1 落地 6/7/8 时，README:94 / FEATURES.md:51 / tests/cli.test.mjs:507 三处
+      「冻结 0/1/2/3」的措辞都必须同步，否则守卫（若有）与新表冲突。
+    evidence:
+      - README.md:94
+      - docs/FEATURES.md:51
+      - tests/cli.test.mjs:507-508
+      - docs/rfc/0001-rust-core-full-rewrite.md:118-132
+      - docs/REWRITE-DESIGN.md:819-821
+  - id: DRIFT-EXIT-2
+    severity: medium
+    kind: 守卫覆盖缺口
+    detail: >
+      docs/REWRITE-DESIGN.md:934 声称注册面计数「由 pnpm run verify:docs 的检查项 ⑥ 与真源
+      src/tools.ts / src/cli/index.ts 对齐」。但 scripts/verify-docs.mjs:231-240 的检查项 ⑥
+      **只**校验 CLI 子命令数，没有任何工具数检查；退出码也完全没有守卫（EXIT_DOC 只在 help 里展示）。
+    evidence:
+      - scripts/verify-docs.mjs:126-131（CLI 真源正则）
+      - scripts/verify-docs.mjs:231-240（⑥ 只查 CLI）
+      - docs/REWRITE-DESIGN.md:934
+    recompute: '$NODE $REPO/scripts/verify-docs.mjs  # 输出「CLI 子命令 16」，无工具数行'
+  - id: DRIFT-EXIT-3
+    severity: low
+    kind: 注释过期
+    detail: >
+      src/cli/exit.ts 的行内文档（L8-L16）只列 0-3，没有 4/5 保留与 6/7/8 新增的注记。
+      该文件自称「一处定义，避免文档与实现漂移」（L33），但目标态那张表并未回填进注释。
+    evidence:
+      - src/cli/exit.ts:8-16
+      - src/cli/exit.ts:33-39
+      - docs/rfc/0001-rust-core-full-rewrite.md:118-132

@@ -1,0 +1,15 @@
+[package]
+name = "dsh-testkit-attest"
+description = "防篡改报告：JCS（RFC 8785）规范化 / SHA-256 哈希链 / 批量 Ed25519 Merkle 签名 / 本地锚定（设计 §7）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+# 依赖纪律（RFC 0001 §7 停止线 5）：只允许 serde / serde_json / sha2 / ed25519-dalek 四个直接依赖。
+# 全部从 [workspace.dependencies] 引用，本 crate 不新增版本、不新增第 5 个依赖。
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+ed25519-dalek.workspace = true

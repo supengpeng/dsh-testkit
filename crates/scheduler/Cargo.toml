@@ -1,0 +1,20 @@
+[package]
+name = "dsh-testkit-scheduler"
+description = "测试调度器：submit/wait/cancel/shutdown 与显式事件队列（设计 §3.2 / §6.3）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+# 依赖纪律（RFC 0001 §7 停止线 5）：
+# - `dsh-testkit-protocol` 是**仓库内**的跨语言契约 crate（path 依赖，不计入新增 crate 数）。
+#   任务要求"TaskId / TaskState / TaskHandle / TaskResult 直接用，不要另立一套"，
+#   因此这里必须引它，而不是在本 crate 复刻类型。
+# - `serde_json` 只为 `TaskResult.detail: Option<serde_json::Value>`（取证细节）。
+# - **不引 `tokio` / `async-trait`**：本 crate 的并发是"单线程事件队列 + 用例间多进程"，
+#   异步运行时会与设计 §6.3 的结论直接冲突（见 lib.rs 的"并发模型"一节）。
+# - **不引 `loom`**：理由见 lib.rs 的"为什么不用 loom"，它不是省略，而是本设计让 loom
+#   失去检验对象（判定路径的互斥由 `&mut self` 在类型层保证，工作线程不接触 EventLog）。
+[dependencies]
+dsh-testkit-protocol = { path = "../protocol" }
+serde_json.workspace = true

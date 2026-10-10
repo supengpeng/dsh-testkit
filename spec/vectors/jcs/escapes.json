@@ -1,0 +1,90 @@
+{
+  "domain": "jcs",
+  "covers": [
+    "escape"
+  ],
+  "note": "转义：只转义强制集（\" \\ 与 U+0000–U+001F），且短转义优先",
+  "source": "src/attest/tools/make-jcs-vectors.mjs（oracle = JS 的 JSON.stringify + 默认键排序；RFC 8785 §3.2.2.3 把数字形态定义为 ECMAScript Number::toString）",
+  "cases": [
+    {
+      "id": "escapes-01",
+      "covers": "escape",
+      "note": "双引号",
+      "input_json": "\"a\\\"b\"",
+      "expected_hex": "22615c226222",
+      "expected_text": "\"a\\\"b\""
+    },
+    {
+      "id": "escapes-02",
+      "covers": "escape",
+      "note": "反斜杠",
+      "input_json": "\"a\\\\b\"",
+      "expected_hex": "22615c5c6222",
+      "expected_text": "\"a\\\\b\""
+    },
+    {
+      "id": "escapes-03",
+      "covers": "escape",
+      "note": "换行用 \\n",
+      "input_json": "\"a\\nb\"",
+      "expected_hex": "22615c6e6222",
+      "expected_text": "\"a\\nb\""
+    },
+    {
+      "id": "escapes-04",
+      "covers": "escape",
+      "note": "制表用 \\t",
+      "input_json": "\"a\\tb\"",
+      "expected_hex": "22615c746222",
+      "expected_text": "\"a\\tb\""
+    },
+    {
+      "id": "escapes-05",
+      "covers": "escape",
+      "note": "回车用 \\r",
+      "input_json": "\"a\\rb\"",
+      "expected_hex": "22615c726222",
+      "expected_text": "\"a\\rb\""
+    },
+    {
+      "id": "escapes-06",
+      "covers": "escape",
+      "note": "U+0008 用 \\b（短转义优先）",
+      "input_json": "\"a\\bb\"",
+      "expected_hex": "22615c626222",
+      "expected_text": "\"a\\bb\""
+    },
+    {
+      "id": "escapes-07",
+      "covers": "escape",
+      "note": "U+000C 用 \\f（短转义优先）",
+      "input_json": "\"a\\fb\"",
+      "expected_hex": "22615c666222",
+      "expected_text": "\"a\\fb\""
+    },
+    {
+      "id": "escapes-08",
+      "covers": "escape",
+      "note": "U+001F 无短转义 → \\u001f（小写十六进制）",
+      "input_json": "\"\\u001f\"",
+      "expected_hex": "225c753030316622",
+      "expected_text": "\"\\u001f\""
+    },
+    {
+      "id": "escapes-09",
+      "covers": "escape",
+      "note": "U+000B 无短转义 → \\u000b",
+      "input_json": "\"\\u000b\"",
+      "expected_hex": "225c753030306222",
+      "expected_text": "\"\\u000b\""
+    },
+    {
+      "id": "escapes-10",
+      "covers": "escape",
+      "note": "斜杠不是强制转义字符",
+      "input_json": "\"/\"",
+      "expected_hex": "222f22",
+      "expected_text": "\"/\""
+    }
+  ]
+}

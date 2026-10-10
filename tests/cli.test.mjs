@@ -134,10 +134,20 @@ test('help：退出码 0，且写清退出码表与 headless 边界', () => {
   const json = parseJson(runCli(['help', '--json']).stdout, 'help --json')
   assert.equal(json.exitCode, 0)
   assert.ok(Array.isArray(json.commands) && json.commands.length >= 10)
+  // ⚠️ 这里曾经断言 `exitCodes` **精确等于** `[0,1,2,3]`。1.0.0 起退出码扩展了
+  // （RFC 0001 §3.3 / 决定 3：新增 `6` 协议不兼容、`7` 必需能力缺失），
+  // 所以断言拆成两半——**原意（0-3 冻结且顺序不变）逐字保留**，
+  // 另加"新增码必须也进表"。放宽成"包含 0-3"是错的：那会让 `help` 漏报新码而没人发现，
+  // 而调用方在 CI 里真的遇到 6/7 时查不到含义。
   assert.deepEqual(
-    json.exitCodes.map((item) => item.code),
+    json.exitCodes.map((item) => item.code).slice(0, 4),
     [0, 1, 2, 3],
-    '退出码表必须是冻结的那四个',
+    '退出码表的前四项必须是冻结的 0/1/2/3（顺序也是契约的一部分）',
+  )
+  assert.deepEqual(
+    json.exitCodes.map((item) => item.code).slice(4),
+    [6, 7],
+    '1.0.0 新增的协议/能力退出码必须写进 help 的表里',
   )
 })
 
@@ -504,6 +514,21 @@ test('main() 的用法错误也返回退出码（不抛异常）', async () => {
   assert.equal(io.stdout, '', '用法错误时 stdout 不该有东西（--json 关闭时）')
 })
 
-test('退出码常量是冻结的 0/1/2/3', () => {
-  assert.deepEqual(EXIT, { OK: 0, FAILED: 1, USAGE: 2, INFRA: 3 })
+test('退出码：0/1/2/3 冻结不变，6/7 为 1.0.0 新增（RFC 决定 3）', () => {
+  // **原意逐字保留**：这四个码的语义是对外契约，CI 脚本、`&&` 链、外部触发器按它们分流。
+  assert.deepEqual(
+    { OK: EXIT.OK, FAILED: EXIT.FAILED, USAGE: EXIT.USAGE, INFRA: EXIT.INFRA },
+    { OK: 0, FAILED: 1, USAGE: 2, INFRA: 3 },
+    '0/1/2/3 的语义与取值必须逐字不变',
+  )
+  // 1.0.0（major）新增：协议不兼容 → 6；必需能力缺失 → 7（设计 §4.5 的错误码映射表）。
+  assert.equal(EXIT.PROTOCOL, 6)
+  assert.equal(EXIT.CAPABILITY, 7)
+  // ⚠️ 4 / 5 **保留不使用**（同名第三方包的发布语义——同名不同义是最贵的坑）；
+  //    `8` **不定义**（RFC §8 Q3 提过，但设计的裁决表只映射到 7，定义空号等于制造歧义）。
+  //    这三条"不存在"必须被钉住，否则哪天有人顺手填上就没人拦。
+  const used = new Set(Object.values(EXIT))
+  for (const reserved of [4, 5, 8]) {
+    assert.ok(!used.has(reserved), `退出码 ${String(reserved)} 应保持未定义/保留`)
+  }
 })

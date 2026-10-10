@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-testkit.local/spec/behavior.schema.json",
+  "title": "dsh-testkit 行为规格文件（YAML front-matter）",
+  "description": "spec/behaviors/**/*.md 的 front-matter 校验格式。切分纪律：文件 = 模块，条目 = 原子行为。真源纪律见 spec/README.md §3。阶段 1 的守卫与阶段 2 的对拍器都读这个格式。",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["domain", "module", "atomics"],
+  "properties": {
+    "domain": { "type": "string", "enum": ["kinds", "engine"] },
+    "module": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "kind 名（tool/prompt/llm/interaction/session/resource/agent/ui/shell/file/fs/compaction）或 engine 模块名（runner/assert/fixture/isolation/report/policy）。"
+    },
+    "revision": { "type": "integer", "minimum": 1, "description": "本文件的行为规格版本；行为变了才 +1。" },
+    "atomics": {
+      "type": "array",
+      "minItems": 1,
+      "description": "该模块的全部原子行为（BaseTool 级）。每条的 atomic 名唯一，且不可再分。",
+      "items": { "$ref": "#/$defs/atomicEntry" }
+    }
+  },
+  "$defs": {
+    "atomicEntry": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "atomic", "status", "source", "capabilities", "availableIn", "observable"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^BEH-(KIND|ENGINE)-[A-Z0-9]+-[0-9]{3}$",
+          "description": "全局唯一。BEH-<KIND|ENGINE>-<模块>-<三位序号>。"
+        },
+        "title": { "type": "string", "minLength": 4 },
+        "atomic": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "BaseTool 原子名，对齐 REWRITE-DESIGN.md §2.2（kinds 域由 validate-spec.mjs 机械比对）。"
+        },
+        "status": { "type": "string", "enum": ["draft", "active", "unsupported"] },
+
+        "source": {
+          "type": "object",
+          "required": ["file", "symbols", "tests"],
+          "properties": {
+            "file": {
+              "type": "string",
+              "pattern": "^(src|tests|schemas|registry|scripts)/",
+              "description": "旧实现里的位置，必须真实存在（由 validate-spec.mjs 落盘核对）。"
+            },
+            "lines": {
+              "type": "string",
+              "pattern": "^[0-9]+(-[0-9]+)?(,\\s*[0-9]+(-[0-9]+)?)*$",
+              "description": "单区间或多区间，如 \"45-124\" 或 \"45-124, 435-556\"。"
+            },
+            "symbols": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "description": "承载该行为的函数/常量名；必须能在 source.file 中检索到。"
+            },
+            "tests": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "description": "既有测试引用，形如 tests/xxx.test.mjs 或 tests/xxx.test.mjs::用例名。空数组表示无既有测试覆盖（重要发现，必须如实写）。"
+            }
+          },
+          "additionalProperties": true
+        },
+
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "需要的 HostCapability；空数组 = 无要求。成员必须来自 spec/contracts/capabilities.yaml。"
+        },
+        "availableIn": {
+          "description": "ContextSpec：Any | RequiresAgentContext | IsolatedSessionOnly | 多个的组合。声明式，阶段 1 的 validate 在计划期判定。",
+          "oneOf": [
+            { "type": "string", "enum": ["Any", "RequiresAgentContext", "IsolatedSessionOnly"] },
+            { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          ]
+        },
+        "costTier": { "type": "string", "enum": ["none", "low", "high"] },
+        "parallel": { "type": "string", "enum": ["safe", "exclusive"] },
+
+        "observable": {
+          "type": "array",
+          "minItems": 1,
+          "description": "可观察行为。每条必须可判定（then 能用既有 17 个断言词表达）。",
+          "items": {
+            "type": "object",
+            "required": ["given", "when", "then", "verdict"],
+            "properties": {
+              "given": { "type": "string", "minLength": 2 },
+              "when": { "type": "string", "minLength": 2 },
+              "then": { "type": "string", "minLength": 2 },
+              "verdict": { "type": "string", "enum": ["pass", "fail", "skip"] }
+            },
+            "additionalProperties": true
+          }
+        },
+
+        "cleanup": { "type": "string", "enum": ["none", "registered"] },
+
+        "nonDeterministic": {
+          "type": "array",
+          "description": "指标 C3：非确定性字段必须显式，否则阶段 2 对拍失败无法归因。",
+          "items": {
+            "type": "object",
+            "required": ["field", "reason", "reconcile"],
+            "properties": {
+              "field": { "type": "string", "minLength": 1 },
+              "reason": { "type": "string", "minLength": 1 },
+              "reconcile": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": true
+          }
+        },
+
+        "equivalence": {
+          "type": "object",
+          "description": "对拍等价关系；键引用 spec/contracts/reconcile-fields.yaml 的规则名。",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,815 @@
+{
+  "generated_at": "2026-10-10T17:10:59.365Z",
+  "spec_snapshot": {
+    "dir": "spec/behaviors",
+    "files": 20,
+    "atom_entries": 57,
+    "unique_ids": 57,
+    "files_snapshot": [
+      {
+        "path": "spec/behaviors/engine/analysis.md",
+        "bytes": 29667,
+        "mtime": "2026-10-10T16:40:05.540Z"
+      },
+      {
+        "path": "spec/behaviors/engine/assert.md",
+        "bytes": 24304,
+        "mtime": "2026-10-10T16:01:56.361Z"
+      },
+      {
+        "path": "spec/behaviors/engine/fixture.md",
+        "bytes": 9553,
+        "mtime": "2026-10-10T16:04:29.522Z"
+      },
+      {
+        "path": "spec/behaviors/engine/isolation.md",
+        "bytes": 33805,
+        "mtime": "2026-10-10T16:40:39.663Z"
+      },
+      {
+        "path": "spec/behaviors/engine/policy.md",
+        "bytes": 33325,
+        "mtime": "2026-10-10T16:41:25.492Z"
+      },
+      {
+        "path": "spec/behaviors/engine/report.md",
+        "bytes": 33918,
+        "mtime": "2026-10-10T16:08:19.916Z"
+      },
+      {
+        "path": "spec/behaviors/engine/runner.md",
+        "bytes": 31867,
+        "mtime": "2026-10-10T16:08:18.893Z"
+      },
+      {
+        "path": "spec/behaviors/engine/surfaces.md",
+        "bytes": 22311,
+        "mtime": "2026-10-10T16:58:45.258Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/agent.md",
+        "bytes": 16158,
+        "mtime": "2026-10-10T16:05:47.875Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/compaction.md",
+        "bytes": 22944,
+        "mtime": "2026-10-10T16:09:33.089Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/file.md",
+        "bytes": 15691,
+        "mtime": "2026-10-10T16:03:57.982Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/fs.md",
+        "bytes": 19561,
+        "mtime": "2026-10-10T16:04:41.836Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/interaction.md",
+        "bytes": 16388,
+        "mtime": "2026-10-10T16:21:31.547Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/llm.md",
+        "bytes": 9316,
+        "mtime": "2026-10-10T16:02:00.276Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/prompt.md",
+        "bytes": 8722,
+        "mtime": "2026-10-10T16:01:59.976Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/resource.md",
+        "bytes": 9242,
+        "mtime": "2026-10-10T16:02:59.800Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/session.md",
+        "bytes": 22104,
+        "mtime": "2026-10-10T16:06:59.262Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/shell.md",
+        "bytes": 10284,
+        "mtime": "2026-10-10T16:03:32.978Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/tool.md",
+        "bytes": 14582,
+        "mtime": "2026-10-10T16:01:42.393Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/ui.md",
+        "bytes": 8285,
+        "mtime": "2026-10-10T16:03:32.953Z"
+      }
+    ],
+    "guard_reading": "node spec/schema/validate-spec.mjs --json（阶段 0 进行中，spec 树仍在生长，本快照有时间戳）"
+  },
+  "reference_coverage_rule": {
+    "numerator": "只算 `status: active` 且 `source.file` 指向旧代码（src/**）的条目；`unsupported` / `draft` 一律不计入（无论它们指向哪里）",
+    "why": "目标态条目（status: unsupported，如 surfaces.md 的 collect-refine-tools / collect-refine-command）是**阶段 1 的落点声明**，不是覆盖率分子；旧代码里根本不存在那两个名字。若把它们算进分子，\"还没实现\"就能被机械统计成\"已覆盖\"——这条口径防的正是这种滥用。将来它们转 active 也不应用来抬高**旧代码**的引用覆盖率，而应计入\"新增面\"的对拍。",
+    "traceable_proof": "excluded_non_active_atoms 把被排除的条目原样列出（id / status / source.file），统计是否被\"稀释\"一眼可见"
+  },
+  "status_histogram": {
+    "active": 55,
+    "unsupported": 2
+  },
+  "source_file_histogram": {
+    "src/analysis/causes.ts": 1,
+    "src/analysis/classify.ts": 1,
+    "src/analysis/repro.ts": 1,
+    "src/commands.ts": 2,
+    "src/executor/policy.ts": 3,
+    "src/isolation/cleanup.ts": 1,
+    "src/isolation/context.ts": 1,
+    "src/isolation/leaks.ts": 1,
+    "src/isolation/pool.ts": 1,
+    "src/isolation/probes.ts": 1,
+    "src/kinds/agent.ts": 1,
+    "src/kinds/compaction.ts": 5,
+    "src/kinds/file.ts": 3,
+    "src/kinds/fs.ts": 6,
+    "src/kinds/index.ts": 1,
+    "src/kinds/interaction.ts": 2,
+    "src/kinds/llm.ts": 1,
+    "src/kinds/prompt.ts": 2,
+    "src/kinds/resource.ts": 1,
+    "src/kinds/session.ts": 4,
+    "src/kinds/shell.ts": 1,
+    "src/kinds/tool.ts": 2,
+    "src/kinds/ui.ts": 1,
+    "src/report/json.ts": 1,
+    "src/report/junit.ts": 1,
+    "src/report/markdown.ts": 1,
+    "src/report/present.ts": 1,
+    "src/report/redact.ts": 1,
+    "src/runtime/assert.ts": 1,
+    "src/runtime/fixture.ts": 2,
+    "src/runtime/refs.ts": 1,
+    "src/runtime/runner.ts": 3,
+    "src/tools.ts": 2
+  },
+  "source_file_histogram_active_only": {
+    "src/analysis/causes.ts": 1,
+    "src/analysis/classify.ts": 1,
+    "src/analysis/repro.ts": 1,
+    "src/commands.ts": 1,
+    "src/executor/policy.ts": 3,
+    "src/isolation/cleanup.ts": 1,
+    "src/isolation/context.ts": 1,
+    "src/isolation/leaks.ts": 1,
+    "src/isolation/pool.ts": 1,
+    "src/isolation/probes.ts": 1,
+    "src/kinds/agent.ts": 1,
+    "src/kinds/compaction.ts": 5,
+    "src/kinds/file.ts": 3,
+    "src/kinds/fs.ts": 6,
+    "src/kinds/index.ts": 1,
+    "src/kinds/interaction.ts": 2,
+    "src/kinds/llm.ts": 1,
+    "src/kinds/prompt.ts": 2,
+    "src/kinds/resource.ts": 1,
+    "src/kinds/session.ts": 4,
+    "src/kinds/shell.ts": 1,
+    "src/kinds/tool.ts": 2,
+    "src/kinds/ui.ts": 1,
+    "src/report/json.ts": 1,
+    "src/report/junit.ts": 1,
+    "src/report/markdown.ts": 1,
+    "src/report/present.ts": 1,
+    "src/report/redact.ts": 1,
+    "src/runtime/assert.ts": 1,
+    "src/runtime/fixture.ts": 2,
+    "src/runtime/refs.ts": 1,
+    "src/runtime/runner.ts": 3,
+    "src/tools.ts": 1
+  },
+  "excluded_non_active_atoms": [
+    {
+      "id": "BEH-ENGINE-SURFACES-003",
+      "status": "unsupported",
+      "source_file": "src/tools.ts",
+      "spec_file": "spec/behaviors/engine/surfaces.md"
+    },
+    {
+      "id": "BEH-ENGINE-SURFACES-004",
+      "status": "unsupported",
+      "source_file": "src/commands.ts",
+      "spec_file": "spec/behaviors/engine/surfaces.md"
+    }
+  ],
+  "coverage_source": {
+    "log": "coverage-stage0-all-src-fixed.log",
+    "line": 90.62,
+    "branch": 78.1,
+    "funcs": 88.09
+  },
+  "weakest_15_annotated": [
+    {
+      "path": "src/cli/commands/transfer.ts",
+      "line_pct": 59.53,
+      "branch_pct": 19.05,
+      "funcs_pct": 42.86,
+      "spec_atom_count": 0,
+      "spec_atom_ids": [],
+      "spec_modules": [],
+      "spec_declared_tests": []
+    },
+    {
+      "path": "src/surface/selection-args.ts",
+      "line_pct": 55.43,
+      "branch_pct": 20,
+      "funcs_pct": 60,
+      "spec_atom_count": 0,
+      "spec_atom_ids": [],
+      "spec_modules": [],
+      "spec_declared_tests": []
+    },
+    {
+      "path": "src/cli/commands/insight.ts",
+      "line_pct": 69.04,
+      "branch_pct": 22.22,
+      "funcs_pct": 60,
+      "spec_atom_count": 0,
+      "spec_atom_ids": [],
+      "spec_modules": [],
+      "spec_declared_tests": []
+    },
+    {
+      "path": "src/runtime/refs.ts",
+      "line_pct": 94.55,
+      "branch_pct": 33.33,
+      "funcs_pct": 100,
+      "spec_atom_count": 1,
+      "spec_atom_ids": [
+        "BEH-ENGINE-ASSERT-002"
+      ],
+      "spec_modules": [
+        "assert"
+      ],
+      "spec_declared_tests": [
+        "tests/scenario-run.test.mjs::端到端：cases/ 下的全部场景在 headless 宿主里按要求通过或跳过"
+      ]
+    },
+    {
+      "path": "src/cli/commands/run.ts",
+      "line_pct": 87.73,
+      "branch_pct": 34.94,
+      "funcs_pct": 77.78,
+      "spec_atom_count": 0,
+      "spec_atom_ids": [],
+      "spec_modules": [],
+      "spec_declared_tests": []
+    },
+    {
+      "path": "src/tools.ts",
+      "line_pct": 62.92,
+      "branch_pct": 38.46,
+      "funcs_pct": 57.14,
+      "spec_atom_count": 2,
+      "spec_atom_ids": [
+        "BEH-ENGINE-SURFACES-001",
+        "BEH-ENGINE-SURFACES-003"
+      ],
+      "spec_modules": [
+        "surfaces"
+      ],
+      "spec_declared_tests": [
+        "tests/host-apply.test.mjs::在真实 cordis 容器里装配：注册面完整",
+        "tests/host-apply.test.mjs::注册出来的工具是 defineTool 的产物，不是裸对象",
+        "tests/host-apply.test.mjs::能力探测：宿主只有 tools 时，命令与路由都不注册（且 apply 不抛错）",
+        "tests/tools-filter.test.mjs::testkit_run：省略选择器 → 只跑 active",
+        "tests/pipeline-surface.test.mjs::工具面：只读的 testkit_pipeline 能报台账，且没有 approve 这类入口"
+      ]
+    },
+    {
+      "path": "src/doctor/residue.ts",
+      "line_pct": 77.55,
+      "branch_pct": 42.11,
+      "funcs_pct": 60,
+      "spec_atom_count": 0,
+      "spec_atom_ids": [],
+      "spec_modules": [],
+      "spec_declared_tests": []
+    },
+    {
+      "path": "src/cli/commands/inspect.ts",
+      "line_pct": 89.51,
+      "branch_pct": 47.89,
+      "funcs_pct": 83.33,
+      "spec_atom_count": 0,
+      "spec_atom_ids": [],
+      "spec_modules": [],
+      "spec_declared_tests": []
+    },
+    {
+      "path": "src/surface/runs.ts",
+      "line_pct": 92.16,
+      "branch_pct": 50,
+      "funcs_pct": 100,
+      "spec_atom_count": 0,
+      "spec_atom_ids": [],
+      "spec_modules": [],
+      "spec_declared_tests": []
+    },
+    {
+      "path": "src/touchstone/export.ts",
+      "line_pct": 96.92,
+      "branch_pct": 52.73,
+      "funcs_pct": 96.3,
+      "spec_atom_count": 0,
+      "spec_atom_ids": [],
+      "spec_modules": [],
+      "spec_declared_tests": []
+    },
+    {
+      "path": "src/commands.ts",
+      "line_pct": 38.68,
+      "branch_pct": 54.55,
+      "funcs_pct": 23.53,
+      "spec_atom_count": 2,
+      "spec_atom_ids": [
+        "BEH-ENGINE-SURFACES-002",
+        "BEH-ENGINE-SURFACES-004"
+      ],
+      "spec_modules": [
+        "surfaces"
+      ],
+      "spec_declared_tests": [
+        "tests/host-apply.test.mjs::在真实 cordis 容器里装配：注册面完整",
+        "tests/host-apply.test.mjs::能力探测：宿主只有 tools 时，命令与路由都不注册（且 apply 不抛错）",
+        "tests/pipeline-surface.test.mjs::命令面：approve 缺目标 / 未知动作 / 空范围都有明确报错，不会静默",
+        "tests/pipeline-surface.test.mjs::命令面：open → 工具提案 → approve 落地，全链路走通"
+      ]
+    },
+    {
+      "path": "src/cases/index-file.ts",
+      "line_pct": 98.67,
+      "branch_pct": 58.33,
+      "funcs_pct": 100,
+      "spec_atom_count": 0,
+      "spec_atom_ids": [],
+      "spec_modules": [],
+      "spec_declared_tests": []
+    },
+    {
+      "path": "src/report/redact.ts",
+      "line_pct": 97.8,
+      "branch_pct": 62.07,
+      "funcs_pct": 86.96,
+      "spec_atom_count": 1,
+      "spec_atom_ids": [
+        "BEH-ENGINE-REPORT-004"
+      ],
+      "spec_modules": [
+        "report"
+      ],
+      "spec_declared_tests": [
+        "tests/redact.test.mjs"
+      ]
+    },
+    {
+      "path": "src/fixtures/load.ts",
+      "line_pct": 96.13,
+      "branch_pct": 62.16,
+      "funcs_pct": 100,
+      "spec_atom_count": 0,
+      "spec_atom_ids": [],
+      "spec_modules": [],
+      "spec_declared_tests": []
+    },
+    {
+      "path": "src/touchstone/webhook.ts",
+      "line_pct": 90.06,
+      "branch_pct": 62.37,
+      "funcs_pct": 82.35,
+      "spec_atom_count": 0,
+      "spec_atom_ids": [],
+      "spec_modules": [],
+      "spec_declared_tests": []
+    }
+  ],
+  "weak_file_summary": {
+    "n_weak": 15,
+    "n_referenced_by_spec": 4,
+    "n_not_referenced": 11,
+    "not_referenced": [
+      "src/cli/commands/transfer.ts",
+      "src/surface/selection-args.ts",
+      "src/cli/commands/insight.ts",
+      "src/cli/commands/run.ts",
+      "src/doctor/residue.ts",
+      "src/cli/commands/inspect.ts",
+      "src/surface/runs.ts",
+      "src/touchstone/export.ts",
+      "src/cases/index-file.ts",
+      "src/fixtures/load.ts",
+      "src/touchstone/webhook.ts"
+    ]
+  },
+  "spec_covered_src_files": [
+    {
+      "path": "src/analysis/classify.ts",
+      "branch_pct": 97.5,
+      "line_pct": 100,
+      "atoms": 1
+    },
+    {
+      "path": "src/analysis/causes.ts",
+      "branch_pct": 93.59,
+      "line_pct": 99.2,
+      "atoms": 1
+    },
+    {
+      "path": "src/analysis/repro.ts",
+      "branch_pct": 100,
+      "line_pct": 100,
+      "atoms": 1
+    },
+    {
+      "path": "src/runtime/assert.ts",
+      "branch_pct": 88.51,
+      "line_pct": 98.34,
+      "atoms": 1
+    },
+    {
+      "path": "src/runtime/refs.ts",
+      "branch_pct": 33.33,
+      "line_pct": 94.55,
+      "atoms": 1
+    },
+    {
+      "path": "src/runtime/fixture.ts",
+      "branch_pct": 95.65,
+      "line_pct": 96.59,
+      "atoms": 2
+    },
+    {
+      "path": "src/isolation/context.ts",
+      "branch_pct": 80,
+      "line_pct": 98.32,
+      "atoms": 1
+    },
+    {
+      "path": "src/isolation/probes.ts",
+      "branch_pct": 73.68,
+      "line_pct": 91.82,
+      "atoms": 1
+    },
+    {
+      "path": "src/isolation/pool.ts",
+      "branch_pct": 100,
+      "line_pct": 100,
+      "atoms": 1
+    },
+    {
+      "path": "src/isolation/cleanup.ts",
+      "branch_pct": 91.18,
+      "line_pct": 96.67,
+      "atoms": 1
+    },
+    {
+      "path": "src/isolation/leaks.ts",
+      "branch_pct": 93.33,
+      "line_pct": 98.61,
+      "atoms": 1
+    },
+    {
+      "path": "src/executor/policy.ts",
+      "branch_pct": 92.45,
+      "line_pct": 100,
+      "atoms": 3
+    },
+    {
+      "path": "src/kinds/index.ts",
+      "branch_pct": 90.91,
+      "line_pct": 100,
+      "atoms": 1
+    },
+    {
+      "path": "src/report/json.ts",
+      "branch_pct": 86.21,
+      "line_pct": 98.43,
+      "atoms": 1
+    },
+    {
+      "path": "src/report/junit.ts",
+      "branch_pct": 94.12,
+      "line_pct": 98.88,
+      "atoms": 1
+    },
+    {
+      "path": "src/report/markdown.ts",
+      "branch_pct": 90.7,
+      "line_pct": 98.34,
+      "atoms": 1
+    },
+    {
+      "path": "src/report/redact.ts",
+      "branch_pct": 62.07,
+      "line_pct": 97.8,
+      "atoms": 1
+    },
+    {
+      "path": "src/report/present.ts",
+      "branch_pct": 72.41,
+      "line_pct": 98.13,
+      "atoms": 1
+    },
+    {
+      "path": "src/runtime/runner.ts",
+      "branch_pct": 81.37,
+      "line_pct": 92.39,
+      "atoms": 3
+    },
+    {
+      "path": "src/tools.ts",
+      "branch_pct": 38.46,
+      "line_pct": 62.92,
+      "atoms": 2
+    },
+    {
+      "path": "src/commands.ts",
+      "branch_pct": 54.55,
+      "line_pct": 38.68,
+      "atoms": 2
+    },
+    {
+      "path": "src/kinds/agent.ts",
+      "branch_pct": 83.33,
+      "line_pct": 95.87,
+      "atoms": 1
+    },
+    {
+      "path": "src/kinds/compaction.ts",
+      "branch_pct": 74.79,
+      "line_pct": 96.73,
+      "atoms": 5
+    },
+    {
+      "path": "src/kinds/file.ts",
+      "branch_pct": 84.62,
+      "line_pct": 96.41,
+      "atoms": 3
+    },
+    {
+      "path": "src/kinds/fs.ts",
+      "branch_pct": 81.4,
+      "line_pct": 95.1,
+      "atoms": 6
+    },
+    {
+      "path": "src/kinds/interaction.ts",
+      "branch_pct": 85.11,
+      "line_pct": 97.94,
+      "atoms": 2
+    },
+    {
+      "path": "src/kinds/llm.ts",
+      "branch_pct": 90.91,
+      "line_pct": 91.87,
+      "atoms": 1
+    },
+    {
+      "path": "src/kinds/prompt.ts",
+      "branch_pct": 86.36,
+      "line_pct": 98.92,
+      "atoms": 2
+    },
+    {
+      "path": "src/kinds/resource.ts",
+      "branch_pct": 77.97,
+      "line_pct": 97.34,
+      "atoms": 1
+    },
+    {
+      "path": "src/kinds/session.ts",
+      "branch_pct": 80.24,
+      "line_pct": 94.69,
+      "atoms": 4
+    },
+    {
+      "path": "src/kinds/shell.ts",
+      "branch_pct": 83.33,
+      "line_pct": 96.62,
+      "atoms": 1
+    },
+    {
+      "path": "src/kinds/tool.ts",
+      "branch_pct": 88.96,
+      "line_pct": 99.2,
+      "atoms": 2
+    },
+    {
+      "path": "src/kinds/ui.ts",
+      "branch_pct": 88.71,
+      "line_pct": 98.28,
+      "atoms": 1
+    }
+  ],
+  "spec_covered_src_files_active": [
+    {
+      "path": "src/analysis/classify.ts",
+      "branch_pct": 97.5,
+      "line_pct": 100,
+      "atoms": 1
+    },
+    {
+      "path": "src/analysis/causes.ts",
+      "branch_pct": 93.59,
+      "line_pct": 99.2,
+      "atoms": 1
+    },
+    {
+      "path": "src/analysis/repro.ts",
+      "branch_pct": 100,
+      "line_pct": 100,
+      "atoms": 1
+    },
+    {
+      "path": "src/runtime/assert.ts",
+      "branch_pct": 88.51,
+      "line_pct": 98.34,
+      "atoms": 1
+    },
+    {
+      "path": "src/runtime/refs.ts",
+      "branch_pct": 33.33,
+      "line_pct": 94.55,
+      "atoms": 1
+    },
+    {
+      "path": "src/runtime/fixture.ts",
+      "branch_pct": 95.65,
+      "line_pct": 96.59,
+      "atoms": 2
+    },
+    {
+      "path": "src/isolation/context.ts",
+      "branch_pct": 80,
+      "line_pct": 98.32,
+      "atoms": 1
+    },
+    {
+      "path": "src/isolation/probes.ts",
+      "branch_pct": 73.68,
+      "line_pct": 91.82,
+      "atoms": 1
+    },
+    {
+      "path": "src/isolation/pool.ts",
+      "branch_pct": 100,
+      "line_pct": 100,
+      "atoms": 1
+    },
+    {
+      "path": "src/isolation/cleanup.ts",
+      "branch_pct": 91.18,
+      "line_pct": 96.67,
+      "atoms": 1
+    },
+    {
+      "path": "src/isolation/leaks.ts",
+      "branch_pct": 93.33,
+      "line_pct": 98.61,
+      "atoms": 1
+    },
+    {
+      "path": "src/executor/policy.ts",
+      "branch_pct": 92.45,
+      "line_pct": 100,
+      "atoms": 3
+    },
+    {
+      "path": "src/kinds/index.ts",
+      "branch_pct": 90.91,
+      "line_pct": 100,
+      "atoms": 1
+    },
+    {
+      "path": "src/report/json.ts",
+      "branch_pct": 86.21,
+      "line_pct": 98.43,
+      "atoms": 1
+    },
+    {
+      "path": "src/report/junit.ts",
+      "branch_pct": 94.12,
+      "line_pct": 98.88,
+      "atoms": 1
+    },
+    {
+      "path": "src/report/markdown.ts",
+      "branch_pct": 90.7,
+      "line_pct": 98.34,
+      "atoms": 1
+    },
+    {
+      "path": "src/report/redact.ts",
+      "branch_pct": 62.07,
+      "line_pct": 97.8,
+      "atoms": 1
+    },
+    {
+      "path": "src/report/present.ts",
+      "branch_pct": 72.41,
+      "line_pct": 98.13,
+      "atoms": 1
+    },
+    {
+      "path": "src/runtime/runner.ts",
+      "branch_pct": 81.37,
+      "line_pct": 92.39,
+      "atoms": 3
+    },
+    {
+      "path": "src/tools.ts",
+      "branch_pct": 38.46,
+      "line_pct": 62.92,
+      "atoms": 1
+    },
+    {
+      "path": "src/commands.ts",
+      "branch_pct": 54.55,
+      "line_pct": 38.68,
+      "atoms": 1
+    },
+    {
+      "path": "src/kinds/agent.ts",
+      "branch_pct": 83.33,
+      "line_pct": 95.87,
+      "atoms": 1
+    },
+    {
+      "path": "src/kinds/compaction.ts",
+      "branch_pct": 74.79,
+      "line_pct": 96.73,
+      "atoms": 5
+    },
+    {
+      "path": "src/kinds/file.ts",
+      "branch_pct": 84.62,
+      "line_pct": 96.41,
+      "atoms": 3
+    },
+    {
+      "path": "src/kinds/fs.ts",
+      "branch_pct": 81.4,
+      "line_pct": 95.1,
+      "atoms": 6
+    },
+    {
+      "path": "src/kinds/interaction.ts",
+      "branch_pct": 85.11,
+      "line_pct": 97.94,
+      "atoms": 2
+    },
+    {
+      "path": "src/kinds/llm.ts",
+      "branch_pct": 90.91,
+      "line_pct": 91.87,
+      "atoms": 1
+    },
+    {
+      "path": "src/kinds/prompt.ts",
+      "branch_pct": 86.36,
+      "line_pct": 98.92,
+      "atoms": 2
+    },
+    {
+      "path": "src/kinds/resource.ts",
+      "branch_pct": 77.97,
+      "line_pct": 97.34,
+      "atoms": 1
+    },
+    {
+      "path": "src/kinds/session.ts",
+      "branch_pct": 80.24,
+      "line_pct": 94.69,
+      "atoms": 4
+    },
+    {
+      "path": "src/kinds/shell.ts",
+      "branch_pct": 83.33,
+      "line_pct": 96.62,
+      "atoms": 1
+    },
+    {
+      "path": "src/kinds/tool.ts",
+      "branch_pct": 88.96,
+      "line_pct": 99.2,
+      "atoms": 2
+    },
+    {
+      "path": "src/kinds/ui.ts",
+      "branch_pct": 88.71,
+      "line_pct": 98.28,
+      "atoms": 1
+    }
+  ],
+  "problems": []
+}

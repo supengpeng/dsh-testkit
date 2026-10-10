@@ -16,6 +16,15 @@
 # 不在这里另拼一套步骤，是为了避免"CI 绿但本地红"的双标准——
 # 那种情况下 CI 的绿是**假绿**。
 #
+# ## 为什么另有一个 `rust` job（而不是把 cargo 塞进 gate）
+#
+# Rust 核心（`crates/` 下 7 个 crate）的测试 / clippy / fmt / H3 守卫原本**没有任何 CI 保障**。
+# 但它们不能塞进 gate：gate 的 6 个矩阵组合都是 node-only，**没装 Rust 工具链**，
+# 加一步 cargo 会让这 6 个组合全红——而它们绿的结论本身是有效的。
+# 于是分成两个独立 job：红的时候一眼看得出是"Node 侧"还是"Rust 侧"。
+# `rust` job 的三平台工具链前置、GNU/MinGW 边界、cwd 陷阱、镜像取舍，
+# 全部写在那个 job 自己的头注里（改它之前先读那段）。
+#
 # ## 为什么不需要任何 secret
 #
 # 场景里凡是"会真的调模型/外部对象"的用例都有成本分级与标签隔离，
@@ -52,7 +61,7 @@ jobs:
     name: gate · node ${{ matrix.node }} · ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      # 一个平台红不该掩盖其它平台的结果——9 个组合的结果都要能看到。
+      # 一个平台红不该掩盖其它平台的结果——6 个组合（node 22/24 × ubuntu/windows/macos）的结果都要能看到。
       fail-fast: false
       matrix:
         node: ['22.x', '24.x']
@@ -110,3 +119,231 @@ jobs:
       # 但它不阻断 gate 的结论。
       - name: 依赖审计（需要网络；不在 gate 内）
         run: pnpm audit --prod --audit-level=high
+
+  # ───────────────────────────────────────────────────────────────────────
+  # rust · Rust 核心（`crates/` 下 7 个 crate：测试 / clippy / fmt / H3 守卫）
+  #
+  # ## 为什么是独立 job（而不是塞进 gate）
+  #
+  # gate 是 node-only：它的 6 个矩阵组合**都不装 Rust 工具链**，把 cargo 步骤塞进去
+  # 会让那 6 个组合全红——而它们绿的结论本身是有效的。两个 job 各自独立，
+  # 红的时候一眼看得出是"Node 侧"还是"Rust 侧"。
+  #
+  # ## 为什么三个平台都跑
+  #
+  # 与 gate 同理：本仓大量 driver 做的是路径与外部进程相关取证，Rust 侧也一样
+  # （`std::path`、大小写、`\r\n`）。单平台绿不代表可移植。
+  #
+  # ## 工具链怎么来：三平台各自的前置
+  #
+  # 版本由 `rust-toolchain.toml` 钉死（`channel = "1.99.0"`，REWRITE-METRICS §11 的 J5
+  # 可复现构建前置之一）。⚠️ 注意 `channel` 写的是**版本号**而不是
+  # `stable` / `x86_64-...-gnu`：rustup 会把它解析成"**该 host** 的 1.99.0"，
+  # 于是三平台解析出的 host 各不相同，链接器前置也各不相同：
+  #
+  #   · ubuntu-latest  → `x86_64-unknown-linux-gnu`：链接用系统 `cc`
+  #     （镜像自带 build-essential）✓ 不需要额外步骤
+  #   · macos-latest   → `aarch64-apple-darwin`：链接用系统 clang
+  #     （Xcode Command Line Tools 自带）✓ 不需要额外步骤
+  #   · windows-latest → `x86_64-pc-windows-msvc`：链接用 MSVC 的 `link.exe`
+  #     （镜像自带 VS 2022 Build Tools）✓ 不需要额外步骤
+  #
+  # **所以 CI 不需要 MinGW binutils。**但这正是本机踩过的坑
+  # （`spec/metrics/toolchain.md` §7 有完整原因链），必须写清它什么时候会回来：
+  #
+  #   `x86_64-pc-windows-**gnu**` 下，任何经 `windows-sys` 的 crate（`ts-rs` 会带来）
+  #   都需要 MinGW 的 `as`/`dlltool` 生成 import library；而 Rust 自带的
+  #   `self-contained/` 只有 `ld`/`dlltool`、**没有 `as`**，MSYS2 的 `as.exe`/`dlltool.exe`
+  #   又依赖 `libwinpthread-1.dll`——那个 DLL 恰恰躺在 Rust 自己的 `self-contained/` 里，
+  #   这是本机最难定位的一环（症状是 `as`/`dlltool` 报 `0xC0000135`）。
+  #   完整复现命令：`spec/metrics/toolchain.md` §7.2；为什么不走"更简单的三条路"：§7.4。
+  #
+  #   触发条件只有一个：**rustup 在这台机器上的默认 host 是 gnu**，或将来有人在
+  #   `rust-toolchain.toml` 里显式钉了 gnu target。GitHub 的 windows runner 默认 host
+  #   是 msvc，所以现在不触发；下面的"前置检查"会在它真的触发时**明确失败并给出修法**，
+  #   而不是让 `cargo test` 抛一句 `dlltool not found` / `0xC0000135` 让人猜。
+  #
+  # ## ⚠️ 每一步都必须从仓库根跑（`.cargo/config.toml` 的 `[env]` 按 cwd 向上查找）
+  #
+  # `.cargo/config.toml` 里有 `TS_RS_IMPORT_EXTENSION = "js"`——ts-rs 据此给生成的 import
+  # 加 `.js` 后缀（tsconfig 是 `NodeNext`，缺扩展名会报 TS2835）。cargo **只从当前目录向上**
+  # 找 `.cargo/`，所以某个步骤一旦换了 cwd，这个变量就**静默失效** ⇒ 重新生成的类型不带 `.js`
+  # ⇒ H3 守卫报"生成物与仓库内容不一致"。症状（类型没扩展名）与根因（cwd）隔得很远，
+  # 所以这里每个步骤都显式写 `working-directory`，并有一道前置检查断言 `.cargo/config.toml`
+  # 就在 cwd 下。
+  #
+  # ## crates.io 用默认源，**不照抄本机的 rsproxy**
+  #
+  # 本机用 rsproxy 是因为 `index.crates.io` 不可达——那是**本机环境选择**，写在用户级
+  # `$CARGO_HOME/config.toml` 且不入仓（见 `.cargo/config.toml` 的头注）。把它写进 CI
+  # 等于强制所有贡献者与 fork 都用同一个镜像。CI 用默认源。
+  #
+  # ## 为什么暂时没有 cargo 缓存
+  #
+  # 缓存要再加一个外部 action；本仓的 CI 硬化守卫（`scripts/check-ci-hardening.mjs`）要求
+  # **每个 `uses:` 都钉 40 位 commit SHA 并写明对应版本**，而我在本机没有可核验新 SHA 的
+  # 渠道（`GET /repos/<owner>/<repo>/git/refs` 不通）。与其钉一个没核验过的 SHA，
+  # 不如先不缓存：慢一点，但每一步的来源都能追溯。将来要加，按本文件头注里记录 SHA 的
+  # 方式补，并回来更新这段。
+  # ───────────────────────────────────────────────────────────────────────
+  rust:
+    name: rust · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # 一个平台红不该掩盖其它平台的结果（与 gate 同一取舍）。
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      # ⚠️ 这里**不引入任何新的 `uses:`**：这两个 action 的 SHA 与 gate job 用的是同一批
+      # （来源与二次核对方式见本文件头注）。新 action 需要新核验过的 SHA，本机核验不了。
+      - name: 检出代码
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # H3 守卫是 node 脚本（`scripts/check-generated-types.mjs`），所以这一步需要 node。
+      # 它只 import `node:` 内置（`node:child_process` / `node:fs` / `node:path` / `node:url`），
+      # **不读 node_modules** ⇒ 不需要 `pnpm install`，也就不需要 pnpm（少一个可变因素）。
+      - name: 安装 Node（H3 守卫用）
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.x'
+
+      - name: 安装 Rust 工具链（版本来自 rust-toolchain.toml）
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          # 不写死 host：让 rustup 按本机的默认 host 解析 `1.99.0`
+          # （三平台各不相同，见本 job 头注）。rustfmt / clippy 是 rust-toolchain.toml
+          # 声明的组件，这里显式装在同一把工具链上——CI 不靠"镜像碰巧装过"。
+          # `1.99.0` 这个**不带 host 的版本号**是合法的 toolchain 说明符（本机实测
+          # `rustup run 1.99.0 cargo --version` → cargo 1.99.0）；`--component` 接受
+          # 逗号分隔列表（`rustup toolchain install --help` 的原文）。
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy
+          rustc -vV
+          cargo --version
+
+      - name: 前置检查（cwd 与工具链 host）
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+
+          # ① cwd：cargo 从这里向上找 `.cargo/config.toml`；找不到就等于
+          #    TS_RS_IMPORT_EXTENSION 没设，H3 守卫会以一种看不懂的方式红。
+          if [ ! -f .cargo/config.toml ]; then
+            echo "::error::当前目录不是仓库根（找不到 .cargo/config.toml）——TS_RS_IMPORT_EXTENSION 会静默失效，H3 守卫必红"
+            exit 1
+          fi
+          if ! grep -q '^TS_RS_IMPORT_EXTENSION' .cargo/config.toml; then
+            echo "::error::.cargo/config.toml 里没有 TS_RS_IMPORT_EXTENSION——生成物的 import 会缺 .js"
+            exit 1
+          fi
+
+          rustup show
+
+          # ② 工具链 host：gnu host 下需要 MinGW 的 as/dlltool（见本 job 头注）。
+          #    这里**不自动安装 MinGW**：GitHub 的 windows runner 默认 host 是 msvc，
+          #    为一条不成立的分支装一套工具链，只会让每次运行都多几分钟和一层依赖。
+          #    真正触发时**明确失败 + 给出修法**，而不是让人对着 dlltool 报错猜。
+          active="$(rustup show active-toolchain | awk '{print $1}')"
+          case "$active" in
+            *-windows-gnu)
+              if ! command -v dlltool >/dev/null 2>&1 || ! command -v as >/dev/null 2>&1; then
+                echo "::error::解析到 GNU host（$active），但 PATH 里没有 dlltool/as。"
+                echo "  修法：见 spec/metrics/toolchain.md §7.2（装 MSYS2 binutils，并把 Rust 自带"
+                echo "  self-contained/libwinpthread-1.dll 放进它的 bin——缺该 DLL 的症状是 0xC0000135）。"
+                echo "  或：确认这台 runner 的 rustup 默认 host 是否本就是 msvc（GitHub 的 windows-latest 是）。"
+                exit 1
+              fi
+              ;;
+          esac
+          echo "工具链 host 检查通过：$active"
+
+      # 下面三步的**顺序是从便宜到贵**（这是刻意的，不是抄清单的顺序）：
+      # 步骤是 fail-fast 的（本仓禁用 continue-on-error），顺序决定"一次运行能看到哪个信号"。
+      # 把 1 秒的 fmt 排在 10 分钟的测试后面，等于让贡献者等完才知道自己忘了 rustfmt。
+      - name: 格式（cargo fmt --all --check）
+        working-directory: ${{ github.workspace }}
+        run: cargo fmt --all --check
+
+      - name: Clippy（--all-targets，告警即失败）
+        working-directory: ${{ github.workspace }}
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: 测试（cargo test --workspace）
+        working-directory: ${{ github.workspace }}
+        # `--no-fail-fast`：一次运行把所有 crate 的失败都跑出来，而不是停在第一个失败的
+        # 二进制目标上——与上面矩阵的 `fail-fast: false` 是同一个取舍（"一个红不该掩盖另一个"）。
+        # ⚠️ 它**不**改变结论：有失败仍然非 0 退出。这与被禁用的 `continue-on-error` 是两回事
+        # （那个是把红变绿，这个只是把"只见一个红"变成"一次看全"）。
+        run: cargo test --workspace --no-fail-fast
+
+      # H3：`src/contracts/generated/` 由 `crates/protocol` 的 ts-rs 导出，纪律是"禁止手改"。
+      # **声明挡不住手改，diff 挡得住**——这一步就是那个 diff：脚本自己跑
+      # `cargo test -p dsh-testkit-protocol` 重新生成，再与仓库内容比对。
+      # 它要求 cwd 是仓库根（生成物的 import 后缀由 .cargo/config.toml 的 [env] 决定）。
+      - name: H3 守卫（重新生成跨语言类型并与仓库内容比对）
+        working-directory: ${{ github.workspace }}
+        run: node scripts/check-generated-types.mjs
+
+  # ───────────────────────────────────────────────────────────────────────
+  # fixtures · 「有外部夹具」这个环境（B4 的第 7 个组合）
+  #
+  # ## 它补的是哪条轴
+  #
+  # B4（环境覆盖）的两个未覆盖轴之一：`ENV-AXIS-FIXTURES`
+  # （见 `spec/contracts/environments.yaml`）。7 条场景依赖 `$FIXTURES/dsh-memory-0.8.1`，
+  # 而 `.fixtures/` 被 gitignore ⇒ **全新检出时它不存在** ⇒
+  # 上面那 6 个 gate 组合**从来没有覆盖过"有夹具"这个环境**
+  # （缺失时 driver 会**如实 `SkipCase`**，所以"CI 绿"里那 7 条一直是 skip 的）。
+  #
+  # ## 为什么单独一个 job，而不是塞进 gate 的矩阵
+  #
+  # 夹具是 40MB+ 的下载，且**只影响那 7 条场景**。在 3 个 OS × 2 个 Node 上各下一遍，
+  # 是 **6 倍的下载换 0 倍的判别力**（那 7 条场景与平台无关）。
+  # 所以：**单平台 + 单 Node**，只把"有夹具"这个环境补上——B4 从 6/8 变成 7/8。
+  #
+  # ## 三条如实说明
+  #
+  # 1. 这个 job **不是** gate 的替代品：它跑的同一条 `pnpm run gate`，区别只是"跑之前先备好夹具"。
+  # 2. **顺序不能反**：若夹具没到位，那 7 条会 skip，这一步就退化成"第 7 次普通 gate"——
+  #    **它会绿，但它什么都没证明**（这正是这条轴此前一直没被发现的原因）。
+  #    所以中间那一步 `verify-fixtures.mjs` 是**提前失败**用的，不是装饰。
+  # 3. **代价与失败归属**：多一次 40MB 下载 + 一次完整 gate（约 2 分钟）。若上游 registry 不可达，
+  #    这一步会红——但它**指向上游**，不是代码问题。这与 gate 自己"必须能离线跑通"的分工不冲突：
+  #    因为这是**独立 job**，它的红不会把 gate 的结论污染掉。
+  # ───────────────────────────────────────────────────────────────────────
+  fixtures:
+    name: fixtures · 有夹具环境（B4 第 7 组合）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # ⚠️ 这个版本必须与 package.json 的 `packageManager` 完全相同
+      # （由 `node scripts/check-lockfile.mjs` 跨文件守卫，与 gate job 同源）。
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.7.0
+
+      - name: 安装 Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.x'
+          cache: pnpm
+
+      - name: 安装依赖（严格按 lockfile）
+        run: pnpm install --frozen-lockfile
+
+      # 先备夹具，再跑同一条 gate（顺序见上面第 2 条说明）。
+      - name: 准备外部夹具
+        run: node scripts/fetch-fixtures.mjs
+
+      # 提前失败：若夹具没真到位，下面那条 gate 会"绿得毫无意义"。
+      - name: 确认夹具真的到位（否则上一步是空转）
+        run: node scripts/verify-fixtures.mjs
+
+      - name: 质量门（与其它组合同一条命令）
+        run: pnpm run gate

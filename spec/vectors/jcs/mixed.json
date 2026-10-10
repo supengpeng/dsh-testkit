@@ -1,0 +1,42 @@
+{
+  "domain": "jcs",
+  "covers": [
+    "nested"
+  ],
+  "note": "混合：接近真实报告的结构（键序 / 数字 / 转义 / 空结构一起出现）",
+  "source": "src/attest/tools/make-jcs-vectors.mjs（oracle = JS 的 JSON.stringify + 默认键排序；RFC 8785 §3.2.2.3 把数字形态定义为 ECMAScript Number::toString）",
+  "cases": [
+    {
+      "id": "mixed-01",
+      "covers": "nested",
+      "note": "一份 run.json 形状的摘要（键序、1.0、嵌套、空数组同时出现）",
+      "input_json": "{\"run_id\":\"a-1\",\"overall\":\"pass\",\"totals\":{\"total\":2,\"failed\":0.0,\"skipped\":0},\"cases\":[],\"uncompared_fields\":[],\"by_layer\":{\"L3\":{\"count\":2,\"confidence\":\"real\"}}}",
+      "expected_hex": "7b2262795f6c61796572223a7b224c33223a7b22636f6e666964656e6365223a227265616c222c22636f756e74223a327d7d2c226361736573223a5b5d2c226f766572616c6c223a2270617373222c2272756e5f6964223a22612d31222c22746f74616c73223a7b226661696c6564223a302c22736b6970706564223a302c22746f74616c223a327d2c22756e636f6d70617265645f6669656c6473223a5b5d7d",
+      "expected_text": "{\"by_layer\":{\"L3\":{\"confidence\":\"real\",\"count\":2}},\"cases\":[],\"overall\":\"pass\",\"run_id\":\"a-1\",\"totals\":{\"failed\":0,\"skipped\":0,\"total\":2},\"uncompared_fields\":[]}"
+    },
+    {
+      "id": "mixed-02",
+      "covers": "nested",
+      "note": "用例数组：每条的键序都要排，数字要规范化",
+      "input_json": "{\"cases\":[{\"id\":\"TK-0001\",\"durationMs\":31.0,\"verdict\":\"passed\"},{\"verdict\":\"failed\",\"id\":\"TK-0002\",\"durationMs\":4.4e1,\"error\":\"\\u65ad\\u8a00\\u5931\\u8d25：expected 1.0\"}]}",
+      "expected_hex": "7b226361736573223a5b7b226475726174696f6e4d73223a33312c226964223a22544b2d30303031222c2276657264696374223a22706173736564227d2c7b226475726174696f6e4d73223a34342c226572726f72223a22e696ade8a880e5a4b1e8b4a5efbc9a657870656374656420312e30222c226964223a22544b2d30303032222c2276657264696374223a226661696c6564227d5d7d",
+      "expected_text": "{\"cases\":[{\"durationMs\":31,\"id\":\"TK-0001\",\"verdict\":\"passed\"},{\"durationMs\":44,\"error\":\"断言失败：expected 1.0\",\"id\":\"TK-0002\",\"verdict\":\"failed\"}]}"
+    },
+    {
+      "id": "mixed-03",
+      "covers": "nested",
+      "note": "键序无关 + 数字形态 + 非 ASCII + 控制字符一起上",
+      "input_json": "{\"b\":1,\"a\":1.0,\"n\":[1e-7,1e21,\"é\",\"\\u0000\"]}",
+      "expected_hex": "7b2261223a312c2262223a312c226e223a5b31652d372c31652b32312c22c3a9222c225c7530303030225d7d",
+      "expected_text": "{\"a\":1,\"b\":1,\"n\":[1e-7,1e+21,\"é\",\"\\u0000\"]}"
+    },
+    {
+      "id": "mixed-04",
+      "covers": "nested",
+      "note": "null / true / false / 嵌套空结构",
+      "input_json": "{\"z\":null,\"y\":true,\"x\":false,\"w\":[[]],\"v\":{}}",
+      "expected_hex": "7b2276223a7b7d2c2277223a5b5b5d5d2c2278223a66616c73652c2279223a747275652c227a223a6e756c6c7d",
+      "expected_text": "{\"v\":{},\"w\":[[]],\"x\":false,\"y\":true,\"z\":null}"
+    }
+  ]
+}

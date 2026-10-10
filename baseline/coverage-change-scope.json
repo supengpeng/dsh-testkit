@@ -1,0 +1,2926 @@
+{
+  "generated_at": "2026-10-10T17:10:58.847Z",
+  "purpose": "B1 的设计口径（Lead 裁决二 + 未列模块归属裁决）：分母 = §1.2「变更」∪ 归属表显式点名者",
+  "ruling": {
+    "decided_on": "2026-10-11",
+    "decided_by": "Lead（阶段 0 裁决）",
+    "rule": "变更清单 = §1.2 逐行解析出的「变更」模块 ∪ 未列模块里被显式点名者；其余未列模块一律「沿用」。依据：没有被要求重写就是沿用，不是没判断。",
+    "default_for_unlisted": "keep",
+    "explicit_change": [
+      {
+        "path": "src/tools.ts",
+        "basis": "RFC 0001 §5.1：注册面数量「工具 13 → 15」（+testkit_collect / testkit_refine）——新增的两个模型工具只能落在 src/tools.ts；设计 §1.2 漏列了它"
+      },
+      {
+        "path": "src/commands.ts",
+        "basis": "Lead 裁决：与上行同源（CLI 子命令 16 → 18，+collect / refine），归入变更"
+      }
+    ],
+    "retracted": [
+      {
+        "ruling": "裁决五",
+        "path": "src/cli/index.ts",
+        "decided_on": "2026-10-11",
+        "retracted_on": "2026-10-11",
+        "retracted_by": "Lead",
+        "was": "change",
+        "now": "keep",
+        "reason": "B1 度量的是「**将要被替换的**行为」，而 RFC §5.1 的「CLI 子命令 16 → 18」是**新增**两个子命令，不是替换两个：既有的 16 个子命令分派逻辑逐字不变（设计 §1.2 判 cli/** 沿用，理由「退出码见 §9.4」；RFC §3.3 要求「既有 CI 脚本零改动」）。裁决五的依据「16→18 物理上只能发生在 cli/index.ts」本身没错，**错在由此推出「所以它算变更」——「一个文件会被改动」与「它承载的行为会被替换」是两件事**。",
+        "consequence": "该文件判回 keep，最终变更清单仍是 **31 个文件**；按 32 文件跑出的那次读数作为**敏感性对照**保留（变体 change_superseded_ruling5，标 superseded）。"
+      }
+    ],
+    "explicit_keep": [
+      {
+        "path": "src/kinds/types.ts",
+        "basis": "Lead 裁决三（采纳 spec-engine 的源码核对）：① 该文件 8 项里 6 项是纯类型（interface/type，编译期消失，没有运行时可观察行为）；② 剩下 2 个值类型的行为已被现有 spec 覆盖（SkipCase → runner.md 的 runner-run-case 三条 observable + tests/skip-semantics.test.mjs；DriverRegistry 在测试里只作宿主构造工具）；③ 它进分母是设计 §1.2「`kinds/*.ts`（12 个 driver）」被 matcher 机械展开（prefix: src/kinds + suffix: .ts）时把 index.ts / types.ts 一并收进去的产物。**这是\"分母错\"，不是\"分子缺\"**。"
+      }
+    ],
+    "notes": [
+      "cli/** 的粒度（裁决五已**撤销**）：既有 16 个子命令的实现与**注册表 cli/index.ts** 一律沿用；RFC §5.1 的「16 → 18」是**新增**，新增部分是新代码，不进 B1 分母（B1 只量旧代码）。撤销留痕见 RULING.retracted；按 32 文件的那次读数作为敏感性对照保留（变体 change_superseded_ruling5）。",
+      "§1.2 与裁决表都未逐条点名的未列文件按 default_for_unlisted 归入沿用：src/adapters/dsh/tools.ts、src/export/node-test.ts、src/export/write.ts、src/runtime/refs.ts、src/runtime/runlog.ts。",
+      "其中 src/runtime/runlog.ts 另有旁证：REWRITE-METRICS §2 A4 写「沿用既有 src/runtime/runlog.ts 的枚举」。",
+      "src/kinds/index.ts **保留在变更**（Lead 裁决四）：spec-engine 已把它的成本档位真源覆盖进 policy.md::policy-driver-cost（DRIVER_COST 12 项 + withDriverCost + createDriverRegistry），它确实会随 BaseTool 化而变更。",
+      "src/fixtures/**（5 个文件）**归沿用**（Lead 裁决 3）：依据是设计 §9.1 明确「复用既有 fixtures 的 dshVersion 兼容机制，不新造第二套」——这不是\"文档没提\"，而是**设计明确要求复用**。",
+      "注册面缺口（Lead 裁决 2）：src/tools.ts 与 src/commands.ts 进了分母，spec-engine 已新增 spec/behaviors/engine/surfaces.md（engine 模块 6 → 7）用 **active** 条目 model-tools / plugin-command 覆盖它们。",
+      "src/client.ts 与 lib/client.js（esbuild 产物）不进任何口径：它的编译产物被 client 半产物覆盖，无法按 TS 逐文件测量。"
+    ]
+  },
+  "classification": {
+    "change_1_2_only": 30,
+    "change_without_ruling3": 32,
+    "change_superseded_ruling5": 32,
+    "change_final": 31,
+    "keep_final": 78,
+    "unlisted_by_1_2": 62,
+    "cli_dir": 10,
+    "total_src_files_mapped": 109
+  },
+  "change_final": [
+    "src/analysis/causes.ts",
+    "src/analysis/classify.ts",
+    "src/analysis/repro.ts",
+    "src/commands.ts",
+    "src/isolation/cleanup.ts",
+    "src/isolation/context.ts",
+    "src/isolation/leaks.ts",
+    "src/isolation/pool.ts",
+    "src/isolation/probes.ts",
+    "src/kinds/agent.ts",
+    "src/kinds/compaction.ts",
+    "src/kinds/file.ts",
+    "src/kinds/fs.ts",
+    "src/kinds/index.ts",
+    "src/kinds/interaction.ts",
+    "src/kinds/llm.ts",
+    "src/kinds/prompt.ts",
+    "src/kinds/resource.ts",
+    "src/kinds/session.ts",
+    "src/kinds/shell.ts",
+    "src/kinds/tool.ts",
+    "src/kinds/ui.ts",
+    "src/report/json.ts",
+    "src/report/junit.ts",
+    "src/report/markdown.ts",
+    "src/report/present.ts",
+    "src/report/redact.ts",
+    "src/runtime/assert.ts",
+    "src/runtime/fixture.ts",
+    "src/runtime/runner.ts",
+    "src/tools.ts"
+  ],
+  "change_final_added_by_ruling": [
+    "src/commands.ts",
+    "src/tools.ts"
+  ],
+  "change_final_removed_by_ruling3": [
+    "src/kinds/types.ts"
+  ],
+  "keep_final": [
+    "src/adapters/dsh/tools.ts",
+    "src/cases/index-file.ts",
+    "src/cases/loader.ts",
+    "src/cases/registry.ts",
+    "src/cases/schema.ts",
+    "src/cases/types.ts",
+    "src/cli/args.ts",
+    "src/cli/commands/insight.ts",
+    "src/cli/commands/inspect.ts",
+    "src/cli/commands/integrate.ts",
+    "src/cli/commands/run.ts",
+    "src/cli/commands/transfer.ts",
+    "src/cli/context.ts",
+    "src/cli/exit.ts",
+    "src/cli/index.ts",
+    "src/cli/io.ts",
+    "src/config.ts",
+    "src/contracts/run.ts",
+    "src/contracts/types.ts",
+    "src/doctor/index.ts",
+    "src/doctor/render.ts",
+    "src/doctor/residue.ts",
+    "src/doctor/run.ts",
+    "src/doctor/runs.ts",
+    "src/doctor/types.ts",
+    "src/dx/index.ts",
+    "src/dx/select.ts",
+    "src/dx/watch.ts",
+    "src/executor/policy.ts",
+    "src/export/node-test.ts",
+    "src/export/write.ts",
+    "src/fixtures/apply.ts",
+    "src/fixtures/compat.ts",
+    "src/fixtures/load.ts",
+    "src/fixtures/schema.ts",
+    "src/fixtures/sensitive.ts",
+    "src/headless/index.ts",
+    "src/headless/services.ts",
+    "src/host-facade.ts",
+    "src/http.ts",
+    "src/index.ts",
+    "src/insight/coverage.ts",
+    "src/insight/search.ts",
+    "src/insight/trend.ts",
+    "src/kinds/types.ts",
+    "src/pipeline/index.ts",
+    "src/pipeline/ledger.ts",
+    "src/pipeline/quality.ts",
+    "src/pipeline/store.ts",
+    "src/pipeline/types.ts",
+    "src/registry/expand.ts",
+    "src/registry/index.ts",
+    "src/registry/loader.ts",
+    "src/registry/templates.ts",
+    "src/runtime/refs.ts",
+    "src/runtime/runlog.ts",
+    "src/selection/bench.ts",
+    "src/selection/by-version.ts",
+    "src/selection/git.ts",
+    "src/selection/index.ts",
+    "src/selection/mapping.ts",
+    "src/surface/runs.ts",
+    "src/surface/selection-args.ts",
+    "src/touchstone/export.ts",
+    "src/touchstone/import.ts",
+    "src/touchstone/index.ts",
+    "src/touchstone/webhook.ts",
+    "src/trace/chrome.ts",
+    "src/trace/index.ts",
+    "src/trace/json.ts",
+    "src/trace/otel.ts",
+    "src/trace/spans.ts",
+    "src/trace/timeline.ts",
+    "src/triage/artifacts.ts",
+    "src/triage/comment.ts",
+    "src/triage/index.ts",
+    "src/triage/issue.ts",
+    "src/triage/route.ts"
+  ],
+  "measurement_fix": "基础排除项里的 export 目录通配改为只匹配生成的测试产物那一项（前者会误伤 lib/export/node-test.js 与 lib/export/write.js）",
+  "variants": {
+    "all_src_fixed": {
+      "label": "all-src-fixed",
+      "kept_files": 109,
+      "excluded_files": 0,
+      "test_exit_code": 0,
+      "parse_exit_code": 0,
+      "wall_ms": 48200,
+      "command": "node --test --experimental-test-coverage --enable-source-maps --test-coverage-exclude=**/node_modules/** --test-coverage-exclude=**/tests/** --test-coverage-exclude=**/scripts/** --test-coverage-exclude=**/bin/** --test-coverage-exclude=**/export/scenarios.test.mjs --test-coverage-exclude=**/lib/client.js tests/contracts/*.test.mjs tests/*.test.mjs export/scenarios.test.mjs",
+      "run_valid": true,
+      "totals": {
+        "tests": 824,
+        "suites": 0,
+        "pass": 816,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 8,
+        "todo": 0,
+        "duration_ms": 44890.4178
+      },
+      "aggregate": {
+        "line": 90.62,
+        "branch": 78.03,
+        "funcs": 88.09
+      },
+      "file_rows": 107,
+      "files": [
+        {
+          "path": "src/adapters/dsh/tools.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/causes.ts",
+          "line": 99.2,
+          "branch": 93.59,
+          "funcs": 100,
+          "uncovered": "356 365-366"
+        },
+        {
+          "path": "src/analysis/classify.ts",
+          "line": 100,
+          "branch": 97.5,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/repro.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cases/index-file.ts",
+          "line": 98.67,
+          "branch": 58.33,
+          "funcs": 100,
+          "uncovered": "47"
+        },
+        {
+          "path": "src/cases/loader.ts",
+          "line": 90.68,
+          "branch": 66.67,
+          "funcs": 100,
+          "uncovered": "58-59 65-66 69-70 88-90 122-123 131-132 157-158"
+        },
+        {
+          "path": "src/cases/registry.ts",
+          "line": 88.03,
+          "branch": 83.78,
+          "funcs": 87.5,
+          "uncovered": "85-87 101-105 110-115"
+        },
+        {
+          "path": "src/cases/schema.ts",
+          "line": 81.27,
+          "branch": 80.43,
+          "funcs": 90,
+          "uncovered": "110 126-127 129-130 137-138 140-141 152-153 171-172 174-185 216-218 220-221 223-224 237-238 240-241 250-251 255-269 296-298 300 313-314"
+        },
+        {
+          "path": "src/cases/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cli/args.ts",
+          "line": 95.58,
+          "branch": 88.24,
+          "funcs": 88.89,
+          "uncovered": "63-68 180-181"
+        },
+        {
+          "path": "src/cli/commands/insight.ts",
+          "line": 69.04,
+          "branch": 22.22,
+          "funcs": 60,
+          "uncovered": "39-42 103-140 149-153 157-158 164-165 176-177 184-185 199-200 212-221 229-230 234-238 243-244 270-278 287-291 296-297 319-327 335-336 341-342 345-346 351-352 387-395 400-407"
+        },
+        {
+          "path": "src/cli/commands/inspect.ts",
+          "line": 89.51,
+          "branch": 47.89,
+          "funcs": 83.33,
+          "uncovered": "88-92 113-114 154-155 175-182 184-189 208-209 225-226 264-265 278-285 352-355 374-375 396-399"
+        },
+        {
+          "path": "src/cli/commands/integrate.ts",
+          "line": 34.19,
+          "branch": 100,
+          "funcs": 0,
+          "uncovered": "40-50 53-102 111-113 116-120 123-155"
+        },
+        {
+          "path": "src/cli/commands/run.ts",
+          "line": 87.73,
+          "branch": 34.94,
+          "funcs": 77.78,
+          "uncovered": "125-130 279-281 343-354 368 372-373 392-393 442-447 449-450 466-467 474-476 482-483 488-508 512-513 523-524"
+        },
+        {
+          "path": "src/cli/commands/transfer.ts",
+          "line": 59.53,
+          "branch": 19.05,
+          "funcs": 42.86,
+          "uncovered": "55-56 65-66 77 84-109 114-115 138-143 158-159 163-170 186-189 193-196 201-242 253-257"
+        },
+        {
+          "path": "src/cli/context.ts",
+          "line": 85.02,
+          "branch": 65.38,
+          "funcs": 72.73,
+          "uncovered": "116-119 121-124 147-151 157-161 164-170 175-182 233-234 245-246"
+        },
+        {
+          "path": "src/cli/exit.ts",
+          "line": 100,
+          "branch": 66.67,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cli/index.ts",
+          "line": 92.6,
+          "branch": 74.51,
+          "funcs": 100,
+          "uncovered": "121-122 207-210 226-229 231-233 266-273 305 307 331-332"
+        },
+        {
+          "path": "src/cli/io.ts",
+          "line": 100,
+          "branch": 85.71,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/commands.ts",
+          "line": 38.68,
+          "branch": 54.55,
+          "funcs": 23.53,
+          "uncovered": "136 139-219 222-240 243-262 265-277 280-292 295-342 345-405 408-433 436-450 453 456-489 492-512 515-522 525 532 606-610 637-641 676-707 722-831 838-847 850 852-856 859-861 864-868"
+        },
+        {
+          "path": "src/config.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/contracts/run.ts",
+          "line": 98.62,
+          "branch": 94.23,
+          "funcs": 100,
+          "uncovered": "107-109"
+        },
+        {
+          "path": "src/doctor/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/doctor/render.ts",
+          "line": 96.05,
+          "branch": 63.64,
+          "funcs": 100,
+          "uncovered": "89-90 98 100 116 135"
+        },
+        {
+          "path": "src/doctor/residue.ts",
+          "line": 77.55,
+          "branch": 42.11,
+          "funcs": 60,
+          "uncovered": "63-68 70-71 78-79 82-86 92-104 128-130 146-147"
+        },
+        {
+          "path": "src/doctor/run.ts",
+          "line": 93.58,
+          "branch": 84.29,
+          "funcs": 100,
+          "uncovered": "224-230 233-238 240-246 326"
+        },
+        {
+          "path": "src/doctor/runs.ts",
+          "line": 91.41,
+          "branch": 76.92,
+          "funcs": 87.5,
+          "uncovered": "35-41 116-119"
+        },
+        {
+          "path": "src/dx/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/dx/select.ts",
+          "line": 99.7,
+          "branch": 84.72,
+          "funcs": 100,
+          "uncovered": "250"
+        },
+        {
+          "path": "src/dx/watch.ts",
+          "line": 85.9,
+          "branch": 69.23,
+          "funcs": 83.33,
+          "uncovered": "92-93 116-119 123-133 145-147 152-153"
+        },
+        {
+          "path": "src/executor/policy.ts",
+          "line": 100,
+          "branch": 92.45,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/export/node-test.ts",
+          "line": 100,
+          "branch": 89.29,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/export/write.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/fixtures/apply.ts",
+          "line": 96.34,
+          "branch": 87.76,
+          "funcs": 100,
+          "uncovered": "174-180"
+        },
+        {
+          "path": "src/fixtures/compat.ts",
+          "line": 93.86,
+          "branch": 80.58,
+          "funcs": 100,
+          "uncovered": "89-90 92-93 172 178 180 202-210 258 266"
+        },
+        {
+          "path": "src/fixtures/load.ts",
+          "line": 96.13,
+          "branch": 62.16,
+          "funcs": 100,
+          "uncovered": "62-63 112-113 151-152"
+        },
+        {
+          "path": "src/fixtures/schema.ts",
+          "line": 97.83,
+          "branch": 91.18,
+          "funcs": 100,
+          "uncovered": "95-96 120 143"
+        },
+        {
+          "path": "src/fixtures/sensitive.ts",
+          "line": 95.28,
+          "branch": 85,
+          "funcs": 85.71,
+          "uncovered": "81-83 98-100"
+        },
+        {
+          "path": "src/headless/index.ts",
+          "line": 95.16,
+          "branch": 70.59,
+          "funcs": 66.67,
+          "uncovered": "116-120 176-177 182-183"
+        },
+        {
+          "path": "src/headless/services.ts",
+          "line": 98.08,
+          "branch": 91.34,
+          "funcs": 95.08,
+          "uncovered": "71-74 242-246"
+        },
+        {
+          "path": "src/host-facade.ts",
+          "line": 98.71,
+          "branch": 90.91,
+          "funcs": 93.55,
+          "uncovered": "83-85 264-265"
+        },
+        {
+          "path": "src/http.ts",
+          "line": 97.22,
+          "branch": 76.6,
+          "funcs": 83.33,
+          "uncovered": "159-165"
+        },
+        {
+          "path": "src/index.ts",
+          "line": 73.7,
+          "branch": 73.17,
+          "funcs": 44.44,
+          "uncovered": "60-61 64-78 84-86 102-111 133 213-216 264-289 316-349 362-363 365-366 381-382"
+        },
+        {
+          "path": "src/insight/coverage.ts",
+          "line": 96.02,
+          "branch": 93.22,
+          "funcs": 97.14,
+          "uncovered": "134-136 301-309 378-381"
+        },
+        {
+          "path": "src/insight/search.ts",
+          "line": 98.51,
+          "branch": 90.71,
+          "funcs": 96.88,
+          "uncovered": "127-129 183"
+        },
+        {
+          "path": "src/insight/trend.ts",
+          "line": 99.02,
+          "branch": 83.18,
+          "funcs": 100,
+          "uncovered": "125-126 384-385"
+        },
+        {
+          "path": "src/isolation/cleanup.ts",
+          "line": 96.67,
+          "branch": 91.18,
+          "funcs": 88.89,
+          "uncovered": "66-67 149-151 162"
+        },
+        {
+          "path": "src/isolation/context.ts",
+          "line": 98.32,
+          "branch": 80,
+          "funcs": 100,
+          "uncovered": "108-109"
+        },
+        {
+          "path": "src/isolation/leaks.ts",
+          "line": 98.61,
+          "branch": 93.33,
+          "funcs": 100,
+          "uncovered": "68-69"
+        },
+        {
+          "path": "src/isolation/pool.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/isolation/probes.ts",
+          "line": 91.82,
+          "branch": 73.68,
+          "funcs": 85,
+          "uncovered": "140 156-162 197-203 230-245"
+        },
+        {
+          "path": "src/kinds/agent.ts",
+          "line": 95.87,
+          "branch": 83.33,
+          "funcs": 91.18,
+          "uncovered": "277-279 304-305 376-378 380-382 466-467 493-494 535-536 549-552 554-555 559-562 677"
+        },
+        {
+          "path": "src/kinds/compaction.ts",
+          "line": 96.73,
+          "branch": 74.79,
+          "funcs": 100,
+          "uncovered": "169-170 182-183 186-187 229-230 276-277 311-312 329-330 341"
+        },
+        {
+          "path": "src/kinds/file.ts",
+          "line": 96.41,
+          "branch": 84.62,
+          "funcs": 100,
+          "uncovered": "120-121 130-131 181-184 320-322 333"
+        },
+        {
+          "path": "src/kinds/fs.ts",
+          "line": 95.1,
+          "branch": 81.4,
+          "funcs": 95,
+          "uncovered": "222-223 245-246 260-261 276 312 346-359 464-465"
+        },
+        {
+          "path": "src/kinds/index.ts",
+          "line": 100,
+          "branch": 90.91,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/interaction.ts",
+          "line": 97.12,
+          "branch": 78.43,
+          "funcs": 77.78,
+          "uncovered": "176-177 202 232-233 240-241"
+        },
+        {
+          "path": "src/kinds/llm.ts",
+          "line": 91.87,
+          "branch": 89.29,
+          "funcs": 91.67,
+          "uncovered": "235-236 245-262 268-270"
+        },
+        {
+          "path": "src/kinds/prompt.ts",
+          "line": 98.92,
+          "branch": 86.36,
+          "funcs": 100,
+          "uncovered": "132-133"
+        },
+        {
+          "path": "src/kinds/resource.ts",
+          "line": 97.34,
+          "branch": 77.97,
+          "funcs": 100,
+          "uncovered": "158-159 243-244 252-253 262"
+        },
+        {
+          "path": "src/kinds/session.ts",
+          "line": 94.69,
+          "branch": 80.24,
+          "funcs": 96.15,
+          "uncovered": "313-315 370-371 375-376 388-389 462-466 469-479 510 547-548 550 594-596"
+        },
+        {
+          "path": "src/kinds/shell.ts",
+          "line": 96.62,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "110-116 118-119 295"
+        },
+        {
+          "path": "src/kinds/tool.ts",
+          "line": 99.2,
+          "branch": 88.96,
+          "funcs": 95.45,
+          "uncovered": "272 303 616-618"
+        },
+        {
+          "path": "src/kinds/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/ui.ts",
+          "line": 98.28,
+          "branch": 88.71,
+          "funcs": 87.5,
+          "uncovered": "287-291 347"
+        },
+        {
+          "path": "src/pipeline/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/pipeline/ledger.ts",
+          "line": 97.96,
+          "branch": 83.87,
+          "funcs": 100,
+          "uncovered": "38 60-61"
+        },
+        {
+          "path": "src/pipeline/quality.ts",
+          "line": 87.8,
+          "branch": 82.76,
+          "funcs": 87.5,
+          "uncovered": "44-45 52-54 56-58 83-84 109-113"
+        },
+        {
+          "path": "src/pipeline/store.ts",
+          "line": 88.42,
+          "branch": 63.64,
+          "funcs": 81.4,
+          "uncovered": "191-203 244-245 329-330 344-346 377-378 393-409 416-432 466-467 519-520 539-542 550-551"
+        },
+        {
+          "path": "src/pipeline/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/registry/expand.ts",
+          "line": 93.86,
+          "branch": 84.76,
+          "funcs": 100,
+          "uncovered": "91-101 185 189 195 301-303 327-328 335-336"
+        },
+        {
+          "path": "src/registry/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/registry/loader.ts",
+          "line": 89.68,
+          "branch": 74.15,
+          "funcs": 100,
+          "uncovered": "207-208 213 218 220 225-226 241-243 245-247 268-270 276-277 279-280 286-287 289-290 294-296 298-299 302 304-305 313 321-322 325 330-331 377-379 383-385 393-394 397-398 405"
+        },
+        {
+          "path": "src/registry/templates.ts",
+          "line": 89.64,
+          "branch": 69.57,
+          "funcs": 93.33,
+          "uncovered": "129-131 133-135 149-151 153-155 165-166 170-171 176 180-182 194-195 266-270 282-284 297-298 306-308 343 368-370 406-409"
+        },
+        {
+          "path": "src/report/json.ts",
+          "line": 98.43,
+          "branch": 86.21,
+          "funcs": 100,
+          "uncovered": "90-91"
+        },
+        {
+          "path": "src/report/junit.ts",
+          "line": 98.88,
+          "branch": 94.12,
+          "funcs": 100,
+          "uncovered": "146-147"
+        },
+        {
+          "path": "src/report/markdown.ts",
+          "line": 98.34,
+          "branch": 90.7,
+          "funcs": 100,
+          "uncovered": "156-158"
+        },
+        {
+          "path": "src/report/present.ts",
+          "line": 98.13,
+          "branch": 72.41,
+          "funcs": 100,
+          "uncovered": "100-101"
+        },
+        {
+          "path": "src/report/redact.ts",
+          "line": 97.8,
+          "branch": 62.07,
+          "funcs": 86.96,
+          "uncovered": "120 174-175 190-191"
+        },
+        {
+          "path": "src/runtime/assert.ts",
+          "line": 98.34,
+          "branch": 88.51,
+          "funcs": 100,
+          "uncovered": "66 87-88 202"
+        },
+        {
+          "path": "src/runtime/fixture.ts",
+          "line": 96.59,
+          "branch": 95.65,
+          "funcs": 80,
+          "uncovered": "52-53 87"
+        },
+        {
+          "path": "src/runtime/refs.ts",
+          "line": 94.55,
+          "branch": 33.33,
+          "funcs": 100,
+          "uncovered": "49 51 53"
+        },
+        {
+          "path": "src/runtime/runlog.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/runtime/runner.ts",
+          "line": 92.39,
+          "branch": 81.37,
+          "funcs": 87.5,
+          "uncovered": "173-174 293-294 356-362 370-371 468-469 508-509 556-559 617-620 775-777 807-809 815-822 825-826 828-829 831-832 874 895-899 911-912 916-933"
+        },
+        {
+          "path": "src/selection/bench.ts",
+          "line": 95.04,
+          "branch": 72.22,
+          "funcs": 100,
+          "uncovered": "104-110"
+        },
+        {
+          "path": "src/selection/by-version.ts",
+          "line": 94.17,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "74-76 79-81"
+        },
+        {
+          "path": "src/selection/git.ts",
+          "line": 96.67,
+          "branch": 63.64,
+          "funcs": 100,
+          "uncovered": "79-81"
+        },
+        {
+          "path": "src/selection/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/selection/mapping.ts",
+          "line": 96.15,
+          "branch": 87.38,
+          "funcs": 100,
+          "uncovered": "147-148 150-151 156-158 172-173"
+        },
+        {
+          "path": "src/surface/runs.ts",
+          "line": 92.16,
+          "branch": 50,
+          "funcs": 100,
+          "uncovered": "40-41 44-45"
+        },
+        {
+          "path": "src/surface/selection-args.ts",
+          "line": 55.43,
+          "branch": 20,
+          "funcs": 60,
+          "uncovered": "52-53 58-129 169-172"
+        },
+        {
+          "path": "src/tools.ts",
+          "line": 62.92,
+          "branch": 38.46,
+          "funcs": 57.14,
+          "uncovered": "40-42 45-49 113-158 266-267 307-308 310-311 315-318 320-321 339-340 342-343 347-351 356 374-394 418-491 508-531 550-576 593-614 643-655 672-697 713-734 769-774 782-783 787-788 807-809 812-813 842-844"
+        },
+        {
+          "path": "src/touchstone/export.ts",
+          "line": 96.92,
+          "branch": 52.73,
+          "funcs": 96.3,
+          "uncovered": "263-264 391-392 394-395 406 463 485-486 488-489 491-492 511-512 537 595-596"
+        },
+        {
+          "path": "src/touchstone/import.ts",
+          "line": 90.28,
+          "branch": 74.02,
+          "funcs": 77.78,
+          "uncovered": "135-140 187 197-198 210-211 236-240 305-306 311 315-316 321-322 352-360 390-391 465-467 475-476 478-482 491-494"
+        },
+        {
+          "path": "src/touchstone/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/touchstone/webhook.ts",
+          "line": 90.06,
+          "branch": 62.37,
+          "funcs": 82.35,
+          "uncovered": "169-179 195-196 198-201 207-213 229-233 239-240 349-350 373-387 407-408 429-431 450-451 507-508 510 520-522 529-530 535-540 601 711 755-756 801-802 804-805 833 866-867 877-878 894-901"
+        },
+        {
+          "path": "src/trace/chrome.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/json.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/otel.ts",
+          "line": 100,
+          "branch": 73.68,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/spans.ts",
+          "line": 97.95,
+          "branch": 87.5,
+          "funcs": 87.5,
+          "uncovered": "192-195"
+        },
+        {
+          "path": "src/trace/timeline.ts",
+          "line": 93.5,
+          "branch": 79.17,
+          "funcs": 100,
+          "uncovered": "63-66 83-86"
+        },
+        {
+          "path": "src/triage/artifacts.ts",
+          "line": 96.67,
+          "branch": 90.91,
+          "funcs": 93.75,
+          "uncovered": "125-126 150 207-211"
+        },
+        {
+          "path": "src/triage/comment.ts",
+          "line": 96.81,
+          "branch": 89.19,
+          "funcs": 100,
+          "uncovered": "77-79 98-100"
+        },
+        {
+          "path": "src/triage/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/triage/issue.ts",
+          "line": 96.77,
+          "branch": 85,
+          "funcs": 100,
+          "uncovered": "134-136 153-154"
+        },
+        {
+          "path": "src/triage/route.ts",
+          "line": 100,
+          "branch": 86.67,
+          "funcs": 100,
+          "uncovered": ""
+        }
+      ],
+      "raw_log": "baseline/coverage-stage0-all-src-fixed.log"
+    },
+    "change_1_2_only": {
+      "label": "change-1-2-only",
+      "kept_files": 30,
+      "excluded_files": 79,
+      "test_exit_code": 0,
+      "parse_exit_code": 0,
+      "wall_ms": 49158,
+      "command": "node --test --experimental-test-coverage --enable-source-maps --test-coverage-exclude=**/node_modules/** --test-coverage-exclude=**/tests/** --test-coverage-exclude=**/scripts/** --test-coverage-exclude=**/bin/** --test-coverage-exclude=**/export/scenarios.test.mjs --test-coverage-exclude=**/lib/client.js --test-coverage-exclude=**/lib/adapters/dsh/tools.js --test-coverage-exclude=**/lib/cases/index-file.js --test-coverage-exclude=**/lib/cases/loader.js --test-coverage-exclude=**/lib/cases/registry.js --test-coverage-exclude=**/lib/cases/schema.js --test-coverage-exclude=**/lib/cases/types.js --test-coverage-exclude=**/lib/cli/args.js --test-coverage-exclude=**/lib/cli/commands/insight.js --test-coverage-exclude=**/lib/cli/commands/inspect.js --test-coverage-exclude=**/lib/cli/commands/integrate.js --test-coverage-exclude=**/lib/cli/commands/run.js --test-coverage-exclude=**/lib/cli/commands/transfer.js --test-coverage-exclude=**/lib/cli/context.js --test-coverage-exclude=**/lib/cli/exit.js --test-coverage-exclude=**/lib/cli/index.js --test-coverage-exclude=**/lib/cli/io.js --test-coverage-exclude=**/lib/commands.js --test-coverage-exclude=**/lib/config.js --test-coverage-exclude=**/lib/contracts/run.js --test-coverage-exclude=**/lib/contracts/types.js --test-coverage-exclude=**/lib/doctor/index.js --test-coverage-exclude=**/lib/doctor/render.js --test-coverage-exclude=**/lib/doctor/residue.js --test-coverage-exclude=**/lib/doctor/run.js --test-coverage-exclude=**/lib/doctor/runs.js --test-coverage-exclude=**/lib/doctor/types.js --test-coverage-exclude=**/lib/dx/index.js --test-coverage-exclude=**/lib/dx/select.js --test-coverage-exclude=**/lib/dx/watch.js --test-coverage-exclude=**/lib/executor/policy.js --test-coverage-exclude=**/lib/export/node-test.js --test-coverage-exclude=**/lib/export/write.js --test-coverage-exclude=**/lib/fixtures/apply.js --test-coverage-exclude=**/lib/fixtures/compat.js --test-coverage-exclude=**/lib/fixtures/load.js --test-coverage-exclude=**/lib/fixtures/schema.js --test-coverage-exclude=**/lib/fixtures/sensitive.js --test-coverage-exclude=**/lib/headless/index.js --test-coverage-exclude=**/lib/headless/services.js --test-coverage-exclude=**/lib/host-facade.js --test-coverage-exclude=**/lib/http.js --test-coverage-exclude=**/lib/index.js --test-coverage-exclude=**/lib/insight/coverage.js --test-coverage-exclude=**/lib/insight/search.js --test-coverage-exclude=**/lib/insight/trend.js --test-coverage-exclude=**/lib/pipeline/index.js --test-coverage-exclude=**/lib/pipeline/ledger.js --test-coverage-exclude=**/lib/pipeline/quality.js --test-coverage-exclude=**/lib/pipeline/store.js --test-coverage-exclude=**/lib/pipeline/types.js --test-coverage-exclude=**/lib/registry/expand.js --test-coverage-exclude=**/lib/registry/index.js --test-coverage-exclude=**/lib/registry/loader.js --test-coverage-exclude=**/lib/registry/templates.js --test-coverage-exclude=**/lib/runtime/refs.js --test-coverage-exclude=**/lib/runtime/runlog.js --test-coverage-exclude=**/lib/selection/bench.js --test-coverage-exclude=**/lib/selection/by-version.js --test-coverage-exclude=**/lib/selection/git.js --test-coverage-exclude=**/lib/selection/index.js --test-coverage-exclude=**/lib/selection/mapping.js --test-coverage-exclude=**/lib/surface/runs.js --test-coverage-exclude=**/lib/surface/selection-args.js --test-coverage-exclude=**/lib/tools.js --test-coverage-exclude=**/lib/touchstone/export.js --test-coverage-exclude=**/lib/touchstone/import.js --test-coverage-exclude=**/lib/touchstone/index.js --test-coverage-exclude=**/lib/touchstone/webhook.js --test-coverage-exclude=**/lib/trace/chrome.js --test-coverage-exclude=**/lib/trace/index.js --test-coverage-exclude=**/lib/trace/json.js --test-coverage-exclude=**/lib/trace/otel.js --test-coverage-exclude=**/lib/trace/spans.js --test-coverage-exclude=**/lib/trace/timeline.js --test-coverage-exclude=**/lib/triage/artifacts.js --test-coverage-exclude=**/lib/triage/comment.js --test-coverage-exclude=**/lib/triage/index.js --test-coverage-exclude=**/lib/triage/issue.js --test-coverage-exclude=**/lib/triage/route.js tests/contracts/*.test.mjs tests/*.test.mjs export/scenarios.test.mjs",
+      "run_valid": true,
+      "totals": {
+        "tests": 824,
+        "suites": 0,
+        "pass": 816,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 8,
+        "todo": 0,
+        "duration_ms": 46477.4232
+      },
+      "aggregate": {
+        "line": 96.52,
+        "branch": 83.87,
+        "funcs": 93.8
+      },
+      "file_rows": 30,
+      "files": [
+        {
+          "path": "src/analysis/causes.ts",
+          "line": 99.2,
+          "branch": 92.41,
+          "funcs": 100,
+          "uncovered": "356 365-366"
+        },
+        {
+          "path": "src/analysis/classify.ts",
+          "line": 100,
+          "branch": 97.5,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/repro.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/isolation/cleanup.ts",
+          "line": 96.67,
+          "branch": 91.18,
+          "funcs": 88.89,
+          "uncovered": "66-67 149-151 162"
+        },
+        {
+          "path": "src/isolation/context.ts",
+          "line": 98.32,
+          "branch": 80,
+          "funcs": 100,
+          "uncovered": "108-109"
+        },
+        {
+          "path": "src/isolation/leaks.ts",
+          "line": 98.61,
+          "branch": 93.33,
+          "funcs": 100,
+          "uncovered": "68-69"
+        },
+        {
+          "path": "src/isolation/pool.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/isolation/probes.ts",
+          "line": 91.82,
+          "branch": 73.68,
+          "funcs": 85,
+          "uncovered": "140 156-162 197-203 230-245"
+        },
+        {
+          "path": "src/kinds/agent.ts",
+          "line": 95.87,
+          "branch": 83.33,
+          "funcs": 91.18,
+          "uncovered": "277-279 304-305 376-378 380-382 466-467 493-494 535-536 549-552 554-555 559-562 677"
+        },
+        {
+          "path": "src/kinds/compaction.ts",
+          "line": 96.73,
+          "branch": 74.79,
+          "funcs": 100,
+          "uncovered": "169-170 182-183 186-187 229-230 276-277 311-312 329-330 341"
+        },
+        {
+          "path": "src/kinds/file.ts",
+          "line": 96.41,
+          "branch": 84.62,
+          "funcs": 100,
+          "uncovered": "120-121 130-131 181-184 320-322 333"
+        },
+        {
+          "path": "src/kinds/fs.ts",
+          "line": 95.1,
+          "branch": 81.4,
+          "funcs": 95,
+          "uncovered": "222-223 245-246 260-261 276 312 346-359 464-465"
+        },
+        {
+          "path": "src/kinds/index.ts",
+          "line": 100,
+          "branch": 90.91,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/interaction.ts",
+          "line": 97.94,
+          "branch": 85.11,
+          "funcs": 77.78,
+          "uncovered": "202 232-233 240-241"
+        },
+        {
+          "path": "src/kinds/llm.ts",
+          "line": 91.87,
+          "branch": 90.91,
+          "funcs": 91.67,
+          "uncovered": "235-236 245-262 268-270"
+        },
+        {
+          "path": "src/kinds/prompt.ts",
+          "line": 100,
+          "branch": 88.37,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/resource.ts",
+          "line": 97.34,
+          "branch": 77.97,
+          "funcs": 100,
+          "uncovered": "158-159 243-244 252-253 262"
+        },
+        {
+          "path": "src/kinds/session.ts",
+          "line": 94.69,
+          "branch": 80.24,
+          "funcs": 96.15,
+          "uncovered": "313-315 370-371 375-376 388-389 462-466 469-479 510 547-548 550 594-596"
+        },
+        {
+          "path": "src/kinds/shell.ts",
+          "line": 96.62,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "110-116 118-119 295"
+        },
+        {
+          "path": "src/kinds/tool.ts",
+          "line": 99.2,
+          "branch": 88.96,
+          "funcs": 95.45,
+          "uncovered": "272 303 616-618"
+        },
+        {
+          "path": "src/kinds/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/ui.ts",
+          "line": 98.28,
+          "branch": 88.71,
+          "funcs": 87.5,
+          "uncovered": "287-291 347"
+        },
+        {
+          "path": "src/report/json.ts",
+          "line": 98.43,
+          "branch": 86.21,
+          "funcs": 100,
+          "uncovered": "90-91"
+        },
+        {
+          "path": "src/report/junit.ts",
+          "line": 98.88,
+          "branch": 91.43,
+          "funcs": 100,
+          "uncovered": "146-147"
+        },
+        {
+          "path": "src/report/markdown.ts",
+          "line": 98.34,
+          "branch": 90.7,
+          "funcs": 100,
+          "uncovered": "156-158"
+        },
+        {
+          "path": "src/report/present.ts",
+          "line": 98.13,
+          "branch": 72.41,
+          "funcs": 100,
+          "uncovered": "100-101"
+        },
+        {
+          "path": "src/report/redact.ts",
+          "line": 97.8,
+          "branch": 62.07,
+          "funcs": 86.96,
+          "uncovered": "120 174-175 190-191"
+        },
+        {
+          "path": "src/runtime/assert.ts",
+          "line": 98.34,
+          "branch": 88.51,
+          "funcs": 100,
+          "uncovered": "66 87-88 202"
+        },
+        {
+          "path": "src/runtime/fixture.ts",
+          "line": 96.59,
+          "branch": 95.65,
+          "funcs": 80,
+          "uncovered": "52-53 87"
+        },
+        {
+          "path": "src/runtime/runner.ts",
+          "line": 92.39,
+          "branch": 81.37,
+          "funcs": 87.5,
+          "uncovered": "173-174 293-294 356-362 370-371 468-469 508-509 556-559 617-620 775-777 807-809 815-822 825-826 828-829 831-832 874 895-899 911-912 916-933"
+        }
+      ],
+      "raw_log": "baseline/coverage-stage0-change-1-2-only.log"
+    },
+    "change_without_ruling3": {
+      "label": "change-without-ruling3",
+      "kept_files": 32,
+      "excluded_files": 77,
+      "test_exit_code": 0,
+      "parse_exit_code": 0,
+      "wall_ms": 46360,
+      "command": "node --test --experimental-test-coverage --enable-source-maps --test-coverage-exclude=**/node_modules/** --test-coverage-exclude=**/tests/** --test-coverage-exclude=**/scripts/** --test-coverage-exclude=**/bin/** --test-coverage-exclude=**/export/scenarios.test.mjs --test-coverage-exclude=**/lib/client.js --test-coverage-exclude=**/lib/adapters/dsh/tools.js --test-coverage-exclude=**/lib/cases/index-file.js --test-coverage-exclude=**/lib/cases/loader.js --test-coverage-exclude=**/lib/cases/registry.js --test-coverage-exclude=**/lib/cases/schema.js --test-coverage-exclude=**/lib/cases/types.js --test-coverage-exclude=**/lib/cli/args.js --test-coverage-exclude=**/lib/cli/commands/insight.js --test-coverage-exclude=**/lib/cli/commands/inspect.js --test-coverage-exclude=**/lib/cli/commands/integrate.js --test-coverage-exclude=**/lib/cli/commands/run.js --test-coverage-exclude=**/lib/cli/commands/transfer.js --test-coverage-exclude=**/lib/cli/context.js --test-coverage-exclude=**/lib/cli/exit.js --test-coverage-exclude=**/lib/cli/index.js --test-coverage-exclude=**/lib/cli/io.js --test-coverage-exclude=**/lib/config.js --test-coverage-exclude=**/lib/contracts/run.js --test-coverage-exclude=**/lib/contracts/types.js --test-coverage-exclude=**/lib/doctor/index.js --test-coverage-exclude=**/lib/doctor/render.js --test-coverage-exclude=**/lib/doctor/residue.js --test-coverage-exclude=**/lib/doctor/run.js --test-coverage-exclude=**/lib/doctor/runs.js --test-coverage-exclude=**/lib/doctor/types.js --test-coverage-exclude=**/lib/dx/index.js --test-coverage-exclude=**/lib/dx/select.js --test-coverage-exclude=**/lib/dx/watch.js --test-coverage-exclude=**/lib/executor/policy.js --test-coverage-exclude=**/lib/export/node-test.js --test-coverage-exclude=**/lib/export/write.js --test-coverage-exclude=**/lib/fixtures/apply.js --test-coverage-exclude=**/lib/fixtures/compat.js --test-coverage-exclude=**/lib/fixtures/load.js --test-coverage-exclude=**/lib/fixtures/schema.js --test-coverage-exclude=**/lib/fixtures/sensitive.js --test-coverage-exclude=**/lib/headless/index.js --test-coverage-exclude=**/lib/headless/services.js --test-coverage-exclude=**/lib/host-facade.js --test-coverage-exclude=**/lib/http.js --test-coverage-exclude=**/lib/index.js --test-coverage-exclude=**/lib/insight/coverage.js --test-coverage-exclude=**/lib/insight/search.js --test-coverage-exclude=**/lib/insight/trend.js --test-coverage-exclude=**/lib/pipeline/index.js --test-coverage-exclude=**/lib/pipeline/ledger.js --test-coverage-exclude=**/lib/pipeline/quality.js --test-coverage-exclude=**/lib/pipeline/store.js --test-coverage-exclude=**/lib/pipeline/types.js --test-coverage-exclude=**/lib/registry/expand.js --test-coverage-exclude=**/lib/registry/index.js --test-coverage-exclude=**/lib/registry/loader.js --test-coverage-exclude=**/lib/registry/templates.js --test-coverage-exclude=**/lib/runtime/refs.js --test-coverage-exclude=**/lib/runtime/runlog.js --test-coverage-exclude=**/lib/selection/bench.js --test-coverage-exclude=**/lib/selection/by-version.js --test-coverage-exclude=**/lib/selection/git.js --test-coverage-exclude=**/lib/selection/index.js --test-coverage-exclude=**/lib/selection/mapping.js --test-coverage-exclude=**/lib/surface/runs.js --test-coverage-exclude=**/lib/surface/selection-args.js --test-coverage-exclude=**/lib/touchstone/export.js --test-coverage-exclude=**/lib/touchstone/import.js --test-coverage-exclude=**/lib/touchstone/index.js --test-coverage-exclude=**/lib/touchstone/webhook.js --test-coverage-exclude=**/lib/trace/chrome.js --test-coverage-exclude=**/lib/trace/index.js --test-coverage-exclude=**/lib/trace/json.js --test-coverage-exclude=**/lib/trace/otel.js --test-coverage-exclude=**/lib/trace/spans.js --test-coverage-exclude=**/lib/trace/timeline.js --test-coverage-exclude=**/lib/triage/artifacts.js --test-coverage-exclude=**/lib/triage/comment.js --test-coverage-exclude=**/lib/triage/index.js --test-coverage-exclude=**/lib/triage/issue.js --test-coverage-exclude=**/lib/triage/route.js tests/contracts/*.test.mjs tests/*.test.mjs export/scenarios.test.mjs",
+      "run_valid": true,
+      "totals": {
+        "tests": 824,
+        "suites": 0,
+        "pass": 816,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 8,
+        "todo": 0,
+        "duration_ms": 44209.8918
+      },
+      "aggregate": {
+        "line": 88.87,
+        "branch": 81.46,
+        "funcs": 86.45
+      },
+      "file_rows": 32,
+      "files": [
+        {
+          "path": "src/analysis/causes.ts",
+          "line": 99.2,
+          "branch": 93.59,
+          "funcs": 100,
+          "uncovered": "356 365-366"
+        },
+        {
+          "path": "src/analysis/classify.ts",
+          "line": 100,
+          "branch": 97.5,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/repro.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/commands.ts",
+          "line": 38.68,
+          "branch": 54.55,
+          "funcs": 23.53,
+          "uncovered": "136 139-219 222-240 243-262 265-277 280-292 295-342 345-405 408-433 436-450 453 456-489 492-512 515-522 525 532 606-610 637-641 676-707 722-831 838-847 850 852-856 859-861 864-868"
+        },
+        {
+          "path": "src/isolation/cleanup.ts",
+          "line": 96.67,
+          "branch": 91.18,
+          "funcs": 88.89,
+          "uncovered": "66-67 149-151 162"
+        },
+        {
+          "path": "src/isolation/context.ts",
+          "line": 98.32,
+          "branch": 80,
+          "funcs": 100,
+          "uncovered": "108-109"
+        },
+        {
+          "path": "src/isolation/leaks.ts",
+          "line": 98.61,
+          "branch": 93.33,
+          "funcs": 100,
+          "uncovered": "68-69"
+        },
+        {
+          "path": "src/isolation/pool.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/isolation/probes.ts",
+          "line": 91.82,
+          "branch": 73.68,
+          "funcs": 85,
+          "uncovered": "140 156-162 197-203 230-245"
+        },
+        {
+          "path": "src/kinds/agent.ts",
+          "line": 95.87,
+          "branch": 83.33,
+          "funcs": 91.18,
+          "uncovered": "277-279 304-305 376-378 380-382 466-467 493-494 535-536 549-552 554-555 559-562 677"
+        },
+        {
+          "path": "src/kinds/compaction.ts",
+          "line": 96.73,
+          "branch": 74.79,
+          "funcs": 100,
+          "uncovered": "169-170 182-183 186-187 229-230 276-277 311-312 329-330 341"
+        },
+        {
+          "path": "src/kinds/file.ts",
+          "line": 96.41,
+          "branch": 84.62,
+          "funcs": 100,
+          "uncovered": "120-121 130-131 181-184 320-322 333"
+        },
+        {
+          "path": "src/kinds/fs.ts",
+          "line": 95.1,
+          "branch": 81.4,
+          "funcs": 95,
+          "uncovered": "222-223 245-246 260-261 276 312 346-359 464-465"
+        },
+        {
+          "path": "src/kinds/index.ts",
+          "line": 100,
+          "branch": 90.91,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/interaction.ts",
+          "line": 97.94,
+          "branch": 85.11,
+          "funcs": 77.78,
+          "uncovered": "202 232-233 240-241"
+        },
+        {
+          "path": "src/kinds/llm.ts",
+          "line": 91.87,
+          "branch": 90.91,
+          "funcs": 91.67,
+          "uncovered": "235-236 245-262 268-270"
+        },
+        {
+          "path": "src/kinds/prompt.ts",
+          "line": 100,
+          "branch": 88.37,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/resource.ts",
+          "line": 97.34,
+          "branch": 77.97,
+          "funcs": 100,
+          "uncovered": "158-159 243-244 252-253 262"
+        },
+        {
+          "path": "src/kinds/session.ts",
+          "line": 94.69,
+          "branch": 80.24,
+          "funcs": 96.15,
+          "uncovered": "313-315 370-371 375-376 388-389 462-466 469-479 510 547-548 550 594-596"
+        },
+        {
+          "path": "src/kinds/shell.ts",
+          "line": 96.62,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "110-116 118-119 295"
+        },
+        {
+          "path": "src/kinds/tool.ts",
+          "line": 99.2,
+          "branch": 88.96,
+          "funcs": 95.45,
+          "uncovered": "272 303 616-618"
+        },
+        {
+          "path": "src/kinds/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/ui.ts",
+          "line": 98.28,
+          "branch": 88.71,
+          "funcs": 87.5,
+          "uncovered": "287-291 347"
+        },
+        {
+          "path": "src/report/json.ts",
+          "line": 98.43,
+          "branch": 86.21,
+          "funcs": 100,
+          "uncovered": "90-91"
+        },
+        {
+          "path": "src/report/junit.ts",
+          "line": 98.88,
+          "branch": 94.12,
+          "funcs": 100,
+          "uncovered": "146-147"
+        },
+        {
+          "path": "src/report/markdown.ts",
+          "line": 98.34,
+          "branch": 90.7,
+          "funcs": 100,
+          "uncovered": "156-158"
+        },
+        {
+          "path": "src/report/present.ts",
+          "line": 98.13,
+          "branch": 72.41,
+          "funcs": 100,
+          "uncovered": "100-101"
+        },
+        {
+          "path": "src/report/redact.ts",
+          "line": 97.8,
+          "branch": 62.07,
+          "funcs": 86.96,
+          "uncovered": "120 174-175 190-191"
+        },
+        {
+          "path": "src/runtime/assert.ts",
+          "line": 98.34,
+          "branch": 88.51,
+          "funcs": 100,
+          "uncovered": "66 87-88 202"
+        },
+        {
+          "path": "src/runtime/fixture.ts",
+          "line": 96.59,
+          "branch": 95.65,
+          "funcs": 80,
+          "uncovered": "52-53 87"
+        },
+        {
+          "path": "src/runtime/runner.ts",
+          "line": 92.39,
+          "branch": 81.37,
+          "funcs": 87.5,
+          "uncovered": "173-174 293-294 356-362 370-371 468-469 508-509 556-559 617-620 775-777 807-809 815-822 825-826 828-829 831-832 874 895-899 911-912 916-933"
+        },
+        {
+          "path": "src/tools.ts",
+          "line": 62.92,
+          "branch": 38.46,
+          "funcs": 57.14,
+          "uncovered": "40-42 45-49 113-158 266-267 307-308 310-311 315-318 320-321 339-340 342-343 347-351 356 374-394 418-491 508-531 550-576 593-614 643-655 672-697 713-734 769-774 782-783 787-788 807-809 812-813 842-844"
+        }
+      ],
+      "raw_log": "baseline/coverage-stage0-change-without-ruling3.log"
+    },
+    "change_superseded_ruling5": {
+      "label": "change-superseded-ruling5",
+      "kept_files": 32,
+      "excluded_files": 77,
+      "test_exit_code": 0,
+      "parse_exit_code": 0,
+      "wall_ms": 49163,
+      "command": "node --test --experimental-test-coverage --enable-source-maps --test-coverage-exclude=**/node_modules/** --test-coverage-exclude=**/tests/** --test-coverage-exclude=**/scripts/** --test-coverage-exclude=**/bin/** --test-coverage-exclude=**/export/scenarios.test.mjs --test-coverage-exclude=**/lib/client.js --test-coverage-exclude=**/lib/adapters/dsh/tools.js --test-coverage-exclude=**/lib/cases/index-file.js --test-coverage-exclude=**/lib/cases/loader.js --test-coverage-exclude=**/lib/cases/registry.js --test-coverage-exclude=**/lib/cases/schema.js --test-coverage-exclude=**/lib/cases/types.js --test-coverage-exclude=**/lib/cli/args.js --test-coverage-exclude=**/lib/cli/commands/insight.js --test-coverage-exclude=**/lib/cli/commands/inspect.js --test-coverage-exclude=**/lib/cli/commands/integrate.js --test-coverage-exclude=**/lib/cli/commands/run.js --test-coverage-exclude=**/lib/cli/commands/transfer.js --test-coverage-exclude=**/lib/cli/context.js --test-coverage-exclude=**/lib/cli/exit.js --test-coverage-exclude=**/lib/cli/io.js --test-coverage-exclude=**/lib/config.js --test-coverage-exclude=**/lib/contracts/run.js --test-coverage-exclude=**/lib/contracts/types.js --test-coverage-exclude=**/lib/doctor/index.js --test-coverage-exclude=**/lib/doctor/render.js --test-coverage-exclude=**/lib/doctor/residue.js --test-coverage-exclude=**/lib/doctor/run.js --test-coverage-exclude=**/lib/doctor/runs.js --test-coverage-exclude=**/lib/doctor/types.js --test-coverage-exclude=**/lib/dx/index.js --test-coverage-exclude=**/lib/dx/select.js --test-coverage-exclude=**/lib/dx/watch.js --test-coverage-exclude=**/lib/executor/policy.js --test-coverage-exclude=**/lib/export/node-test.js --test-coverage-exclude=**/lib/export/write.js --test-coverage-exclude=**/lib/fixtures/apply.js --test-coverage-exclude=**/lib/fixtures/compat.js --test-coverage-exclude=**/lib/fixtures/load.js --test-coverage-exclude=**/lib/fixtures/schema.js --test-coverage-exclude=**/lib/fixtures/sensitive.js --test-coverage-exclude=**/lib/headless/index.js --test-coverage-exclude=**/lib/headless/services.js --test-coverage-exclude=**/lib/host-facade.js --test-coverage-exclude=**/lib/http.js --test-coverage-exclude=**/lib/index.js --test-coverage-exclude=**/lib/insight/coverage.js --test-coverage-exclude=**/lib/insight/search.js --test-coverage-exclude=**/lib/insight/trend.js --test-coverage-exclude=**/lib/kinds/types.js --test-coverage-exclude=**/lib/pipeline/index.js --test-coverage-exclude=**/lib/pipeline/ledger.js --test-coverage-exclude=**/lib/pipeline/quality.js --test-coverage-exclude=**/lib/pipeline/store.js --test-coverage-exclude=**/lib/pipeline/types.js --test-coverage-exclude=**/lib/registry/expand.js --test-coverage-exclude=**/lib/registry/index.js --test-coverage-exclude=**/lib/registry/loader.js --test-coverage-exclude=**/lib/registry/templates.js --test-coverage-exclude=**/lib/runtime/refs.js --test-coverage-exclude=**/lib/runtime/runlog.js --test-coverage-exclude=**/lib/selection/bench.js --test-coverage-exclude=**/lib/selection/by-version.js --test-coverage-exclude=**/lib/selection/git.js --test-coverage-exclude=**/lib/selection/index.js --test-coverage-exclude=**/lib/selection/mapping.js --test-coverage-exclude=**/lib/surface/runs.js --test-coverage-exclude=**/lib/surface/selection-args.js --test-coverage-exclude=**/lib/touchstone/export.js --test-coverage-exclude=**/lib/touchstone/import.js --test-coverage-exclude=**/lib/touchstone/index.js --test-coverage-exclude=**/lib/touchstone/webhook.js --test-coverage-exclude=**/lib/trace/chrome.js --test-coverage-exclude=**/lib/trace/index.js --test-coverage-exclude=**/lib/trace/json.js --test-coverage-exclude=**/lib/trace/otel.js --test-coverage-exclude=**/lib/trace/spans.js --test-coverage-exclude=**/lib/trace/timeline.js --test-coverage-exclude=**/lib/triage/artifacts.js --test-coverage-exclude=**/lib/triage/comment.js --test-coverage-exclude=**/lib/triage/index.js --test-coverage-exclude=**/lib/triage/issue.js --test-coverage-exclude=**/lib/triage/route.js tests/contracts/*.test.mjs tests/*.test.mjs export/scenarios.test.mjs",
+      "run_valid": true,
+      "totals": {
+        "tests": 824,
+        "suites": 0,
+        "pass": 816,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 8,
+        "todo": 0,
+        "duration_ms": 46922.8036
+      },
+      "aggregate": {
+        "line": 88.8,
+        "branch": 81.21,
+        "funcs": 86.6
+      },
+      "file_rows": 32,
+      "files": [
+        {
+          "path": "src/analysis/causes.ts",
+          "line": 99.2,
+          "branch": 93.59,
+          "funcs": 100,
+          "uncovered": "356 365-366"
+        },
+        {
+          "path": "src/analysis/classify.ts",
+          "line": 100,
+          "branch": 97.5,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/repro.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cli/index.ts",
+          "line": 92.6,
+          "branch": 74.51,
+          "funcs": 100,
+          "uncovered": "121-122 207-210 226-229 231-233 266-273 305 307 331-332"
+        },
+        {
+          "path": "src/commands.ts",
+          "line": 38.68,
+          "branch": 54.55,
+          "funcs": 23.53,
+          "uncovered": "136 139-219 222-240 243-262 265-277 280-292 295-342 345-405 408-433 436-450 453 456-489 492-512 515-522 525 532 606-610 637-641 676-707 722-831 838-847 850 852-856 859-861 864-868"
+        },
+        {
+          "path": "src/isolation/cleanup.ts",
+          "line": 96.67,
+          "branch": 91.18,
+          "funcs": 88.89,
+          "uncovered": "66-67 149-151 162"
+        },
+        {
+          "path": "src/isolation/context.ts",
+          "line": 98.32,
+          "branch": 80,
+          "funcs": 100,
+          "uncovered": "108-109"
+        },
+        {
+          "path": "src/isolation/leaks.ts",
+          "line": 98.61,
+          "branch": 93.33,
+          "funcs": 100,
+          "uncovered": "68-69"
+        },
+        {
+          "path": "src/isolation/pool.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/isolation/probes.ts",
+          "line": 91.82,
+          "branch": 73.68,
+          "funcs": 85,
+          "uncovered": "140 156-162 197-203 230-245"
+        },
+        {
+          "path": "src/kinds/agent.ts",
+          "line": 95.87,
+          "branch": 83.33,
+          "funcs": 91.18,
+          "uncovered": "277-279 304-305 376-378 380-382 466-467 493-494 535-536 549-552 554-555 559-562 677"
+        },
+        {
+          "path": "src/kinds/compaction.ts",
+          "line": 96.73,
+          "branch": 74.79,
+          "funcs": 100,
+          "uncovered": "169-170 182-183 186-187 229-230 276-277 311-312 329-330 341"
+        },
+        {
+          "path": "src/kinds/file.ts",
+          "line": 96.41,
+          "branch": 84.62,
+          "funcs": 100,
+          "uncovered": "120-121 130-131 181-184 320-322 333"
+        },
+        {
+          "path": "src/kinds/fs.ts",
+          "line": 95.1,
+          "branch": 81.4,
+          "funcs": 95,
+          "uncovered": "222-223 245-246 260-261 276 312 346-359 464-465"
+        },
+        {
+          "path": "src/kinds/index.ts",
+          "line": 100,
+          "branch": 90.91,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/interaction.ts",
+          "line": 97.94,
+          "branch": 85.11,
+          "funcs": 77.78,
+          "uncovered": "202 232-233 240-241"
+        },
+        {
+          "path": "src/kinds/llm.ts",
+          "line": 91.87,
+          "branch": 90.91,
+          "funcs": 91.67,
+          "uncovered": "235-236 245-262 268-270"
+        },
+        {
+          "path": "src/kinds/prompt.ts",
+          "line": 100,
+          "branch": 88.37,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/resource.ts",
+          "line": 97.34,
+          "branch": 77.97,
+          "funcs": 100,
+          "uncovered": "158-159 243-244 252-253 262"
+        },
+        {
+          "path": "src/kinds/session.ts",
+          "line": 94.69,
+          "branch": 80.24,
+          "funcs": 96.15,
+          "uncovered": "313-315 370-371 375-376 388-389 462-466 469-479 510 547-548 550 594-596"
+        },
+        {
+          "path": "src/kinds/shell.ts",
+          "line": 96.62,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "110-116 118-119 295"
+        },
+        {
+          "path": "src/kinds/tool.ts",
+          "line": 99.2,
+          "branch": 88.96,
+          "funcs": 95.45,
+          "uncovered": "272 303 616-618"
+        },
+        {
+          "path": "src/kinds/ui.ts",
+          "line": 98.28,
+          "branch": 88.71,
+          "funcs": 87.5,
+          "uncovered": "287-291 347"
+        },
+        {
+          "path": "src/report/json.ts",
+          "line": 96.85,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "90-91 103-104"
+        },
+        {
+          "path": "src/report/junit.ts",
+          "line": 98.88,
+          "branch": 94.12,
+          "funcs": 100,
+          "uncovered": "146-147"
+        },
+        {
+          "path": "src/report/markdown.ts",
+          "line": 98.34,
+          "branch": 90.7,
+          "funcs": 100,
+          "uncovered": "156-158"
+        },
+        {
+          "path": "src/report/present.ts",
+          "line": 98.13,
+          "branch": 72.41,
+          "funcs": 100,
+          "uncovered": "100-101"
+        },
+        {
+          "path": "src/report/redact.ts",
+          "line": 97.8,
+          "branch": 62.07,
+          "funcs": 86.96,
+          "uncovered": "120 174-175 190-191"
+        },
+        {
+          "path": "src/runtime/assert.ts",
+          "line": 98.34,
+          "branch": 88.51,
+          "funcs": 100,
+          "uncovered": "66 87-88 202"
+        },
+        {
+          "path": "src/runtime/fixture.ts",
+          "line": 96.59,
+          "branch": 95.65,
+          "funcs": 80,
+          "uncovered": "52-53 87"
+        },
+        {
+          "path": "src/runtime/runner.ts",
+          "line": 92.39,
+          "branch": 81.37,
+          "funcs": 87.5,
+          "uncovered": "173-174 293-294 356-362 370-371 468-469 508-509 556-559 617-620 775-777 807-809 815-822 825-826 828-829 831-832 874 895-899 911-912 916-933"
+        },
+        {
+          "path": "src/tools.ts",
+          "line": 62.92,
+          "branch": 38.46,
+          "funcs": 57.14,
+          "uncovered": "40-42 45-49 113-158 266-267 307-308 310-311 315-318 320-321 339-340 342-343 347-351 356 374-394 418-491 508-531 550-576 593-614 643-655 672-697 713-734 769-774 782-783 787-788 807-809 812-813 842-844"
+        }
+      ],
+      "raw_log": "baseline/coverage-stage0-change-superseded-ruling5.log"
+    },
+    "change_final": {
+      "label": "change-final",
+      "kept_files": 31,
+      "excluded_files": 78,
+      "test_exit_code": 0,
+      "parse_exit_code": 0,
+      "wall_ms": 48244,
+      "command": "node --test --experimental-test-coverage --enable-source-maps --test-coverage-exclude=**/node_modules/** --test-coverage-exclude=**/tests/** --test-coverage-exclude=**/scripts/** --test-coverage-exclude=**/bin/** --test-coverage-exclude=**/export/scenarios.test.mjs --test-coverage-exclude=**/lib/client.js --test-coverage-exclude=**/lib/adapters/dsh/tools.js --test-coverage-exclude=**/lib/cases/index-file.js --test-coverage-exclude=**/lib/cases/loader.js --test-coverage-exclude=**/lib/cases/registry.js --test-coverage-exclude=**/lib/cases/schema.js --test-coverage-exclude=**/lib/cases/types.js --test-coverage-exclude=**/lib/cli/args.js --test-coverage-exclude=**/lib/cli/commands/insight.js --test-coverage-exclude=**/lib/cli/commands/inspect.js --test-coverage-exclude=**/lib/cli/commands/integrate.js --test-coverage-exclude=**/lib/cli/commands/run.js --test-coverage-exclude=**/lib/cli/commands/transfer.js --test-coverage-exclude=**/lib/cli/context.js --test-coverage-exclude=**/lib/cli/exit.js --test-coverage-exclude=**/lib/cli/index.js --test-coverage-exclude=**/lib/cli/io.js --test-coverage-exclude=**/lib/config.js --test-coverage-exclude=**/lib/contracts/run.js --test-coverage-exclude=**/lib/contracts/types.js --test-coverage-exclude=**/lib/doctor/index.js --test-coverage-exclude=**/lib/doctor/render.js --test-coverage-exclude=**/lib/doctor/residue.js --test-coverage-exclude=**/lib/doctor/run.js --test-coverage-exclude=**/lib/doctor/runs.js --test-coverage-exclude=**/lib/doctor/types.js --test-coverage-exclude=**/lib/dx/index.js --test-coverage-exclude=**/lib/dx/select.js --test-coverage-exclude=**/lib/dx/watch.js --test-coverage-exclude=**/lib/executor/policy.js --test-coverage-exclude=**/lib/export/node-test.js --test-coverage-exclude=**/lib/export/write.js --test-coverage-exclude=**/lib/fixtures/apply.js --test-coverage-exclude=**/lib/fixtures/compat.js --test-coverage-exclude=**/lib/fixtures/load.js --test-coverage-exclude=**/lib/fixtures/schema.js --test-coverage-exclude=**/lib/fixtures/sensitive.js --test-coverage-exclude=**/lib/headless/index.js --test-coverage-exclude=**/lib/headless/services.js --test-coverage-exclude=**/lib/host-facade.js --test-coverage-exclude=**/lib/http.js --test-coverage-exclude=**/lib/index.js --test-coverage-exclude=**/lib/insight/coverage.js --test-coverage-exclude=**/lib/insight/search.js --test-coverage-exclude=**/lib/insight/trend.js --test-coverage-exclude=**/lib/kinds/types.js --test-coverage-exclude=**/lib/pipeline/index.js --test-coverage-exclude=**/lib/pipeline/ledger.js --test-coverage-exclude=**/lib/pipeline/quality.js --test-coverage-exclude=**/lib/pipeline/store.js --test-coverage-exclude=**/lib/pipeline/types.js --test-coverage-exclude=**/lib/registry/expand.js --test-coverage-exclude=**/lib/registry/index.js --test-coverage-exclude=**/lib/registry/loader.js --test-coverage-exclude=**/lib/registry/templates.js --test-coverage-exclude=**/lib/runtime/refs.js --test-coverage-exclude=**/lib/runtime/runlog.js --test-coverage-exclude=**/lib/selection/bench.js --test-coverage-exclude=**/lib/selection/by-version.js --test-coverage-exclude=**/lib/selection/git.js --test-coverage-exclude=**/lib/selection/index.js --test-coverage-exclude=**/lib/selection/mapping.js --test-coverage-exclude=**/lib/surface/runs.js --test-coverage-exclude=**/lib/surface/selection-args.js --test-coverage-exclude=**/lib/touchstone/export.js --test-coverage-exclude=**/lib/touchstone/import.js --test-coverage-exclude=**/lib/touchstone/index.js --test-coverage-exclude=**/lib/touchstone/webhook.js --test-coverage-exclude=**/lib/trace/chrome.js --test-coverage-exclude=**/lib/trace/index.js --test-coverage-exclude=**/lib/trace/json.js --test-coverage-exclude=**/lib/trace/otel.js --test-coverage-exclude=**/lib/trace/spans.js --test-coverage-exclude=**/lib/trace/timeline.js --test-coverage-exclude=**/lib/triage/artifacts.js --test-coverage-exclude=**/lib/triage/comment.js --test-coverage-exclude=**/lib/triage/index.js --test-coverage-exclude=**/lib/triage/issue.js --test-coverage-exclude=**/lib/triage/route.js tests/contracts/*.test.mjs tests/*.test.mjs export/scenarios.test.mjs",
+      "run_valid": true,
+      "totals": {
+        "tests": 824,
+        "suites": 0,
+        "pass": 816,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 8,
+        "todo": 0,
+        "duration_ms": 45422.8437
+      },
+      "aggregate": {
+        "line": 88.65,
+        "branch": 81.25,
+        "funcs": 86.27
+      },
+      "file_rows": 31,
+      "files": [
+        {
+          "path": "src/analysis/causes.ts",
+          "line": 99.2,
+          "branch": 93.59,
+          "funcs": 100,
+          "uncovered": "356 365-366"
+        },
+        {
+          "path": "src/analysis/classify.ts",
+          "line": 100,
+          "branch": 97.5,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/repro.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/commands.ts",
+          "line": 38.68,
+          "branch": 54.55,
+          "funcs": 23.53,
+          "uncovered": "136 139-219 222-240 243-262 265-277 280-292 295-342 345-405 408-433 436-450 453 456-489 492-512 515-522 525 532 606-610 637-641 676-707 722-831 838-847 850 852-856 859-861 864-868"
+        },
+        {
+          "path": "src/isolation/cleanup.ts",
+          "line": 96.67,
+          "branch": 91.18,
+          "funcs": 88.89,
+          "uncovered": "66-67 149-151 162"
+        },
+        {
+          "path": "src/isolation/context.ts",
+          "line": 98.32,
+          "branch": 80,
+          "funcs": 100,
+          "uncovered": "108-109"
+        },
+        {
+          "path": "src/isolation/leaks.ts",
+          "line": 98.61,
+          "branch": 93.33,
+          "funcs": 100,
+          "uncovered": "68-69"
+        },
+        {
+          "path": "src/isolation/pool.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/isolation/probes.ts",
+          "line": 91.82,
+          "branch": 73.68,
+          "funcs": 85,
+          "uncovered": "140 156-162 197-203 230-245"
+        },
+        {
+          "path": "src/kinds/agent.ts",
+          "line": 95.87,
+          "branch": 83.33,
+          "funcs": 91.18,
+          "uncovered": "277-279 304-305 376-378 380-382 466-467 493-494 535-536 549-552 554-555 559-562 677"
+        },
+        {
+          "path": "src/kinds/compaction.ts",
+          "line": 96.73,
+          "branch": 74.79,
+          "funcs": 100,
+          "uncovered": "169-170 182-183 186-187 229-230 276-277 311-312 329-330 341"
+        },
+        {
+          "path": "src/kinds/file.ts",
+          "line": 96.41,
+          "branch": 84.62,
+          "funcs": 100,
+          "uncovered": "120-121 130-131 181-184 320-322 333"
+        },
+        {
+          "path": "src/kinds/fs.ts",
+          "line": 95.1,
+          "branch": 81.4,
+          "funcs": 95,
+          "uncovered": "222-223 245-246 260-261 276 312 346-359 464-465"
+        },
+        {
+          "path": "src/kinds/index.ts",
+          "line": 100,
+          "branch": 90.91,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/interaction.ts",
+          "line": 97.94,
+          "branch": 85.11,
+          "funcs": 77.78,
+          "uncovered": "202 232-233 240-241"
+        },
+        {
+          "path": "src/kinds/llm.ts",
+          "line": 91.87,
+          "branch": 90.91,
+          "funcs": 91.67,
+          "uncovered": "235-236 245-262 268-270"
+        },
+        {
+          "path": "src/kinds/prompt.ts",
+          "line": 98.92,
+          "branch": 86.36,
+          "funcs": 100,
+          "uncovered": "132-133"
+        },
+        {
+          "path": "src/kinds/resource.ts",
+          "line": 97.34,
+          "branch": 77.97,
+          "funcs": 100,
+          "uncovered": "158-159 243-244 252-253 262"
+        },
+        {
+          "path": "src/kinds/session.ts",
+          "line": 94.69,
+          "branch": 80.24,
+          "funcs": 96.15,
+          "uncovered": "313-315 370-371 375-376 388-389 462-466 469-479 510 547-548 550 594-596"
+        },
+        {
+          "path": "src/kinds/shell.ts",
+          "line": 96.62,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "110-116 118-119 295"
+        },
+        {
+          "path": "src/kinds/tool.ts",
+          "line": 99.2,
+          "branch": 88.96,
+          "funcs": 95.45,
+          "uncovered": "272 303 616-618"
+        },
+        {
+          "path": "src/kinds/ui.ts",
+          "line": 98.28,
+          "branch": 88.71,
+          "funcs": 87.5,
+          "uncovered": "287-291 347"
+        },
+        {
+          "path": "src/report/json.ts",
+          "line": 96.85,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "90-91 103-104"
+        },
+        {
+          "path": "src/report/junit.ts",
+          "line": 98.88,
+          "branch": 91.43,
+          "funcs": 100,
+          "uncovered": "146-147"
+        },
+        {
+          "path": "src/report/markdown.ts",
+          "line": 98.34,
+          "branch": 90.7,
+          "funcs": 100,
+          "uncovered": "156-158"
+        },
+        {
+          "path": "src/report/present.ts",
+          "line": 98.13,
+          "branch": 72.41,
+          "funcs": 100,
+          "uncovered": "100-101"
+        },
+        {
+          "path": "src/report/redact.ts",
+          "line": 97.8,
+          "branch": 62.07,
+          "funcs": 86.96,
+          "uncovered": "120 174-175 190-191"
+        },
+        {
+          "path": "src/runtime/assert.ts",
+          "line": 98.34,
+          "branch": 88.51,
+          "funcs": 100,
+          "uncovered": "66 87-88 202"
+        },
+        {
+          "path": "src/runtime/fixture.ts",
+          "line": 96.59,
+          "branch": 95.65,
+          "funcs": 80,
+          "uncovered": "52-53 87"
+        },
+        {
+          "path": "src/runtime/runner.ts",
+          "line": 92.39,
+          "branch": 81.06,
+          "funcs": 87.5,
+          "uncovered": "173-174 293-294 356-362 370-371 468-469 508-509 556-559 617-620 775-777 807-809 815-822 825-826 828-829 831-832 874 895-899 911-912 916-933"
+        },
+        {
+          "path": "src/tools.ts",
+          "line": 62.92,
+          "branch": 38.46,
+          "funcs": 57.14,
+          "uncovered": "40-42 45-49 113-158 266-267 307-308 310-311 315-318 320-321 339-340 342-343 347-351 356 374-394 418-491 508-531 550-576 593-614 643-655 672-697 713-734 769-774 782-783 787-788 807-809 812-813 842-844"
+        }
+      ],
+      "raw_log": "baseline/coverage-stage0-change-final.log"
+    },
+    "change_final_plus_cli": {
+      "label": "change-final-plus-cli",
+      "kept_files": 41,
+      "excluded_files": 68,
+      "test_exit_code": 0,
+      "parse_exit_code": 0,
+      "wall_ms": 52300,
+      "command": "node --test --experimental-test-coverage --enable-source-maps --test-coverage-exclude=**/node_modules/** --test-coverage-exclude=**/tests/** --test-coverage-exclude=**/scripts/** --test-coverage-exclude=**/bin/** --test-coverage-exclude=**/export/scenarios.test.mjs --test-coverage-exclude=**/lib/client.js --test-coverage-exclude=**/lib/adapters/dsh/tools.js --test-coverage-exclude=**/lib/cases/index-file.js --test-coverage-exclude=**/lib/cases/loader.js --test-coverage-exclude=**/lib/cases/registry.js --test-coverage-exclude=**/lib/cases/schema.js --test-coverage-exclude=**/lib/cases/types.js --test-coverage-exclude=**/lib/config.js --test-coverage-exclude=**/lib/contracts/run.js --test-coverage-exclude=**/lib/contracts/types.js --test-coverage-exclude=**/lib/doctor/index.js --test-coverage-exclude=**/lib/doctor/render.js --test-coverage-exclude=**/lib/doctor/residue.js --test-coverage-exclude=**/lib/doctor/run.js --test-coverage-exclude=**/lib/doctor/runs.js --test-coverage-exclude=**/lib/doctor/types.js --test-coverage-exclude=**/lib/dx/index.js --test-coverage-exclude=**/lib/dx/select.js --test-coverage-exclude=**/lib/dx/watch.js --test-coverage-exclude=**/lib/executor/policy.js --test-coverage-exclude=**/lib/export/node-test.js --test-coverage-exclude=**/lib/export/write.js --test-coverage-exclude=**/lib/fixtures/apply.js --test-coverage-exclude=**/lib/fixtures/compat.js --test-coverage-exclude=**/lib/fixtures/load.js --test-coverage-exclude=**/lib/fixtures/schema.js --test-coverage-exclude=**/lib/fixtures/sensitive.js --test-coverage-exclude=**/lib/headless/index.js --test-coverage-exclude=**/lib/headless/services.js --test-coverage-exclude=**/lib/host-facade.js --test-coverage-exclude=**/lib/http.js --test-coverage-exclude=**/lib/index.js --test-coverage-exclude=**/lib/insight/coverage.js --test-coverage-exclude=**/lib/insight/search.js --test-coverage-exclude=**/lib/insight/trend.js --test-coverage-exclude=**/lib/kinds/types.js --test-coverage-exclude=**/lib/pipeline/index.js --test-coverage-exclude=**/lib/pipeline/ledger.js --test-coverage-exclude=**/lib/pipeline/quality.js --test-coverage-exclude=**/lib/pipeline/store.js --test-coverage-exclude=**/lib/pipeline/types.js --test-coverage-exclude=**/lib/registry/expand.js --test-coverage-exclude=**/lib/registry/index.js --test-coverage-exclude=**/lib/registry/loader.js --test-coverage-exclude=**/lib/registry/templates.js --test-coverage-exclude=**/lib/runtime/refs.js --test-coverage-exclude=**/lib/runtime/runlog.js --test-coverage-exclude=**/lib/selection/bench.js --test-coverage-exclude=**/lib/selection/by-version.js --test-coverage-exclude=**/lib/selection/git.js --test-coverage-exclude=**/lib/selection/index.js --test-coverage-exclude=**/lib/selection/mapping.js --test-coverage-exclude=**/lib/surface/runs.js --test-coverage-exclude=**/lib/surface/selection-args.js --test-coverage-exclude=**/lib/touchstone/export.js --test-coverage-exclude=**/lib/touchstone/import.js --test-coverage-exclude=**/lib/touchstone/index.js --test-coverage-exclude=**/lib/touchstone/webhook.js --test-coverage-exclude=**/lib/trace/chrome.js --test-coverage-exclude=**/lib/trace/index.js --test-coverage-exclude=**/lib/trace/json.js --test-coverage-exclude=**/lib/trace/otel.js --test-coverage-exclude=**/lib/trace/spans.js --test-coverage-exclude=**/lib/trace/timeline.js --test-coverage-exclude=**/lib/triage/artifacts.js --test-coverage-exclude=**/lib/triage/comment.js --test-coverage-exclude=**/lib/triage/index.js --test-coverage-exclude=**/lib/triage/issue.js --test-coverage-exclude=**/lib/triage/route.js tests/contracts/*.test.mjs tests/*.test.mjs export/scenarios.test.mjs",
+      "run_valid": true,
+      "totals": {
+        "tests": 824,
+        "suites": 0,
+        "pass": 816,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 8,
+        "todo": 0,
+        "duration_ms": 49759.8192
+      },
+      "aggregate": {
+        "line": 87.05,
+        "branch": 77.11,
+        "funcs": 84.28
+      },
+      "file_rows": 41,
+      "files": [
+        {
+          "path": "src/analysis/causes.ts",
+          "line": 99.2,
+          "branch": 92.41,
+          "funcs": 100,
+          "uncovered": "356 365-366"
+        },
+        {
+          "path": "src/analysis/classify.ts",
+          "line": 100,
+          "branch": 97.5,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/repro.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cli/args.ts",
+          "line": 95.58,
+          "branch": 88.24,
+          "funcs": 88.89,
+          "uncovered": "63-68 180-181"
+        },
+        {
+          "path": "src/cli/commands/insight.ts",
+          "line": 69.04,
+          "branch": 22.22,
+          "funcs": 60,
+          "uncovered": "39-42 103-140 149-153 157-158 164-165 176-177 184-185 199-200 212-221 229-230 234-238 243-244 270-278 287-291 296-297 319-327 335-336 341-342 345-346 351-352 387-395 400-407"
+        },
+        {
+          "path": "src/cli/commands/inspect.ts",
+          "line": 89.51,
+          "branch": 47.89,
+          "funcs": 83.33,
+          "uncovered": "88-92 113-114 154-155 175-182 184-189 208-209 225-226 264-265 278-285 352-355 374-375 396-399"
+        },
+        {
+          "path": "src/cli/commands/integrate.ts",
+          "line": 34.19,
+          "branch": 100,
+          "funcs": 0,
+          "uncovered": "40-50 53-102 111-113 116-120 123-155"
+        },
+        {
+          "path": "src/cli/commands/run.ts",
+          "line": 87.73,
+          "branch": 34.94,
+          "funcs": 77.78,
+          "uncovered": "125-130 279-281 343-354 368 372-373 392-393 442-447 449-450 466-467 474-476 482-483 488-508 512-513 523-524"
+        },
+        {
+          "path": "src/cli/commands/transfer.ts",
+          "line": 59.53,
+          "branch": 19.05,
+          "funcs": 42.86,
+          "uncovered": "55-56 65-66 77 84-109 114-115 138-143 158-159 163-170 186-189 193-196 201-242 253-257"
+        },
+        {
+          "path": "src/cli/context.ts",
+          "line": 85.02,
+          "branch": 65.38,
+          "funcs": 72.73,
+          "uncovered": "116-119 121-124 147-151 157-161 164-170 175-182 233-234 245-246"
+        },
+        {
+          "path": "src/cli/exit.ts",
+          "line": 100,
+          "branch": 66.67,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cli/index.ts",
+          "line": 92.6,
+          "branch": 74.51,
+          "funcs": 100,
+          "uncovered": "121-122 207-210 226-229 231-233 266-273 305 307 331-332"
+        },
+        {
+          "path": "src/cli/io.ts",
+          "line": 100,
+          "branch": 85.71,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/commands.ts",
+          "line": 38.68,
+          "branch": 54.55,
+          "funcs": 23.53,
+          "uncovered": "136 139-219 222-240 243-262 265-277 280-292 295-342 345-405 408-433 436-450 453 456-489 492-512 515-522 525 532 606-610 637-641 676-707 722-831 838-847 850 852-856 859-861 864-868"
+        },
+        {
+          "path": "src/isolation/cleanup.ts",
+          "line": 96.67,
+          "branch": 91.18,
+          "funcs": 88.89,
+          "uncovered": "66-67 149-151 162"
+        },
+        {
+          "path": "src/isolation/context.ts",
+          "line": 98.32,
+          "branch": 80,
+          "funcs": 100,
+          "uncovered": "108-109"
+        },
+        {
+          "path": "src/isolation/leaks.ts",
+          "line": 98.61,
+          "branch": 93.33,
+          "funcs": 100,
+          "uncovered": "68-69"
+        },
+        {
+          "path": "src/isolation/pool.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/isolation/probes.ts",
+          "line": 91.82,
+          "branch": 73.68,
+          "funcs": 85,
+          "uncovered": "140 156-162 197-203 230-245"
+        },
+        {
+          "path": "src/kinds/agent.ts",
+          "line": 95.87,
+          "branch": 83.33,
+          "funcs": 91.18,
+          "uncovered": "277-279 304-305 376-378 380-382 466-467 493-494 535-536 549-552 554-555 559-562 677"
+        },
+        {
+          "path": "src/kinds/compaction.ts",
+          "line": 96.73,
+          "branch": 74.79,
+          "funcs": 100,
+          "uncovered": "169-170 182-183 186-187 229-230 276-277 311-312 329-330 341"
+        },
+        {
+          "path": "src/kinds/file.ts",
+          "line": 96.41,
+          "branch": 84.62,
+          "funcs": 100,
+          "uncovered": "120-121 130-131 181-184 320-322 333"
+        },
+        {
+          "path": "src/kinds/fs.ts",
+          "line": 95.1,
+          "branch": 81.4,
+          "funcs": 95,
+          "uncovered": "222-223 245-246 260-261 276 312 346-359 464-465"
+        },
+        {
+          "path": "src/kinds/index.ts",
+          "line": 100,
+          "branch": 90.91,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/interaction.ts",
+          "line": 97.94,
+          "branch": 85.11,
+          "funcs": 77.78,
+          "uncovered": "202 232-233 240-241"
+        },
+        {
+          "path": "src/kinds/llm.ts",
+          "line": 91.87,
+          "branch": 90.91,
+          "funcs": 91.67,
+          "uncovered": "235-236 245-262 268-270"
+        },
+        {
+          "path": "src/kinds/prompt.ts",
+          "line": 98.92,
+          "branch": 86.36,
+          "funcs": 100,
+          "uncovered": "132-133"
+        },
+        {
+          "path": "src/kinds/resource.ts",
+          "line": 97.34,
+          "branch": 77.97,
+          "funcs": 100,
+          "uncovered": "158-159 243-244 252-253 262"
+        },
+        {
+          "path": "src/kinds/session.ts",
+          "line": 94.69,
+          "branch": 80.24,
+          "funcs": 96.15,
+          "uncovered": "313-315 370-371 375-376 388-389 462-466 469-479 510 547-548 550 594-596"
+        },
+        {
+          "path": "src/kinds/shell.ts",
+          "line": 96.62,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "110-116 118-119 295"
+        },
+        {
+          "path": "src/kinds/tool.ts",
+          "line": 99.2,
+          "branch": 88.96,
+          "funcs": 95.45,
+          "uncovered": "272 303 616-618"
+        },
+        {
+          "path": "src/kinds/ui.ts",
+          "line": 98.28,
+          "branch": 88.71,
+          "funcs": 87.5,
+          "uncovered": "287-291 347"
+        },
+        {
+          "path": "src/report/json.ts",
+          "line": 98.43,
+          "branch": 86.21,
+          "funcs": 100,
+          "uncovered": "90-91"
+        },
+        {
+          "path": "src/report/junit.ts",
+          "line": 98.88,
+          "branch": 94.12,
+          "funcs": 100,
+          "uncovered": "146-147"
+        },
+        {
+          "path": "src/report/markdown.ts",
+          "line": 98.34,
+          "branch": 90.7,
+          "funcs": 100,
+          "uncovered": "156-158"
+        },
+        {
+          "path": "src/report/present.ts",
+          "line": 98.13,
+          "branch": 72.41,
+          "funcs": 100,
+          "uncovered": "100-101"
+        },
+        {
+          "path": "src/report/redact.ts",
+          "line": 97.8,
+          "branch": 62.07,
+          "funcs": 86.96,
+          "uncovered": "120 174-175 190-191"
+        },
+        {
+          "path": "src/runtime/assert.ts",
+          "line": 98.34,
+          "branch": 88.51,
+          "funcs": 100,
+          "uncovered": "66 87-88 202"
+        },
+        {
+          "path": "src/runtime/fixture.ts",
+          "line": 96.59,
+          "branch": 95.65,
+          "funcs": 80,
+          "uncovered": "52-53 87"
+        },
+        {
+          "path": "src/runtime/runner.ts",
+          "line": 92.39,
+          "branch": 81.06,
+          "funcs": 87.5,
+          "uncovered": "173-174 293-294 356-362 370-371 468-469 508-509 556-559 617-620 775-777 807-809 815-822 825-826 828-829 831-832 874 895-899 911-912 916-933"
+        },
+        {
+          "path": "src/tools.ts",
+          "line": 62.92,
+          "branch": 38.46,
+          "funcs": 57.14,
+          "uncovered": "40-42 45-49 113-158 266-267 307-308 310-311 315-318 320-321 339-340 342-343 347-351 356 374-394 418-491 508-531 550-576 593-614 643-655 672-697 713-734 769-774 782-783 787-788 807-809 812-813 842-844"
+        }
+      ],
+      "raw_log": "baseline/coverage-stage0-change-final-plus-cli.log"
+    },
+    "legacy_change_plus_unlisted": {
+      "label": "change-plus-unlisted",
+      "kept_files": 92,
+      "excluded_files": 17,
+      "test_exit_code": 0,
+      "parse_exit_code": 0,
+      "wall_ms": 52522,
+      "command": "node --test --experimental-test-coverage --enable-source-maps --test-coverage-exclude=**/node_modules/** --test-coverage-exclude=**/tests/** --test-coverage-exclude=**/scripts/** --test-coverage-exclude=**/bin/** --test-coverage-exclude=**/export/scenarios.test.mjs --test-coverage-exclude=**/lib/client.js --test-coverage-exclude=**/lib/cases/index-file.js --test-coverage-exclude=**/lib/cases/loader.js --test-coverage-exclude=**/lib/cases/registry.js --test-coverage-exclude=**/lib/cases/schema.js --test-coverage-exclude=**/lib/cases/types.js --test-coverage-exclude=**/lib/cli/args.js --test-coverage-exclude=**/lib/cli/commands/insight.js --test-coverage-exclude=**/lib/cli/commands/inspect.js --test-coverage-exclude=**/lib/cli/commands/integrate.js --test-coverage-exclude=**/lib/cli/commands/run.js --test-coverage-exclude=**/lib/cli/commands/transfer.js --test-coverage-exclude=**/lib/cli/context.js --test-coverage-exclude=**/lib/cli/exit.js --test-coverage-exclude=**/lib/cli/index.js --test-coverage-exclude=**/lib/cli/io.js --test-coverage-exclude=**/lib/executor/policy.js --test-coverage-exclude=**/lib/http.js tests/contracts/*.test.mjs tests/*.test.mjs export/scenarios.test.mjs",
+      "run_valid": true,
+      "totals": {
+        "tests": 824,
+        "suites": 0,
+        "pass": 816,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 8,
+        "todo": 0,
+        "duration_ms": 49335.1086
+      },
+      "aggregate": {
+        "line": 91.44,
+        "branch": 79.84,
+        "funcs": 88.93
+      },
+      "file_rows": 90,
+      "files": [
+        {
+          "path": "src/adapters/dsh/tools.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/causes.ts",
+          "line": 99.2,
+          "branch": 93.59,
+          "funcs": 100,
+          "uncovered": "356 365-366"
+        },
+        {
+          "path": "src/analysis/classify.ts",
+          "line": 100,
+          "branch": 97.5,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/repro.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/commands.ts",
+          "line": 38.68,
+          "branch": 54.55,
+          "funcs": 23.53,
+          "uncovered": "136 139-219 222-240 243-262 265-277 280-292 295-342 345-405 408-433 436-450 453 456-489 492-512 515-522 525 532 606-610 637-641 676-707 722-831 838-847 850 852-856 859-861 864-868"
+        },
+        {
+          "path": "src/config.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/contracts/run.ts",
+          "line": 98.62,
+          "branch": 94.23,
+          "funcs": 100,
+          "uncovered": "107-109"
+        },
+        {
+          "path": "src/doctor/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/doctor/render.ts",
+          "line": 96.05,
+          "branch": 63.64,
+          "funcs": 100,
+          "uncovered": "89-90 98 100 116 135"
+        },
+        {
+          "path": "src/doctor/residue.ts",
+          "line": 77.55,
+          "branch": 42.11,
+          "funcs": 60,
+          "uncovered": "63-68 70-71 78-79 82-86 92-104 128-130 146-147"
+        },
+        {
+          "path": "src/doctor/run.ts",
+          "line": 93.58,
+          "branch": 84.29,
+          "funcs": 100,
+          "uncovered": "224-230 233-238 240-246 326"
+        },
+        {
+          "path": "src/doctor/runs.ts",
+          "line": 91.41,
+          "branch": 76.92,
+          "funcs": 87.5,
+          "uncovered": "35-41 116-119"
+        },
+        {
+          "path": "src/dx/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/dx/select.ts",
+          "line": 99.7,
+          "branch": 84.72,
+          "funcs": 100,
+          "uncovered": "250"
+        },
+        {
+          "path": "src/dx/watch.ts",
+          "line": 85.9,
+          "branch": 69.23,
+          "funcs": 83.33,
+          "uncovered": "92-93 116-119 123-133 145-147 152-153"
+        },
+        {
+          "path": "src/export/node-test.ts",
+          "line": 100,
+          "branch": 89.29,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/export/write.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/fixtures/apply.ts",
+          "line": 96.34,
+          "branch": 87.76,
+          "funcs": 100,
+          "uncovered": "174-180"
+        },
+        {
+          "path": "src/fixtures/compat.ts",
+          "line": 93.86,
+          "branch": 80.58,
+          "funcs": 100,
+          "uncovered": "89-90 92-93 172 178 180 202-210 258 266"
+        },
+        {
+          "path": "src/fixtures/load.ts",
+          "line": 96.13,
+          "branch": 62.16,
+          "funcs": 100,
+          "uncovered": "62-63 112-113 151-152"
+        },
+        {
+          "path": "src/fixtures/schema.ts",
+          "line": 97.83,
+          "branch": 91.18,
+          "funcs": 100,
+          "uncovered": "95-96 120 143"
+        },
+        {
+          "path": "src/fixtures/sensitive.ts",
+          "line": 95.28,
+          "branch": 85,
+          "funcs": 85.71,
+          "uncovered": "81-83 98-100"
+        },
+        {
+          "path": "src/headless/index.ts",
+          "line": 95.16,
+          "branch": 70.59,
+          "funcs": 66.67,
+          "uncovered": "116-120 176-177 182-183"
+        },
+        {
+          "path": "src/headless/services.ts",
+          "line": 98.08,
+          "branch": 91.34,
+          "funcs": 95.08,
+          "uncovered": "71-74 242-246"
+        },
+        {
+          "path": "src/host-facade.ts",
+          "line": 98.71,
+          "branch": 90.91,
+          "funcs": 93.55,
+          "uncovered": "83-85 264-265"
+        },
+        {
+          "path": "src/index.ts",
+          "line": 73.7,
+          "branch": 73.17,
+          "funcs": 44.44,
+          "uncovered": "60-61 64-78 84-86 102-111 133 213-216 264-289 316-349 362-363 365-366 381-382"
+        },
+        {
+          "path": "src/insight/coverage.ts",
+          "line": 96.02,
+          "branch": 93.22,
+          "funcs": 97.14,
+          "uncovered": "134-136 301-309 378-381"
+        },
+        {
+          "path": "src/insight/search.ts",
+          "line": 98.51,
+          "branch": 90.71,
+          "funcs": 96.88,
+          "uncovered": "127-129 183"
+        },
+        {
+          "path": "src/insight/trend.ts",
+          "line": 99.02,
+          "branch": 83.18,
+          "funcs": 100,
+          "uncovered": "125-126 384-385"
+        },
+        {
+          "path": "src/isolation/cleanup.ts",
+          "line": 96.67,
+          "branch": 91.18,
+          "funcs": 88.89,
+          "uncovered": "66-67 149-151 162"
+        },
+        {
+          "path": "src/isolation/context.ts",
+          "line": 98.32,
+          "branch": 80,
+          "funcs": 100,
+          "uncovered": "108-109"
+        },
+        {
+          "path": "src/isolation/leaks.ts",
+          "line": 98.61,
+          "branch": 93.33,
+          "funcs": 100,
+          "uncovered": "68-69"
+        },
+        {
+          "path": "src/isolation/pool.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/isolation/probes.ts",
+          "line": 91.82,
+          "branch": 73.68,
+          "funcs": 85,
+          "uncovered": "140 156-162 197-203 230-245"
+        },
+        {
+          "path": "src/kinds/agent.ts",
+          "line": 95.87,
+          "branch": 83.33,
+          "funcs": 91.18,
+          "uncovered": "277-279 304-305 376-378 380-382 466-467 493-494 535-536 549-552 554-555 559-562 677"
+        },
+        {
+          "path": "src/kinds/compaction.ts",
+          "line": 96.73,
+          "branch": 74.79,
+          "funcs": 100,
+          "uncovered": "169-170 182-183 186-187 229-230 276-277 311-312 329-330 341"
+        },
+        {
+          "path": "src/kinds/file.ts",
+          "line": 96.41,
+          "branch": 84.62,
+          "funcs": 100,
+          "uncovered": "120-121 130-131 181-184 320-322 333"
+        },
+        {
+          "path": "src/kinds/fs.ts",
+          "line": 95.1,
+          "branch": 81.4,
+          "funcs": 95,
+          "uncovered": "222-223 245-246 260-261 276 312 346-359 464-465"
+        },
+        {
+          "path": "src/kinds/index.ts",
+          "line": 100,
+          "branch": 90.91,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/interaction.ts",
+          "line": 97.94,
+          "branch": 85.11,
+          "funcs": 77.78,
+          "uncovered": "202 232-233 240-241"
+        },
+        {
+          "path": "src/kinds/llm.ts",
+          "line": 91.87,
+          "branch": 90.91,
+          "funcs": 91.67,
+          "uncovered": "235-236 245-262 268-270"
+        },
+        {
+          "path": "src/kinds/prompt.ts",
+          "line": 100,
+          "branch": 88.37,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/resource.ts",
+          "line": 97.34,
+          "branch": 77.97,
+          "funcs": 100,
+          "uncovered": "158-159 243-244 252-253 262"
+        },
+        {
+          "path": "src/kinds/session.ts",
+          "line": 94.69,
+          "branch": 80.24,
+          "funcs": 96.15,
+          "uncovered": "313-315 370-371 375-376 388-389 462-466 469-479 510 547-548 550 594-596"
+        },
+        {
+          "path": "src/kinds/shell.ts",
+          "line": 96.62,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "110-116 118-119 295"
+        },
+        {
+          "path": "src/kinds/tool.ts",
+          "line": 99.2,
+          "branch": 88.96,
+          "funcs": 95.45,
+          "uncovered": "272 303 616-618"
+        },
+        {
+          "path": "src/kinds/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/ui.ts",
+          "line": 98.28,
+          "branch": 88.71,
+          "funcs": 87.5,
+          "uncovered": "287-291 347"
+        },
+        {
+          "path": "src/pipeline/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/pipeline/ledger.ts",
+          "line": 97.96,
+          "branch": 83.87,
+          "funcs": 100,
+          "uncovered": "38 60-61"
+        },
+        {
+          "path": "src/pipeline/quality.ts",
+          "line": 87.8,
+          "branch": 82.76,
+          "funcs": 87.5,
+          "uncovered": "44-45 52-54 56-58 83-84 109-113"
+        },
+        {
+          "path": "src/pipeline/store.ts",
+          "line": 88.42,
+          "branch": 63.64,
+          "funcs": 81.4,
+          "uncovered": "191-203 244-245 329-330 344-346 377-378 393-409 416-432 466-467 519-520 539-542 550-551"
+        },
+        {
+          "path": "src/pipeline/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/registry/expand.ts",
+          "line": 93.86,
+          "branch": 84.76,
+          "funcs": 100,
+          "uncovered": "91-101 185 189 195 301-303 327-328 335-336"
+        },
+        {
+          "path": "src/registry/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/registry/loader.ts",
+          "line": 89.68,
+          "branch": 74.15,
+          "funcs": 100,
+          "uncovered": "207-208 213 218 220 225-226 241-243 245-247 268-270 276-277 279-280 286-287 289-290 294-296 298-299 302 304-305 313 321-322 325 330-331 377-379 383-385 393-394 397-398 405"
+        },
+        {
+          "path": "src/registry/templates.ts",
+          "line": 89.64,
+          "branch": 69.57,
+          "funcs": 93.33,
+          "uncovered": "129-131 133-135 149-151 153-155 165-166 170-171 176 180-182 194-195 266-270 282-284 297-298 306-308 343 368-370 406-409"
+        },
+        {
+          "path": "src/report/json.ts",
+          "line": 98.43,
+          "branch": 86.21,
+          "funcs": 100,
+          "uncovered": "90-91"
+        },
+        {
+          "path": "src/report/junit.ts",
+          "line": 98.88,
+          "branch": 94.12,
+          "funcs": 100,
+          "uncovered": "146-147"
+        },
+        {
+          "path": "src/report/markdown.ts",
+          "line": 98.34,
+          "branch": 90.7,
+          "funcs": 100,
+          "uncovered": "156-158"
+        },
+        {
+          "path": "src/report/present.ts",
+          "line": 98.13,
+          "branch": 72.41,
+          "funcs": 100,
+          "uncovered": "100-101"
+        },
+        {
+          "path": "src/report/redact.ts",
+          "line": 97.8,
+          "branch": 62.07,
+          "funcs": 86.96,
+          "uncovered": "120 174-175 190-191"
+        },
+        {
+          "path": "src/runtime/assert.ts",
+          "line": 98.34,
+          "branch": 88.51,
+          "funcs": 100,
+          "uncovered": "66 87-88 202"
+        },
+        {
+          "path": "src/runtime/fixture.ts",
+          "line": 96.59,
+          "branch": 95.65,
+          "funcs": 80,
+          "uncovered": "52-53 87"
+        },
+        {
+          "path": "src/runtime/refs.ts",
+          "line": 94.55,
+          "branch": 33.33,
+          "funcs": 100,
+          "uncovered": "49 51 53"
+        },
+        {
+          "path": "src/runtime/runlog.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/runtime/runner.ts",
+          "line": 92.39,
+          "branch": 81.37,
+          "funcs": 87.5,
+          "uncovered": "173-174 293-294 356-362 370-371 468-469 508-509 556-559 617-620 775-777 807-809 815-822 825-826 828-829 831-832 874 895-899 911-912 916-933"
+        },
+        {
+          "path": "src/selection/bench.ts",
+          "line": 95.04,
+          "branch": 72.22,
+          "funcs": 100,
+          "uncovered": "104-110"
+        },
+        {
+          "path": "src/selection/by-version.ts",
+          "line": 94.17,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "74-76 79-81"
+        },
+        {
+          "path": "src/selection/git.ts",
+          "line": 96.67,
+          "branch": 63.64,
+          "funcs": 100,
+          "uncovered": "79-81"
+        },
+        {
+          "path": "src/selection/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/selection/mapping.ts",
+          "line": 96.15,
+          "branch": 87.38,
+          "funcs": 100,
+          "uncovered": "147-148 150-151 156-158 172-173"
+        },
+        {
+          "path": "src/surface/runs.ts",
+          "line": 92.16,
+          "branch": 50,
+          "funcs": 100,
+          "uncovered": "40-41 44-45"
+        },
+        {
+          "path": "src/surface/selection-args.ts",
+          "line": 55.43,
+          "branch": 20,
+          "funcs": 60,
+          "uncovered": "52-53 58-129 169-172"
+        },
+        {
+          "path": "src/tools.ts",
+          "line": 62.92,
+          "branch": 38.46,
+          "funcs": 57.14,
+          "uncovered": "40-42 45-49 113-158 266-267 307-308 310-311 315-318 320-321 339-340 342-343 347-351 356 374-394 418-491 508-531 550-576 593-614 643-655 672-697 713-734 769-774 782-783 787-788 807-809 812-813 842-844"
+        },
+        {
+          "path": "src/touchstone/export.ts",
+          "line": 96.92,
+          "branch": 52.73,
+          "funcs": 96.3,
+          "uncovered": "263-264 391-392 394-395 406 463 485-486 488-489 491-492 511-512 537 595-596"
+        },
+        {
+          "path": "src/touchstone/import.ts",
+          "line": 90.28,
+          "branch": 74.02,
+          "funcs": 77.78,
+          "uncovered": "135-140 187 197-198 210-211 236-240 305-306 311 315-316 321-322 352-360 390-391 465-467 475-476 478-482 491-494"
+        },
+        {
+          "path": "src/touchstone/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/touchstone/webhook.ts",
+          "line": 90.06,
+          "branch": 62.37,
+          "funcs": 82.35,
+          "uncovered": "169-179 195-196 198-201 207-213 229-233 239-240 349-350 373-387 407-408 429-431 450-451 507-508 510 520-522 529-530 535-540 601 711 755-756 801-802 804-805 833 866-867 877-878 894-901"
+        },
+        {
+          "path": "src/trace/chrome.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/json.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/otel.ts",
+          "line": 100,
+          "branch": 73.68,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/spans.ts",
+          "line": 97.95,
+          "branch": 87.5,
+          "funcs": 87.5,
+          "uncovered": "192-195"
+        },
+        {
+          "path": "src/trace/timeline.ts",
+          "line": 93.5,
+          "branch": 79.17,
+          "funcs": 100,
+          "uncovered": "63-66 83-86"
+        },
+        {
+          "path": "src/triage/artifacts.ts",
+          "line": 96.67,
+          "branch": 90.91,
+          "funcs": 93.75,
+          "uncovered": "125-126 150 207-211"
+        },
+        {
+          "path": "src/triage/comment.ts",
+          "line": 96.81,
+          "branch": 89.19,
+          "funcs": 100,
+          "uncovered": "77-79 98-100"
+        },
+        {
+          "path": "src/triage/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/triage/issue.ts",
+          "line": 96.77,
+          "branch": 85,
+          "funcs": 100,
+          "uncovered": "134-136 153-154"
+        },
+        {
+          "path": "src/triage/route.ts",
+          "line": 100,
+          "branch": 86.67,
+          "funcs": 100,
+          "uncovered": ""
+        }
+      ],
+      "raw_log": "baseline/coverage-stage0-change-plus-unlisted.log"
+    }
+  },
+  "guard": "file_rows === 0 ⇒ 退出码 1（空集合上的 100% 不是覆盖率）"
+}

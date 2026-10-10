@@ -1,0 +1,990 @@
+# spec/contracts/reconcile-fields.yaml —— 指标 A3 的分子 / 分母（**本文件由脚本生成，勿手改**）
+# A3 分子口径 = 在等价关系表里「有明确处置」的字段数（含显式 not-compared）；「表里没有」才是缺口。
+# uncompared_paths（声明了但不比）与 undeclared_paths（表里没有）是两个不同集合，由 disposition 机械区分。
+# 生成器与复算命令见 meta.recompute；枚举口径以 schemas/run-report.schema.json 为唯一真源。
+meta:
+  contract: run.json 逐字段等价关系（对拍真源）
+  metric: A3 对拍字段覆盖率 = spec 声明的字段数 / run.json schema 的叶子字段数
+  metric_source: docs/REWRITE-METRICS.md §2 A3（L64、L72）；阶段 0 门槛 100%（REWRITE-METRICS §15 L318）
+  design_source: docs/REWRITE-DESIGN.md §9.3（L783-L817）
+  schema: schemas/run-report.schema.json
+  schema_sha256: 98a881b85f536bcc0d6ad33a2a7c07f058e3facfae24846f5b5db6b4ac462998
+  schema_has_additional_properties_false_at_root: true
+  generated_by: node C:/Users/19059/AppData/Local/Temp/tk-enum/enumerate-reconcile.mjs <repoRoot> spec/contracts/reconcile-fields.yaml
+  generation_note: 生成器与校验器刻意放在系统临时目录（阶段 0 纪律：临时脚本不写入仓库）；本机绝对路径 C:/Users/19059/AppData/Local/Temp/tk-enum/。枚举规则只有一条：把 $ref 解开、逐 properties/items 下降，遇到没有 properties/items 的节点即为叶子。
+  a3_definition:
+    statement: A3 分子 = 在等价关系表里有**明确处置**的字段数。
+    disposition_values:
+      - exact
+      - normalized
+      - range
+      - set-sorted
+      - lower-bound
+      - 显式 not-compared
+    undeclared_means: "「表里根本没有这个字段」才是缺口（disposition: undeclared）。"
+    ruled_by: lead 2026-10-11
+    rationale: 把"已声明"写死成"有处置"，就不必在「算不算声明」上二选一：`cases[].usage.tokens` 本来就有处置（处置是"不比精确值"），既不是"硬凑成已声明"，也不该被误算成缺口。
+  set_distinction:
+    why_this_matters: A3 能不能当门槛，取决于这两个集合是否被机械区分。
+    undeclared_paths: 表里**没有**该字段 ⇒ A3 缺口。规则：`disposition === "undeclared"`。当前应为空集。
+    uncompared_paths: 表里**有**该字段、但处置是「不比」⇒ A3 分子分母都算，但报告里必须逐条显示（§9.3 纪律 1）。规则：`disposition === "declared-not-compared"`。
+    disjoint_by_construction: true
+    anti_gaming: 若把两个集合混为一谈，A3 会变成「多写几行 not-compared 就能刷到 100%」的假指标。反刷分闸门有两条：① 每个字段带机器可判的 `disposition` 三值（compared / declared-not-compared / undeclared），A3 分子只数 `!== undeclared`；② `meta.not_compared_allowlist` 显式列出**允许**为 not-compared 的路径——verify-reconcile.mjs 对任何不在清单里的 not-compared 直接 FAIL。于是"新增一条 not-compared"必须改这份清单并写明理由，不可能静默发生。
+    counted_toward:
+      a3_numerator: disposition !== undeclared
+      a3_denominator: 全部 schema 叶子
+  not_compared_allowlist:
+    - path: cases[].usage.tokens
+      reason: §9.3 L803 同一行的规则明示「不比精确值，只比 modelCalls 的区间」——处置是「不比」，不是「漏了」。它必须同时出现在 uncompared_paths 里。
+      declared_in: docs/REWRITE-DESIGN.md §9.3 L803
+      added_at: 2026-10-11 阶段0-E（task-5）
+      ruled_by: lead 2026-10-11
+      independent_justification: 语义依据：记账值是**下界**（"不猜"纪律），`tokens` 既无法保证精确、也无法给出有意义的区间 ⇒ 任何数值比对都会在阶段 2 变成噪声。注意它与 `modelCalls` **不同**：`modelCalls` 有 declared 区间可守，`tokens` 没有 ⇒ 两条的处置不同是刻意的。
+    - path: cases[].trace[]
+      reason: "**有意排除，不是覆盖缺口**：trace 是诊断数据（阶段 / 相对偏移 / 步骤轨迹），内容本质过程性且非确定；纳入对拍只会制造大量假阳性，**且它对「新旧行为是否等价」没有信息量**。schema 侧也刻意把 `items` 写成空 schema（自由形状）。"
+      declared_in: schemas/run-report.schema.json $defs.caseOutcome.properties.trace.description（阶段 1 新增，task-16）
+      added_at: 2026-10-11 阶段1-G（task-17）
+      ruled_by: lead 2026-10-11（task-17 指令明确要求 not-compared + 进 allowlist）
+      independent_justification: 与 `usage.tokens` 的理由**不同**：tokens 是"有值但不可信"，trace 是"**有内容但不该比**"。前者排除的是取值比对、后者排除的是整个字段。两条都要能被各自复核，不能共用一句理由。反证：若把 trace 纳入对拍，阶段 2 会把"两次运行的相对偏移不同"报成差异——那是把**过程性数据**当成**行为契约**，是假阳性之源。
+  leaf_enumeration_policy:
+    rule: 把 $ref 解开，逐 `properties` / `items` 下降；遇到既没有 `properties` 也没有 `items` 的节点即为**叶子**。
+    arrays_of_scalars: "`<path>[]`（例如 `cases[].rounds[]` / `cases[].cleanup.released[]`）——数组本身算 1 条叶子，元素不展开。"
+    closed_object_arrays: "`<path>[].<prop>` 逐属性展开（例如 `cases[].releaseFailures[].label`）。"
+    free_shape_arrays:
+      decision: "**算 1 条叶子**，路径记为 `<path>[]`，**不展开 `items` 内部**。"
+      why: '`items` 是空 schema（自由形状）时，内部键集无界 ⇒ 展开会发散（wildcard 爆炸），而"不展开"与"整段不比对"的处置天然一致。'
+      applied_to: "cases[].trace[]（`items: {}`）"
+      alias: 任务书 / task-16 清单里写的 `cases[].trace` ≡ 本文件的 `cases[].trace[]`（两者都是**1 条**，只是命名带不带数组后缀）。
+      consistency: 与本文件既有的数组命名约定一致：任何数组叶子都带 `[]` 后缀（标量数组、自由形状数组同规则）。
+    open_objects: 对象**叶子**未锁 `additionalProperties`（如 `cases[].notes` / `policySnapshot.sandbox`）仍按 1 条叶子计，另打 `open_object_self` 标记；有 `properties` 的开放对象（如 `assertion`）按声明属性逐条展开并打 `open_subtree` 标记。
+    not_a_judgment_call: 本算法是**唯一**口径：不区分"重要/不重要"、不按字段大小决定展开与否。改算法必须改本节并重算 A3。
+  rule_history:
+    note: 读数纪律：`rule` 文本被修订时，原文本保留在下面（不删历史）。
+    entries:
+      - path: cases[].durationMs
+        previous_rule: 落在 spec 声明的 `[min,max]`
+        previous_declared_in: docs/REWRITE-DESIGN.md §9.3 L792
+        changed_at: 2026-10-11 阶段1-G（task-17）
+        new_rule: "ratio: legacy/3 .. legacy*3"
+        why: 绝对区间与机器相关（D1–D3 基线冻结已经踩过这个坑）⇒ 改成可跨机器复算的**比例**区间。
+        ruled_by: spec-engine 定稿（task-17 指令转达）
+      - path: cases[].steps[].durationMs
+        previous_rule: "`Date.now() - t0`（runner.ts:692,721,766）挂钟 ⇒ 只能区间比对；与 `cases[].durationMs` 同源同判据"
+        previous_declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+        changed_at: 2026-10-11 阶段1-G（task-17）
+        new_rule: "ratio: legacy/3 .. legacy*3"
+        why: '**派生同步**：两者同为 `Date.now()` 挂钟耗时，绝对区间同样与机器相关；若只改 `cases[].durationMs`，同一种量就会出现两种 rule 形态，校验脚本的"range 必须可跨机器复算"这条不变量也就立不起来。'
+        ruled_by: spec-contracts（派生，主动交回 Lead 裁决；Lead 只点名了 `cases[].durationMs`）
+        needs_ruling: true
+        ruling: 确认（lead 2026-10-11，回复 task-17 汇报）
+        ruled_at: 2026-10-11
+        ruling_note: Lead 的原话理由：若只改一处，同一种量就有两种 rule 形态，而"range 必须以 ratio:/tolerance:/interval:/[ 开头"这条不变量就立不起来。并给出了一般化判断：**红的原因如果是真源不一致，改真源，不改检查**。
+        ruling_discipline: '`needs_ruling: true` **保留不删**——它如实记录了"当时确实未裁决"；"曾经悬着过多久"是判断协调效率的真实数据。状态变更一律**追加**（ruling / ruled_at），不覆盖原标记。'
+  schema_sha256_recorded_at_declaration: 98a881b85f536bcc0d6ad33a2a7c07f058e3facfae24846f5b5db6b4ac462998（2026-10-11 阶段1-G **刷新**；schemas/** 由 spec-engine 并行维护，若与当前 sha 不同，verify-reconcile.mjs 会打印提醒而不是判失败——提醒的意思是"分母可能又变了，请重跑生成器"）
+  schema_sha_refresh_history:
+    note: 读数纪律：sha 刷新也是**状态变更**，一律**追加**、不覆盖历史（与 needs_ruling 的处理同源）。为什么必须刷新而不是长期亮着警告：**一个长期亮着的警告等于没有警告**（"狼来了"的设计版）。阶段 2 的工具化方向（Lead 2026-10-11 记录）：让**校验器自己触发重跑**，而不是提示人去跑。
+    entries:
+      - recorded_at_declaration: 31cc33e29607b8a7b8ef53a7b4ab1ea7ca3534c0d2ec2b521a2788ca1799e58a
+        at: 2026-10-11 阶段1-G（task-17）
+        why: 本文件声明三个阶段 1 新字段时的 schema 实测 sha。
+      - recorded_at_declaration: 98a881b85f536bcc0d6ad33a2a7c07f058e3facfae24846f5b5db6b4ac462998
+        at: 2026-10-11 阶段1-G（task-17 收尾，Lead 授权刷新）
+        why: Lead 修订 `totals.inconclusive.description`（断言数 → case 数口径）后刷新。**叶子集合未变**（80），A3 仍 80/80 = 100.00%；只有 sha 一行变。
+        previous_sha_was: 31cc33e29607b8a7b8ef53a7b4ab1ea7ca3534c0d2ec2b521a2788ca1799e58a
+  open_subtree_discipline:
+    subtree: cases[].steps[].assertions[].assertion
+    schema_fact: "schemas/run-report.schema.json 的 `$defs.assertion`（L238-L286）**没有** `additionalProperties: false`，注释明写「断言词集合归 cases 层维护，这里不锁死 additionalProperties，新增断言词不应让报告 Schema 拒绝」⇒ 它在本 schema 里**天然开放**。"
+    runtime_fact: '开放不止停留在 schema：src/cases/schema.ts 的 `validateAssertion`（L290-315）**不校验未知键**（只查 ref 前缀 / 恰好一个判定词 / soft 类型），而 runner 把 `step.expect[j]` **按引用**写进 run.json（src/runtime/runner.ts:737）。本机实证（2026-10-11，外部临时场景 TK-9002，不写入仓库）：`expect: [{ ref: fx.fileExists, is: true, testkitUnknownKey: "probe-value" }]` → `validateScenario` 返回 `ok = true`；实跑 run.json 里该断言对象的键是 `["ref","is","testkitUnknownKey"]`，未声明键原样落盘。'
+    fixed_key_set:
+      count: 16
+      keys:
+        - ref
+        - is
+        - isNot
+        - notIs
+        - exists
+        - notExists
+        - contains
+        - notContains
+        - matches
+        - atLeast
+        - atMost
+        - length
+        - lengthAtLeast
+        - lengthAtMost
+        - throws
+        - soft
+      sources:
+        ref + soft: src/cases/types.ts:107-128（Assertion 接口）
+        14 个求值词: src/runtime/assert.ts:22-37（ASSERTION_KEYS）与 src/cases/schema.ts:50-65（ASSERTION_WORDS，同一份词表的第二处副本）
+        回显点: src/runtime/runner.ts:736-743
+      why_fixed_in_practice: 这 16 个键是既有实现**唯一**会主动产出/回显的键集：`ref` 必填、恰好一个求值词（cases/schema.ts:305-310）、`soft` 可选布尔。
+    runtime_unknown_key_disposition:
+      rule: 运行期出现不在 `fixed_key_set` 里的键（同一 `assertion` 对象上的新键）时：**既不报错也不忽略**——把它连同键名写进报告的 `uncompared_fields`（形如 `cases[i].steps[j].assertions[k].assertion.<新键>`），并在差异分类里归 `unknown`（A4 要求 unknown = 0 ⇒ 必须有人去补声明或补归一化）。
+      why_not_fail: 开放子树的键可能来自"场景作者多写了一个词"或"未来新增的断言词"——两者都不该让对拍器崩，但都必须可见（§9.3 纪律 1）。
+      reconciler_requirements:
+        - ① 比对 `assertion` 时按 **键集差** 分组：固定键集逐键按各自 equivalence 比；剩余键全部进 uncompared_fields。
+        - ② 不得因为出现未知键而把整条断言判为「结构不等价」——那是把"没声明"错误地当成"不等价"。
+        - ③ uncompared_fields 必须携带键名与所属路径，否则无法据此补声明。
+    sibling_instance_runtime_field_not_in_schema:
+      field: cases[].trace
+      note: 同一类问题的第二个活实例，但方向相反：`trace` 是**运行期真的写了、schema 里根本没有**（spec/behaviors/engine/report.md 的缺陷 RP-1；本机实跑 run.json 的 case 顶层键确认含 `trace`）。
+      a3_scope: A3 的分母是 **schema 叶子集合**，`trace` 不在其中 ⇒ 它不影响 A3 读数，但它是「运行期字段 ∉ 声明集合」的真实样本，必须由 schema 侧修（属阶段 1 的 schema 变更，不在本次写权限内）。
+      evidence: spec/behaviors/engine/report.md L516-521, L531-545；本机 2026-10-11 实跑 run.json：case 顶层键含 trace
+    change_discipline: 新增断言词时必须**三处同步**，否则新词会静默落进 uncompared_fields：src/runtime/assert.ts 的 ASSERTION_KEYS、src/cases/schema.ts 的 ASSERTION_WORDS、以及本文件的 `fixed_key_set.keys`。（这也是本次实测发现的既有缺口：词表在 assert.ts 与 cases/schema.ts 各有一份副本，且没有任何守卫比对二者。）
+  open_subtrees:
+    - cases[].steps[].assertions[].assertion
+    - cases[].steps[].notes
+    - cases[].notes
+    - policySnapshot.sandbox
+  readouts:
+    leaves_total: 80
+    declared: 80
+    undeclared: 0
+    compared: 78
+    declared_not_compared: 2
+    a3_numerator: 80
+    a3_denominator: 80
+    a3_ratio: 1
+    a3_percent: 100.00%
+    a3_stage0_threshold: 100%
+    a3_meets_threshold: true
+  equivalence_vocabulary:
+    exact: 逐字段严格相等（数组按声明的排序键排序后）
+    normalized: 归一化后相等；归一化规则本身要有反向测试（A5）
+    range: 落在 spec 声明的区间内（性能字段用）
+    set-sorted: 排序后按集合比对
+    lower-bound: 只保证「实际 ≥ 记账值」，不比精确值
+    not-compared: 显式声明为不比；必须出现在报告的 uncompared_fields 里，且必须在 not_compared_allowlist 上
+  rulings_2026_10_11:
+    - id: R-A3-1
+      subject: 开放子树
+      ruling: 开放子树必须显式列出；落在子树内而未被声明的叶子一律进 uncompared_fields
+      applied: meta.open_subtree_discipline + 各字段的 open_subtree 标记
+    - id: R-A3-2
+      subject: A3 分子口径
+      ruling: A3 分子 = 有明确处置的字段数（含显式 not-compared）；未声明才是缺口
+      applied: meta.a3_definition + 各字段 disposition
+    - id: R-A3-3
+      subject: cases[].usage.tokens
+      ruling: 计入 A3 分子（它有处置：不比精确值），同时必须进 uncompared_paths
+      applied: not_compared_allowlist + fields[].disposition
+    - id: R-A3-4
+      subject: 两个集合不得混同、不得靠 not-compared 刷分
+      ruling: uncompared_paths 与 undeclared_paths 必须机械区分，并设 allowlist 闸门
+      applied: meta.set_distinction + meta.not_compared_allowlist + verify-reconcile.mjs 的 FAIL 条件
+    - id: R-A3-5
+      subject: A3 闭合
+      ruling: §9.3 未列的 23 条按「既有实现的实际产出」逐条补处置，补完 A3 = 100%；开放子树的未知键处置另立纪律而非凑字段
+      applied: fields 里 declared_in = 既有实现的 23 条
+  reading_discipline: 读数一旦写下就是事实记录；真源后来的变化是新事实，不是旧读数错了。故本文件保留全部原始读数，只用 resolved_in / superseded_by / status / ruling 追加注解，**不改数字**（Lead 2026-10-11 授权口径）。
+  recompute:
+    - "# 生成器与校验器都在系统临时目录（按阶段 0 纪律**不写入仓库**）；本机绝对路径如下："
+    - "node C:/Users/19059/AppData/Local/Temp/tk-enum/enumerate-reconcile.mjs <repoRoot> spec/contracts/reconcile-fields.yaml  # 本文件即由它生成"
+    - "node C:/Users/19059/AppData/Local/Temp/tk-enum/verify-reconcile.mjs <repoRoot>  # 反向校验：叶子 1:1、disposition 合法、allowlist 闸门、输出 A3"
+    - "node C:/Users/19059/AppData/Local/Temp/tk-enum/verify-yaml.mjs <repoRoot>  # 校验 spec/contracts/*.yaml 都能被 yaml@^2 解析"
+fields:
+  - path: runId
+    schema_type: string
+    equivalence: normalized
+    declared: true
+    disposition: compared
+    rule: 归一化为 `<RUNID>`
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L785
+    design_term: 不等价
+  - path: startedAt
+    schema_type: string
+    equivalence: normalized
+    declared: true
+    disposition: compared
+    rule: 归一化为 `<TS>`；性能改由 `cases[].durationMs` 区间比对来守
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L786
+    design_term: 不等价
+  - path: finishedAt
+    schema_type: string
+    equivalence: normalized
+    declared: true
+    disposition: compared
+    rule: 归一化为 `<TS>`；性能改由 `cases[].durationMs` 区间比对来守
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L786
+    design_term: 不等价
+  - path: casesDir
+    schema_type: string
+    equivalence: normalized
+    declared: true
+    disposition: compared
+    rule: 归一化为 `<CASESDIR>`
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L787
+    design_term: 不等价
+  - path: dshVersion
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 必须相同（不同版本不算对拍）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L788
+    design_term: 精确
+  - path: platform
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 跨平台只能比「归一化后一致」，且必须在 spec 里声明
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L789
+    design_term: 精确
+  - path: totals.total
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 五个计数逐一相等
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L790
+    design_term: 精确
+  - path: totals.passed
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 五个计数逐一相等
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L790
+    design_term: 精确
+  - path: totals.failed
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 五个计数逐一相等
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L790
+    design_term: 精确
+  - path: totals.skipped
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 五个计数逐一相等
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L790
+    design_term: 精确
+  - path: totals.errored
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 五个计数逐一相等
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L790
+    design_term: 精确
+  - path: totals.inconclusive
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 口径**写死**：**含至少一条 `Inconclusive` 断言的 case 数** —— 与同表既有五个计数**同口径**（报告 `totals` 的字段必须同计量单位：`total` = cases.length，其余四态计数也都是 case 数）。缺省语义：字段**不进 `required`**，缺失视为 **0**（既有报告仍然合法）。⚠️ 与 schema 的 description 存在口径冲突（schema 写"不可判定的**断言**数"）——见 drift DRIFT-A3-5，交回 Lead 裁决；本行按 Lead 在 task-17 明确给出的 case 数口径落。
+    declared_in: schemas/run-report.schema.json（阶段 1 新增，task-16）+ 本轮声明（task-17）
+    design_term: （阶段 1 新增；§9.3 未列）
+  - path: cases[].id
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 含排序：`cases` 按 `id` 排序后比对
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L791
+    design_term: 精确
+  - path: cases[].title
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 含排序：`cases` 按 `id` 排序后比对
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L791
+    design_term: 精确
+  - path: cases[].kind
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 含排序：`cases` 按 `id` 排序后比对
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L791
+    design_term: 精确
+  - path: cases[].verdict
+    schema_type: enum
+    schema_enum:
+      - passed
+      - failed
+      - skipped
+      - errored
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 含排序：`cases` 按 `id` 排序后比对
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L791
+    design_term: 精确
+  - path: cases[].durationMs
+    schema_type: number
+    equivalence: range
+    declared: true
+    disposition: compared
+    rule: "ratio: legacy/3 .. legacy*3  —— 可跨机器复算的**比例**区间（旧实现耗时 × [1/3, 3]）。为什么不用绝对 `[min,max]`：绝对区间与机器相关，D1–D3 基线冻结已经踩过这个坑。（原 rule 文本「落在 spec 声明的 [min,max]」由 §9.3 L792 给出，按读数纪律保留在 rule_history 里。）"
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L792
+    design_term: 区间
+  - path: cases[].skipReason
+    schema_type: string
+    equivalence: normalized
+    declared: true
+    disposition: compared
+    rule: 路径 → `<TMP>`，版本号 → `<VER>`
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L793
+    design_term: 归一化后精确
+  - path: cases[].error
+    schema_type: string
+    equivalence: normalized
+    declared: true
+    disposition: compared
+    rule: 栈帧地址、绝对路径、临时目录归一化
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L794
+    design_term: 归一化后精确
+  - path: cases[].steps[].name
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "`step.name ?? `step ${i + 1}``（src/runtime/runner.ts:694）——有名字取场景原文、无名字取确定性序号 ⇒ 逐字段相等"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明）
+  - path: cases[].steps[].action.kind
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 动作判别式 `actionKind(step.act)`（src/runtime/runner.ts:710,713）——由场景的 act 形状决定，确定性
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明）
+  - path: cases[].steps[].action.ok
+    schema_type: boolean
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "`performAction` 是否抛出（src/runtime/runner.ts:710-716）；act 期 SkipCase 走 runner.ts:718-723 ⇒ 布尔确定"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明）
+  - path: cases[].steps[].action.detail
+    schema_type: string
+    equivalence: normalized
+    declared: true
+    disposition: compared
+    rule: "`${err.name}: ${err.message}`（src/runtime/runner.ts:715）——错误原文含绝对路径 / 临时目录 ⇒ 归一化后比（已知非确定项，见 C3 · steps[].action.detail）"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明）
+  - path: cases[].steps[].assertions[].assertion.ref
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `ref` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.is
+    schema_type: any
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `is` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.isNot
+    schema_type: any
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `isNot` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.notIs
+    schema_type: any
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `notIs` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.exists
+    schema_type: boolean
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `exists` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.notExists
+    schema_type: boolean
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `notExists` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.contains
+    schema_type:
+      - string
+      - array
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `contains` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.notContains
+    schema_type:
+      - string
+      - array
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `notContains` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.matches
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `matches` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.atLeast
+    schema_type: number
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `atLeast` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.atMost
+    schema_type: number
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `atMost` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.length
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `length` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.lengthAtLeast
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `lengthAtLeast` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.lengthAtMost
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `lengthAtMost` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.throws
+    schema_type: boolean
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `throws` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].assertion.soft
+    schema_type: boolean
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "**场景原文逐字回显**：`AssertionOutcome.assertion` 直接引用 `step.expect[j]` 这个对象本身（src/runtime/runner.ts:737 赋值 `assertion,`，无拷贝无改写）；校验器只约束 `ref` 前缀、恰好一个判定词、`soft` 是布尔（src/cases/schema.ts:290-315），不重建对象。⇒ 本键 `soft` 在任何通过校验的场景上都与 spec 声明的场景数据逐字段相等。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明 · 开放子树）
+    open_subtree: true
+    open_ancestors:
+      - cases[].steps[].assertions[].assertion
+  - path: cases[].steps[].assertions[].ok
+    schema_type: boolean
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: （`message` 里的路径归一化）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L796
+    design_term: 精确
+  - path: cases[].steps[].assertions[].actual
+    schema_type: any
+    equivalence: normalized
+    declared: true
+    disposition: compared
+    rule: 按类型：字符串精确；数字容差 1e-9；数组/对象**排序后**逐元素；路径归一化
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L795
+    design_term: 按类型
+  - path: cases[].steps[].assertions[].message
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: （`message` 里的路径归一化）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L796
+    design_term: 精确
+  - path: cases[].steps[].assertions[].soft
+    schema_type: boolean
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "`assertion.soft === true`（src/runtime/runner.ts:741）——布尔确定；与 `assertions[].assertion.soft` 同源"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明）
+  - path: cases[].steps[].assertions[].outcome
+    schema_type: enum
+    schema_enum:
+      - passed
+      - failed
+      - skipped
+      - inconclusive
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: '断言级四态枚举（passed / failed / skipped / inconclusive）。**可选、不进 required**；**缺省语义必须写清**：字段缺失时用既有的 `ok` 推导 —— `ok ? "passed" : "failed"`。这就是 RFC §5「只新增、不删既有字段」的**可执行形式**：旧报告与旧实现产出的 run.json 不需要这个字段也仍然合法、仍可对拍。'
+    declared_in: schemas/run-report.schema.json（阶段 1 新增，task-16）+ 本轮声明（task-17）
+    design_term: （阶段 1 新增；§9.3 未列）
+  - path: cases[].steps[].durationMs
+    schema_type: number
+    equivalence: range
+    declared: true
+    disposition: compared
+    rule: "ratio: legacy/3 .. legacy*3  —— 与 `cases[].durationMs` **同一形态、同一复算口径**（两者同为 `Date.now()` 挂钟耗时：runner.ts:692,721,766 与 :225,539），所以绝对区间同样与机器相关。⚠️ 这是**由 task-17 的 durationMs 口径修订推导出的同步**（Lead 只点名了 `cases[].durationMs`）；若不希望派生同步，请裁决——见 rule_history。"
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明）
+  - path: cases[].steps[].notes
+    schema_type: object
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: 该步相对上一步的取证**增量**（src/runtime/runner.ts:756-764：只收新出现或 `Object.is` 变化的键）⇒ 键集排序后逐键比对，值里的路径归一化
+    declared_in: 既有实现（来源栏见 spec/behaviors/engine/report.md 的「run-report.schema.json 逐字段来源与确定性」表；本轮补进本文件）
+    design_term: （§9.3 未列；本轮补声明）
+    open_object_self: true
+  - path: cases[].notes
+    schema_type: object
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: 键集排序后逐键比对（键集由场景自由决定）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L797
+    design_term: 集合
+    open_object_self: true
+  - path: cases[].releaseFailures[].label
+    schema_type: string
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: 按 `label` 排序
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L798
+    design_term: 排序后集合
+  - path: cases[].releaseFailures[].error
+    schema_type: string
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: 按 `label` 排序
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L798
+    design_term: 排序后集合
+  - path: cases[].sourceIssue
+    schema_type:
+      - string
+      - "null"
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: （表内规则列为空）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L799
+    design_term: 精确
+  - path: cases[].rounds[]
+    schema_type: boolean
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 布尔序列
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L800
+    design_term: 精确
+  - path: cases[].failureCategory
+    schema_type: enum
+    schema_enum:
+      - product_bug
+      - case_bug
+      - driver_bug
+      - env
+      - flaky
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 枚举
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L801
+    design_term: 精确
+  - path: cases[].policy.allowed
+    schema_type: boolean
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 成本闸门判定
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L802
+    design_term: 精确
+  - path: cases[].policy.reason
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 成本闸门判定
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L802
+    design_term: 精确
+  - path: cases[].policy.cost
+    schema_type: enum
+    schema_enum:
+      - none
+      - low
+      - high
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 成本闸门判定
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L802
+    design_term: 精确
+  - path: cases[].policy.source
+    schema_type: enum
+    schema_enum:
+      - scenario
+      - driver
+      - default
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 成本闸门判定
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L802
+    design_term: 精确
+  - path: cases[].usage.modelCalls
+    schema_type: number
+    equivalence: lower-bound
+    declared: true
+    disposition: compared
+    rule: 记账值是下界；不比精确值，只比 `modelCalls` 的区间
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L803
+    design_term: 下界
+  - path: cases[].usage.tokens
+    schema_type: number
+    equivalence: not-compared
+    declared: true
+    disposition: declared-not-compared
+    rule: 显式 not-compared：同属 §9.3 L803 的 `cases[].usage` 行，该行规则明示「不比精确值，只比 modelCalls 的区间」⇒ `tokens` 有处置（处置就是「不比」），但不参与取值比对
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L803
+    design_term: 下界（但明示不比）
+  - path: cases[].minimalRepro
+    schema_type: string
+    equivalence: normalized
+    declared: true
+    disposition: compared
+    rule: '同 `cases[].error`（路径 / 版本归一化）。交叉核对：spec/behaviors/engine/analysis.md 的 equivalence 写 `minimalRepro: "normalize-path（唯一变量是 caseId）"` —— 与本行一致（task-10 复核，无冲突）'
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L804
+    design_term: 归一化后精确
+  - path: cases[].owner
+    schema_type: string
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: （与 `fixtures[]` 同一行）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L805
+    design_term: 排序后集合
+  - path: cases[].fixtures[].name
+    schema_type: string
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: （与 `owner` 同一行）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L805
+    design_term: 排序后集合
+  - path: cases[].fixtures[].source
+    schema_type: string
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: （与 `owner` 同一行）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L805
+    design_term: 排序后集合
+  - path: cases[].fixtures[].dshVersion
+    schema_type: string
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: （与 `owner` 同一行）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L805
+    design_term: 排序后集合
+  - path: cases[].fixtures[].reason
+    schema_type: string
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: （与 `owner` 同一行）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L805
+    design_term: 排序后集合
+  - path: cases[].cleanup.released[]
+    schema_type: string
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: （`cleanup.{released,leftovers}`）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L806
+    design_term: 排序后集合
+  - path: cases[].cleanup.leftovers[]
+    schema_type: string
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: （`cleanup.{released,leftovers}`）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L806
+    design_term: 排序后集合
+  - path: cases[].trace[]
+    schema_type: any
+    equivalence: not-compared
+    declared: true
+    disposition: declared-not-compared
+    rule: "**有意排除，不是覆盖缺口**（两者的区别必须留在文件里）：trace 是**诊断数据**（阶段 / 相对偏移 / 步骤轨迹），内容本质过程性且非确定；纳入对拍只会制造大量假阳性，**且它对「新旧行为是否等价」没有信息量**。故声明为 not-compared（进 `uncompared_fields`，**可见**），并同时进 `not_compared_allowlist`。schema 侧刻意把 `items` 写成空 schema（自由形状），见 `$defs.caseOutcome.properties.trace.description`。"
+    declared_in: schemas/run-report.schema.json（阶段 1 新增，task-16）+ 本轮声明（task-17）
+    design_term: （阶段 1 新增；§9.3 未列）
+  - path: policySnapshot.allowModel
+    schema_type: boolean
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 含 `sandbox` 快照
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L807
+    design_term: 精确
+  - path: policySnapshot.allowLowCost
+    schema_type: boolean
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 含 `sandbox` 快照
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L807
+    design_term: 精确
+  - path: policySnapshot.sandbox
+    schema_type: object
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: 含 `sandbox` 快照
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L807
+    design_term: 精确
+    open_object_self: true
+  - path: selection.mode
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "`matched` 排序后"
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L808
+    design_term: 精确
+  - path: selection.detail
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "`matched` 排序后"
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L808
+    design_term: 精确
+  - path: selection.matched[]
+    schema_type: string
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: "`matched` 排序后"
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L808
+    design_term: 精确
+  - path: execution.parallel
+    schema_type: enum
+    schema_enum:
+      - off
+      - limited
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: （整段精确）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L809
+    design_term: 精确
+  - path: execution.limit
+    schema_type: number
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: （整段精确）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L809
+    design_term: 精确
+  - path: execution.safe
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: （整段精确）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L809
+    design_term: 精确
+  - path: execution.exclusive
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: （整段精确）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L809
+    design_term: 精确
+  - path: redaction.count
+    schema_type: integer
+    equivalence: exact
+    declared: true
+    disposition: compared
+    rule: （整段精确）
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L810
+    design_term: 精确
+  - path: redaction.findings[].path
+    schema_type: string
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: 按 `path` 排序；只比位置与类型，绝不比原文
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L811
+    design_term: 排序后集合
+  - path: redaction.findings[].kind
+    schema_type: string
+    equivalence: set-sorted
+    declared: true
+    disposition: compared
+    rule: 按 `path` 排序；只比位置与类型，绝不比原文
+    declared_in: docs/REWRITE-DESIGN.md §9.3 L811
+    design_term: 排序后集合
+undeclared_paths: []
+uncompared_paths:
+  - cases[].usage.tokens
+  - cases[].trace[]
+drift:
+  - id: DRIFT-A3-1
+    severity: high
+    claim: "docs/REWRITE-METRICS.md L72：run.json 的字段集由 schema 完全枚举（additionalProperties: false），两个有限集合求差是纯机械动作"
+    reality: run-report.schema.json 有 4 个未锁 additionalProperties 的对象子树：cases[].steps[].assertions[].assertion / cases[].steps[].notes / cases[].notes / policySnapshot.sandbox；其中 cases[].steps[].assertions[].assertion 一个节点就承载 16 条声明属性
+    evidence: schemas/run-report.schema.json L238-L286（assertion 无 additionalProperties:false，注释明写「这里不锁死 additionalProperties」）、L126-L129（caseOutcome.notes）、L209-L212（stepOutcome.notes）、L347-L350（policySnapshot.sandbox）
+    impact: 分母不是「有限且封闭」的：开放子树若新增键，A3 分母不会自动变大 ⇒ A3 需要一条「开放子树」的补充纪律
+    code_is_authoritative: true
+    resolved_in: docs/REWRITE-METRICS.md A3 勘误 2026-10-11（补「开放子树必须显式列出，落在子树内而未被声明的叶子一律进 uncompared_fields」纪律，并回填读数 叶子 77 / 已声明 54 / 未声明 23 / A3 = 70.13%）
+    resolution_note: 本条是**对文档的证伪**，不是对读数的修正：原文「由 schema 完全枚举（additionalProperties:false）」当时不成立（4 个开放子树），该事实记录保留；真源已在设计侧补纪律。现在这条纪律已被本文件落成可执行形态（meta.open_subtree_discipline）。
+  - id: DRIFT-A3-2
+    severity: high
+    claim: §9.3 声称 run.json 的字段已逐字段声明等价关系（A3 = 100% 可达）
+    reality: 按 §9.3 逐行对照后，当时有 0 / 80 条叶子路径没有任何等价关系声明
+    evidence: docs/REWRITE-DESIGN.md L783-L811 与 schemas/run-report.schema.json 的叶子集合求差（历史清单见本条目 original_reading 与 git 历史）
+    impact: 阶段 2 对拍时会有一整类输出（steps 的动作与断言回显、步骤级耗时/取证）未被覆盖
+    code_is_authoritative: true
+    status: 已闭合（closed in stage 0）
+    original_reading_preserved: 未声明 23 / 总 77，A3 = 70.13%（2026-10-11 阶段 0-C 首测）
+    resolved_in: spec/contracts/reconcile-fields.yaml 2026-10-11（阶段 0-E：按「既有实现的实际产出」为 23 条逐条补处置；A3 = 77/77 = 100%）
+    resolution_note: 补的是**处置**不是"随手写 exact"：每条都给了来源（runner.ts 行号 + spec/behaviors/engine/report.md 的来源表）。原有 16 条 assertion.* 落在开放子树内，见 meta.open_subtree_discipline。
+    close_condition_was: 阶段 2 出口（A3 = 100%）之前
+  - id: DRIFT-A3-3
+    severity: medium
+    claim: §9.3 L803 把 `cases[].usage` 整体标为「下界」
+    reality: 同行规则同时说「不比精确值，只比 modelCalls 的区间」⇒ `usage.tokens` 实际不参与比对，与「下界」这一等价关系的字面含义不一致
+    evidence: docs/REWRITE-DESIGN.md L803 vs schemas/run-report.schema.json L321-L334（usageRecord 有 modelCalls 与 tokens 两个叶子）
+    impact: 口径歧义：把 tokens 记为「下界」会让 A3 分子多算 1 却不产生任何真实比对
+    code_is_authoritative: true
+    ruling: Lead 裁决 2026-10-11：计入 A3 分子（它在表里有明确处置，处置就是「不比精确值」），同时必须进 `uncompared_paths`；并新增反刷分闸门 `not_compared_allowlist`，禁止靠多写 not-compared 抬高 A3。
+    applied_to:
+      path: cases[].usage.tokens
+      equivalence: not-compared
+      disposition: declared-not-compared
+      in_uncompared_paths: true
+      in_not_compared_allowlist: true
+      counted_in_a3_numerator: true
+  - id: DRIFT-A3-4
+    severity: high
+    claim: REWRITE-METRICS.md L72 的隐含前提：字段集由 schema 与校验器共同封闭，运行期不会冒出未声明键
+    reality: 两处都不封闭：① schema 的 `$defs.assertion` 无 additionalProperties:false；② src/cases/schema.ts 的 `validateAssertion`（L290-315）**不校验未知键**。本机实证（2026-10-11，外部临时场景 TK-9002，未写入仓库）：断言对象带 `testkitUnknownKey` 时 `validateScenario` 返回 ok = true，实跑 run.json 的该断言对象键为 `["ref","is","testkitUnknownKey"]`。同族第二例：`cases[].trace` 是运行期真的写了、schema 里根本没有（spec/behaviors/engine/report.md 缺陷 RP-1；本机 run.json 的 case 顶层键确认含 trace）。
+    evidence: schemas/run-report.schema.json L238-L286；src/cases/schema.ts L290-315；src/runtime/runner.ts L736-743；spec/behaviors/engine/report.md L516-521, L531-545
+    impact: 未声明键会静默进入 run.json 并逃过 A3 的分母 ⇒ 必须有「未知键 → uncompared_fields」的机器纪律（已落在 meta.open_subtree_discipline.runtime_unknown_key_disposition）
+    code_is_authoritative: true
+    resolved_in: spec/contracts/reconcile-fields.yaml 2026-10-11（meta.open_subtree_discipline：固定键集 16 + 未知键处置 + 对拍器三条实现要求 + 三处词表同步纪律）
+    not_in_this_scope: cases[].trace 属 schema 侧变更（schemas/** 不在本次写权限内），已作为同族实例登记，交回 Lead 裁决。
+    residual_gap: 断言词表在 src/runtime/assert.ts:22-37 与 src/cases/schema.ts:50-65 各有一份副本，且无守卫比对二者——两份漂移会让"新增词已实现但未声明"静默发生。
+    sibling_instance_closed:
+      closed_at: 2026-10-11 阶段1-G（task-16 加 schema / task-17 补声明）
+      what: "`cases[].trace` 已进 schema（`$defs.caseOutcome.properties.trace`，可选数组、`items: {}` 自由形状），并在本文件声明为 `not-compared` + 进 `not_compared_allowlist`。"
+      residual_of_this_item: 本条**主项**（开放子树的未知键纪律）仍然有效，只有"trace 是运行期有、schema 没有"这个**同族实例**被闭掉了。
+  - id: DRIFT-A3-5
+    severity: high
+    kind: 同一字段在两个真源里被写成不同计量单位（未裁决前不得静默选一个）
+    claim: schemas/run-report.schema.json 的 `$defs.totals.properties.inconclusive.description` 写：「判据在当前证据下不可判定的**断言**数」。
+    reality: Lead 在 task-17 里把口径写死为「**含至少一条 `Inconclusive` 断言的 case 数**」，并给出理由：「与同表既有五个计数**同口径**——报告 `totals` 的字段必须同计量单位」。两者是**不同的单位**：schema 说断言数，Lead 说 case 数。同表既有五个计数（total/passed/failed/skipped/errored）都是 **case 数**（`total = cases.length`，见 runlog.ts:213-222），所以按"同表同单位"原则，Lead 的 case 数口径自洽；schema 的 description 则与同表其余字段不同单位。
+    evidence:
+      - schemas/run-report.schema.json（$defs.totals.properties.inconclusive.description）
+      - docs/REWRITE-DESIGN.md §3.3（断言级四态：passed / failed / skipped / inconclusive）
+      - src/runtime/runlog.ts:213-222（tallyTotals：total = cases.length，其余按 verdict 计 case 数）
+      - task-17 指令（Lead 明确给出 case 数口径）
+    impact: 计量单位不同会让 `total = passed + failed + skipped + errored + inconclusive` 这条不变量在实现里对不上：若 inconclusive 记断言数，一个 case 里 3 条 inconclusive 断言会让总和超过 total。阶段 2 对拍会把"同一批结果、两种记账"报成 totals 不等价。
+    disposition_in_this_file: 本文件按 **Lead 的 case 数口径**落（Lead 是裁决方，且该口径与同表其余五个计数自洽）；**没有**改 schema（不在写权限内）。schema 的 description 需由 spec-engine 修订为 case 数口径，或由 Lead 改判。
+    code_is_authoritative: partial —— 代码/同表口径支持 case 数；schema 的 description 文字与自身同表不一致（不是代码与文档冲突，是**同一文档内部的单位不一致**）
+    needs_ruling: true
+    ruled_by: lead 2026-10-11（case 数口径）——但 schema 文字侧尚未同步，故本条标为"已获裁决、待真源对齐"
+    followup_owner: spec-engine（改 schema description）或 Lead（改判）
+    ruling: 确认 case 数口径（lead 2026-10-11，回复 task-17 汇报）
+    ruled_at: 2026-10-11
+    ruling_note: Lead 指出这个不一致是**协调失误**（task-17 口径与 task-16 让 spec-engine 写的 description 没同步），不是本文件的落法有误；并确认了我给出的决定性理由：`total = passed + failed + skipped + errored + inconclusive` 在"记断言数"下会对不上（一个 case 里 3 条 inconclusive 断言 ⇒ 总和 > total），而同表五个计数全是 case 级 ⇒ **同一张表的字段必须同计量单位**。Lead 自己承担了 schema 文字侧的修正。
+    resolved_in: schemas/run-report.schema.json 的 `$defs.totals.properties.inconclusive.description` 已由 Lead 于 2026-10-11 改为 case 数口径（原文：「**含至少一条 `Inconclusive` 断言的 case 数**。口径与同表另五个计数**同计量单位**…断言级明细在 `cases[].steps[].assertions[].outcome`，不在本表。」）
+    verification: "node <TEMP>/inspect-schema2.mjs $REPO  # 打印该 description 原文；同时给出刷新后的 schema sha256"
+    schema_sha_after_fix: 98a881b85f536bcc0d6ad33a2a7c07f058e3facfae24846f5b5db6b4ac462998
+    status: 已闭合（closed 2026-10-11：裁决 + schema 文字侧对齐 + sha 刷新）
+    ruling_discipline: '`needs_ruling: true` **保留不删**——它如实记录了"当时确实未裁决"；"曾经悬着过多久"是判断协调效率的真实数据。状态变更一律**追加**（ruling / ruled_at / resolved_in / status），不覆盖原标记。'
+    generality_note: Lead 从这条归纳出一类通用失效模式：**裁决发生在对话里，标记留在文件里**——只要"人下裁决"与"文件记录裁决"是两个动作，就一定会有一段时间两者不一致，而这段时间里文件是唯一能被后来者看到的东西（所以它在撒谎）。处置定为：**不删标记（保留历史），追加状态**——与本仓对"读数"的一贯纪律同源。

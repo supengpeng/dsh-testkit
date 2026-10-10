@@ -1,0 +1,13 @@
+# 仓库级 cargo 配置（入仓，团队共享）。
+#
+# 注意：**镜像源不在这里**——`rsproxy` 是本机环境选择，写在用户级
+# `$CARGO_HOME/config.toml` 里。写进仓库会强制所有贡献者使用同一镜像。
+
+[env]
+# ts-rs 生成的 import 语句要带 `.js` 扩展名，否则与本仓 tsconfig 的
+# `moduleResolution: "NodeNext"` 冲突（报 TS2835：ECMAScript import 需要显式扩展名）。
+#
+# 为什么用 `[env]` 而不是每次手敲：这是**生成产物能否通过 tsc** 的前置条件，
+# 靠"记得设环境变量"必然在某台机器上失效，而失效的表现是 35 个类型文件全部编译不过。
+# ts-rs 的语义是 `path.push('.')` 后追加该值，所以这里写 `js` 而不是 `.js`。
+TS_RS_IMPORT_EXTENSION = "js"

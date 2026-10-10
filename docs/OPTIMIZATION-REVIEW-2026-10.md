@@ -3,6 +3,8 @@
 > 执行日期：2026-10-10（四批：Lead + 7 名队友按写域分工，共享 `scripts/build-lock.mjs` 串行化编译）
 > 基线：[baseline/README.md](../baseline/README.md)（内置套件 **386 passed / 0 failed**；CI 轨 **26 tests：18 pass / 8 skip / 0 fail**）
 > 结论读数：**`pnpm run gate` 退出码 0 · 10 个守卫全绿 · 内置套件 705 passed / 0 failed · 契约轨 65/65 · CLI 15 个子命令 · 场景 39 条 · CI 轨 26 tests：18 pass / 8 skip / 0 fail · GitHub Actions 三平台矩阵 6/6 全绿（run #5）**
+>
+> **复核注记（2026-10-10 后加，不改上行走文）**：上行是本次执行的**审计痕迹**，读数保留原样。其中两项计数已随版本推进过期——① "CLI 15 个子命令" 现为 **16**（真源 `src/cli/index.ts` 的命令条目数）；② "10 个守卫" 已随版本推进继续增加（真源 `package.json` 的 `verify:*`）。这两项现已纳入 `scripts/verify-docs.mjs` 的自动校验（检查项 ⑥⑦），本文件作为历史文档被显式豁免，见该脚本的 `COUNT_EXEMPT_DOCS`。
 > 并且每一批都在 **`git worktree` 出来的全新 checkout** 上复跑过（第一批的教训：`.gitignore` 曾把 `src/export/**` 一起忽略，本地绿、新克隆必挂）
 
 ---

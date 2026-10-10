@@ -1,0 +1,12 @@
+[package]
+name = "dsh-testkit-protocol"
+description = "TS 编译器 ↔ Rust 核心的 JSON-RPC 2.0 协议层与跨语言类型（设计 §4 / §5.4）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+ts-rs.workspace = true

@@ -1,0 +1,16 @@
+{
+    "metric":  "D3",
+    "label":  "main-suite",
+    "command":  "C:\\Users\\19059\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\node\\bin\\node.exe --test --test-isolation=none --test-concurrency=1 tests/contracts/*.test.mjs tests/*.test.mjs",
+    "method":  "process-level RSS sampling: poll WorkingSet64 + kernel PeakWorkingSet64 every 100ms; D3 = max of samples",
+    "interval_ms":  100,
+    "sample_size":  469,
+    "peak_rss_bytes":  264835072,
+    "peak_rss_mib":  252.566,
+    "peak_workset_sampled_mib":  252.562,
+    "peak_kernel_sampled_mib":  252.566,
+    "sampling_gap_note":  "PeakWorkingSet64 is kernel-accounted but only observed at poll boundaries; the last \u003c100ms before exit is not sampled",
+    "exit_code":  0,
+    "wall_ms":  53912.79,
+    "generated_at":  "2026-10-11T00:05:23.3757470+08:00"
+}

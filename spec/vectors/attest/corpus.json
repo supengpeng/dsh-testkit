@@ -1,0 +1,3154 @@
+{
+  "version": 1,
+  "note": "防篡改报告语料（设计 §7）。边界：哈希链是 tamper-evident（可发现篡改），不是 tamper-proof（防篡改）：持有私钥者可重写整条链并重新签名，链本身无法阻止。本文件由 examples/generate_corpus.rs 生成，tests/corpus_freshness.rs 会重算并与本文件比对（不一致即红）。",
+  "key": {
+    "derivation": "seed = SHA-256(utf8(label))；Ed25519 取该 32 字节种子",
+    "label": "dsh-testkit/attest/test-vector-key/v1",
+    "public_key": "6bb4f50aba866a7693ca4f500c7313fc1d9ce4101908c194bad0db2abcff860a"
+  },
+  "batch_size": 4096,
+  "bases": [
+    {
+      "id": "base_batch",
+      "mode": "batch",
+      "chain": {
+        "format": "dsh-testkit/attest/chain/v1",
+        "run_id": "run-attest-vector-0001",
+        "batch_size": 4096,
+        "signature_mode": "batch",
+        "public_key": "6bb4f50aba866a7693ca4f500c7313fc1d9ce4101908c194bad0db2abcff860a",
+        "records": [
+          {
+            "seq": 1,
+            "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303031222c226475726174696f6e5f6d73223a31322c2274616773223a5b22736d6f6b65225d2c227573616765223a7b226d6f64656c5f63616c6c73223a302c22746f6b656e73223a307d2c2276657264696374223a22706173736564227d",
+            "payload_hash": "b7428e7c620540e6693aea88610b91d2a2643205d2f59b5f4edaf17d9e6813fd",
+            "record_hash": "d78596208ca0c72bbb1fd3ee87fa77dbe39a9744f6809d1044fc6d73062c594c",
+            "ts": 1,
+            "sig": ""
+          },
+          {
+            "seq": 2,
+            "prev_hash": "d78596208ca0c72bbb1fd3ee87fa77dbe39a9744f6809d1044fc6d73062c594c",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303032222c226475726174696f6e5f6d73223a33312c226e6f7465223a22c3a95c7530303030e4b8ade69687222c2274616773223a5b22736d6f6b65222c226673225d2c227573616765223a7b226d6f64656c5f63616c6c73223a312c22746f6b656e73223a3132307d2c2276657264696374223a22706173736564227d",
+            "payload_hash": "0d09bc5e8641da6c3191f32736482e8f4b75768e8b055af9d6924559344f3445",
+            "record_hash": "212cca932ddcdda08e828f6dddf9424554db5e01fb92cb5e727608ba09382b64",
+            "ts": 2,
+            "sig": ""
+          },
+          {
+            "seq": 3,
+            "prev_hash": "212cca932ddcdda08e828f6dddf9424554db5e01fb92cb5e727608ba09382b64",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303033222c226475726174696f6e5f6d73223a34342c226572726f72223a22e696ade8a880e5a4b1e8b4a5efbc9a657870656374656420312e30222c2274616773223a5b226c6c6d225d2c227573616765223a7b226d6f64656c5f63616c6c73223a322c22746f6b656e73223a3331307d2c2276657264696374223a226661696c6564227d",
+            "payload_hash": "52fc1f9eb3f60cd49ef79d426a5d50ba09cbb362f0c4a0f3340daa93650c1d3e",
+            "record_hash": "5f505c527cf6454f6c28fb61dadd0673ae90a2ca1c2ff88699cff42bd0a5bb31",
+            "ts": 3,
+            "sig": ""
+          },
+          {
+            "seq": 4,
+            "prev_hash": "5f505c527cf6454f6c28fb61dadd0673ae90a2ca1c2ff88699cff42bd0a5bb31",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303034222c226475726174696f6e5f6d73223a302c22726561736f6e223a22e883bde58a9be7bcbae5a4b1222c227573616765223a7b226d6f64656c5f63616c6c73223a302c22746f6b656e73223a307d2c2276657264696374223a22736b6970706564227d",
+            "payload_hash": "7478600258127eac99c95c33fb0350e20845c9cc928b403e1111e83a365ca081",
+            "record_hash": "f7e08bd19ec1e340a806cddabfaf3434a33cced1a95a8b2a9a113d626a5f9fbc",
+            "ts": 4,
+            "sig": ""
+          },
+          {
+            "seq": 5,
+            "prev_hash": "f7e08bd19ec1e340a806cddabfaf3434a33cced1a95a8b2a9a113d626a5f9fbc",
+            "kind": "gate",
+            "payload_jcs": "7b22616c6c6f776564223a66616c73652c22636f7374223a2268696768222c2267617465223a226d6f64656c222c22726561736f6e223a22636f73742d74696572227d",
+            "payload_hash": "413cb66ee9d40fb4e500f424176fe0747c3459f516762caa8c6a67cd15b8a59a",
+            "record_hash": "7df7d1ead72abb8a00b57ba764590a00901b5149c1517f48d842017d87c0c346",
+            "ts": 5,
+            "sig": ""
+          },
+          {
+            "seq": 6,
+            "prev_hash": "7df7d1ead72abb8a00b57ba764590a00901b5149c1517f48d842017d87c0c346",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303035222c226475726174696f6e5f6d73223a372c2274616773223a5b5d2c227573616765223a7b226d6f64656c5f63616c6c73223a302c22746f6b656e73223a307d2c2276657264696374223a22706173736564227d",
+            "payload_hash": "994cf7572891d70679b330283375ff6e464ed641543ceab8242e848886f0ec84",
+            "record_hash": "4abb47a7d8c64dae88ea73aafaf4617f541cbd54dd6d6c3bb8799f5524b3fe44",
+            "ts": 6,
+            "sig": ""
+          },
+          {
+            "seq": 7,
+            "prev_hash": "4abb47a7d8c64dae88ea73aafaf4617f541cbd54dd6d6c3bb8799f5524b3fe44",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303036222c226475726174696f6e5f6d73223a38382c226572726f72223a22e6b299e7aeb1e68b92e7bb9de58699e585a5222c2274616773223a5b22746f6f6c225d2c227573616765223a7b226d6f64656c5f63616c6c73223a332c22746f6b656e73223a3634307d2c2276657264696374223a226572726f726564227d",
+            "payload_hash": "ed7573c3fa8c2b82a07b0d6482c290014c56027556fdbe8a0db81d90bd5a3245",
+            "record_hash": "e2160d1a8896b68bba2de5a8338b0073ccf49834430c210187168436b3c4606f",
+            "ts": 7,
+            "sig": ""
+          },
+          {
+            "seq": 8,
+            "prev_hash": "e2160d1a8896b68bba2de5a8338b0073ccf49834430c210187168436b3c4606f",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303037222c226475726174696f6e5f6d73223a31392c2274616773223a5b22736d6f6b65225d2c227573616765223a7b226d6f64656c5f63616c6c73223a312c22746f6b656e73223a39307d2c2276657264696374223a22706173736564227d",
+            "payload_hash": "131bebd3aa90b587d72d8d6fb1065b98c3d69dee6ea8bca3ee117919a09bb0aa",
+            "record_hash": "647132e67367783c73ab13acae852f2a3ce705508e17ebc560bc47931881bbf7",
+            "ts": 8,
+            "sig": ""
+          },
+          {
+            "seq": 9,
+            "prev_hash": "647132e67367783c73ab13acae852f2a3ce705508e17ebc560bc47931881bbf7",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303038222c226475726174696f6e5f6d73223a32332c2274616773223a5b226673225d2c227573616765223a7b226d6f64656c5f63616c6c73223a302c22746f6b656e73223a307d2c2276657264696374223a22706173736564227d",
+            "payload_hash": "1987abd730621bd85c4383822ed9072d34241c080f8bc137498654be95681fef",
+            "record_hash": "40bbab2a009bd9eaca026fd86d36ec1c2aa81bab7865e00f9df3eb1afcd338e8",
+            "ts": 9,
+            "sig": ""
+          },
+          {
+            "seq": 10,
+            "prev_hash": "40bbab2a009bd9eaca026fd86d36ec1c2aa81bab7865e00f9df3eb1afcd338e8",
+            "kind": "capability_change",
+            "payload_jcs": "7b226361706162696c697479223a2266732e7772697465222c2266726f6d223a22617661696c61626c65222c22746f223a226d697373696e67227d",
+            "payload_hash": "33072b10bc8221d3ed9a071d9b2cf0ea1e46f6cfca950d0f604b71a39faac4cc",
+            "record_hash": "5825b2f97ffd3ed1b42b5215dea88d8477b90f30a561a93449f6b9a899a61ba2",
+            "ts": 10,
+            "sig": ""
+          },
+          {
+            "seq": 11,
+            "prev_hash": "5825b2f97ffd3ed1b42b5215dea88d8477b90f30a561a93449f6b9a899a61ba2",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303131222c226475726174696f6e5f6d73223a35312c2274616773223a5b226c6c6d225d2c227573616765223a7b226d6f64656c5f63616c6c73223a322c22746f6b656e73223a3232307d2c2276657264696374223a226661696c6564227d",
+            "payload_hash": "8e431cf85578243d4e370e888341ff770648d23c87457a43670d4f86fe95dad1",
+            "record_hash": "3560d332016492c8170b56ebff934c97330bf3d7a87ae8e22bb40cc13e43578d",
+            "ts": 11,
+            "sig": ""
+          },
+          {
+            "seq": 12,
+            "prev_hash": "3560d332016492c8170b56ebff934c97330bf3d7a87ae8e22bb40cc13e43578d",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303132222c226475726174696f6e5f6d73223a31352c2274616773223a5b22736d6f6b65225d2c227573616765223a7b226d6f64656c5f63616c6c73223a302c22746f6b656e73223a307d2c2276657264696374223a22706173736564227d",
+            "payload_hash": "5a0870751a4aa129969c9d90a0968d9a1a4404eaa2e560cba4a3783c9d469884",
+            "record_hash": "411b9aa11a12d4183950d9afe8dfedba3a5079a37d31f10fba3f3ee2baf28336",
+            "ts": 12,
+            "sig": ""
+          },
+          {
+            "seq": 13,
+            "prev_hash": "411b9aa11a12d4183950d9afe8dfedba3a5079a37d31f10fba3f3ee2baf28336",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303133222c226475726174696f6e5f6d73223a392c2274616773223a5b5d2c227573616765223a7b226d6f64656c5f63616c6c73223a302c22746f6b656e73223a307d2c2276657264696374223a22706173736564227d",
+            "payload_hash": "498dd6b191935d9dec1ad79175d4ff2f2faca43d65e6fc2df79a0b7aef708f8b",
+            "record_hash": "1a0acc8e8174ce471845b3c6bea287ef6486aede60719671e4c9a8d187a14a10",
+            "ts": 13,
+            "sig": ""
+          },
+          {
+            "seq": 14,
+            "prev_hash": "1a0acc8e8174ce471845b3c6bea287ef6486aede60719671e4c9a8d187a14a10",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303134222c226475726174696f6e5f6d73223a302c22726561736f6e223a22e5a4b9e585b7e7bcbae5a4b1222c227573616765223a7b226d6f64656c5f63616c6c73223a302c22746f6b656e73223a307d2c2276657264696374223a22736b6970706564227d",
+            "payload_hash": "f1ec677e670c35a0eb1272be7f779a5ca86d5cc2ef6ea919ae64142978f5a869",
+            "record_hash": "899b517361b1dae60760bcc0571abbb6d8d17753c9d63d650dc6135514a6ad5d",
+            "ts": 14,
+            "sig": ""
+          },
+          {
+            "seq": 15,
+            "prev_hash": "899b517361b1dae60760bcc0571abbb6d8d17753c9d63d650dc6135514a6ad5d",
+            "kind": "release",
+            "payload_jcs": "7b2272656c6561736564223a747275652c227265736f75726365223a22746d702d646972227d",
+            "payload_hash": "54b73a39ab45fd7707a63c4333a976d6613b0fdf26571cb50e845bffd9fb09fd",
+            "record_hash": "966992d86b87c003b64b79afcd72b89f0b83778a7152bc0e4135c3d153c9130b",
+            "ts": 15,
+            "sig": ""
+          },
+          {
+            "seq": 16,
+            "prev_hash": "966992d86b87c003b64b79afcd72b89f0b83778a7152bc0e4135c3d153c9130b",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303136222c226475726174696f6e5f6d73223a33332c2274616773223a5b22736d6f6b65222c2264736c225d2c227573616765223a7b226d6f64656c5f63616c6c73223a312c22746f6b656e73223a37377d2c2276657264696374223a22706173736564227d",
+            "payload_hash": "e2ba1d59aa4b988a29b1a5d465c0df49adc0c7f635341c663ff9613c97abe571",
+            "record_hash": "96b8259a0a04180d0fe6cc15e10f5ccee23089682f23b2607e2b9cb80c461132",
+            "ts": 16,
+            "sig": ""
+          }
+        ],
+        "batches": [
+          {
+            "index": 0,
+            "first_seq": 1,
+            "last_seq": 16,
+            "leaves": [
+              1,
+              2,
+              3,
+              4,
+              6,
+              7,
+              8,
+              9,
+              11,
+              12,
+              13,
+              14,
+              16
+            ],
+            "root": "7813b8f78393c2ef8fc8678d216bd2290482e77e9b58d3a1bce781166f909d73",
+            "sig": "2cfa1e3f42edc8469db5cd9895b78b69c1ec70f3cb3dfe4c7128a8ba2bc374e6865829828a57f2867e17f5a22dbfe627cdf453a8779a8b2f54133058722ff505",
+            "public_key": "6bb4f50aba866a7693ca4f500c7313fc1d9ce4101908c194bad0db2abcff860a",
+            "proofs": [
+              {
+                "seq": 1,
+                "path": [
+                  {
+                    "sibling": "56a675a9a0fa1e735aed423151805e666f127b00c9761fc3842affe1884306c2",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "3e68a3343790f20591e2a7839080d9737b16bedbcea96ae8d5c5fe9ce88f61d1",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "e6a3fb0858e2b55f7a53b89092a9287e71f98cf3540760c752e44b411ee95ff6",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "e4f8b467e4fc64d8d680cfcd0bb11d63a1307d831619d70ed3ddb39627ded86c",
+                    "side": "right"
+                  }
+                ]
+              },
+              {
+                "seq": 2,
+                "path": [
+                  {
+                    "sibling": "90791ff9b78a241c5fb3d0e8650993eeca10f3c6e919bc0aa319436d5dade30b",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "3e68a3343790f20591e2a7839080d9737b16bedbcea96ae8d5c5fe9ce88f61d1",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "e6a3fb0858e2b55f7a53b89092a9287e71f98cf3540760c752e44b411ee95ff6",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "e4f8b467e4fc64d8d680cfcd0bb11d63a1307d831619d70ed3ddb39627ded86c",
+                    "side": "right"
+                  }
+                ]
+              },
+              {
+                "seq": 3,
+                "path": [
+                  {
+                    "sibling": "31af845ef3f8b34e247846dd2b4850cacdf22a513e439052813c12fd272a9734",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "a2f4ef28eec2bb7cfaaa3948fd22a2a1b6a7c1cf9de8282ad8190dcb7913fda9",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "e6a3fb0858e2b55f7a53b89092a9287e71f98cf3540760c752e44b411ee95ff6",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "e4f8b467e4fc64d8d680cfcd0bb11d63a1307d831619d70ed3ddb39627ded86c",
+                    "side": "right"
+                  }
+                ]
+              },
+              {
+                "seq": 4,
+                "path": [
+                  {
+                    "sibling": "19c89ebc7a98916709961905771e1a8abc5244e97fa7c4abddd0eec2899f4d48",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "a2f4ef28eec2bb7cfaaa3948fd22a2a1b6a7c1cf9de8282ad8190dcb7913fda9",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "e6a3fb0858e2b55f7a53b89092a9287e71f98cf3540760c752e44b411ee95ff6",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "e4f8b467e4fc64d8d680cfcd0bb11d63a1307d831619d70ed3ddb39627ded86c",
+                    "side": "right"
+                  }
+                ]
+              },
+              {
+                "seq": 6,
+                "path": [
+                  {
+                    "sibling": "768ca2a5844487f4717b3495c3b436d89b8ad9fd4c52ee61b17b6064f48a7968",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "84fff8b10eb9439d887ebbe91ca646711f42d32f0e1877454167369524f2832f",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "2a659f5abca24eba996baf6bbb8a44ecff8ac4be44dd19d910ca6914f9280b24",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "e4f8b467e4fc64d8d680cfcd0bb11d63a1307d831619d70ed3ddb39627ded86c",
+                    "side": "right"
+                  }
+                ]
+              },
+              {
+                "seq": 7,
+                "path": [
+                  {
+                    "sibling": "647852981617d2e0f96d88da1a4bfb4e039dce5af0c65ff5cfedc93ad77ad108",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "84fff8b10eb9439d887ebbe91ca646711f42d32f0e1877454167369524f2832f",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "2a659f5abca24eba996baf6bbb8a44ecff8ac4be44dd19d910ca6914f9280b24",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "e4f8b467e4fc64d8d680cfcd0bb11d63a1307d831619d70ed3ddb39627ded86c",
+                    "side": "right"
+                  }
+                ]
+              },
+              {
+                "seq": 8,
+                "path": [
+                  {
+                    "sibling": "56b3f87abc7bc819698dca8e88538ab2ac922474342ae03102cbad1d9d67656f",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "ebd4f42ee018531d5dbfafd7178e48071110b38bc7bfd1a779d9dff4e59b9775",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "2a659f5abca24eba996baf6bbb8a44ecff8ac4be44dd19d910ca6914f9280b24",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "e4f8b467e4fc64d8d680cfcd0bb11d63a1307d831619d70ed3ddb39627ded86c",
+                    "side": "right"
+                  }
+                ]
+              },
+              {
+                "seq": 9,
+                "path": [
+                  {
+                    "sibling": "49cdb00edb7441f1a828ac1220cc0b4889bd1038a140bf78f8e6ade7cdf9a037",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "ebd4f42ee018531d5dbfafd7178e48071110b38bc7bfd1a779d9dff4e59b9775",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "2a659f5abca24eba996baf6bbb8a44ecff8ac4be44dd19d910ca6914f9280b24",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "e4f8b467e4fc64d8d680cfcd0bb11d63a1307d831619d70ed3ddb39627ded86c",
+                    "side": "right"
+                  }
+                ]
+              },
+              {
+                "seq": 11,
+                "path": [
+                  {
+                    "sibling": "375dcd44a3d2eeb5709636cc41c1f9433e15bc95d37f4b897a20bcbff0828244",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "651220fd6a623e77b494b78ae1fc66ee0f5837fddde47881c4b14353d2f2157e",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "b26277dab8fb1cc922ee8b145d88d7797d507875ec464338bc2875df48d80892",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "e41b804d8564cdc7c49dbfaf33a374418cef766a08d7916c1436d4f247c3a933",
+                    "side": "left"
+                  }
+                ]
+              },
+              {
+                "seq": 12,
+                "path": [
+                  {
+                    "sibling": "05bd51da24bccb0454b64c9f77e9b6a4521b48504b214648d2db91ce3f62b4a5",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "651220fd6a623e77b494b78ae1fc66ee0f5837fddde47881c4b14353d2f2157e",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "b26277dab8fb1cc922ee8b145d88d7797d507875ec464338bc2875df48d80892",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "e41b804d8564cdc7c49dbfaf33a374418cef766a08d7916c1436d4f247c3a933",
+                    "side": "left"
+                  }
+                ]
+              },
+              {
+                "seq": 13,
+                "path": [
+                  {
+                    "sibling": "a7ec7c30c25b46ea2e706a452e55ecf0b8a2161d8047caee1964fb7573633c23",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "51939671b54aaa5a2a956e77706f60f84ee49eeec49df373855c9ce58dfd0d16",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "b26277dab8fb1cc922ee8b145d88d7797d507875ec464338bc2875df48d80892",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "e41b804d8564cdc7c49dbfaf33a374418cef766a08d7916c1436d4f247c3a933",
+                    "side": "left"
+                  }
+                ]
+              },
+              {
+                "seq": 14,
+                "path": [
+                  {
+                    "sibling": "1f70b50f5529d1c040a91cb90ef24883ee08400e88bf2ad63a404de5f0362047",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "51939671b54aaa5a2a956e77706f60f84ee49eeec49df373855c9ce58dfd0d16",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "b26277dab8fb1cc922ee8b145d88d7797d507875ec464338bc2875df48d80892",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "e41b804d8564cdc7c49dbfaf33a374418cef766a08d7916c1436d4f247c3a933",
+                    "side": "left"
+                  }
+                ]
+              },
+              {
+                "seq": 16,
+                "path": [
+                  {
+                    "sibling": "cdf5ce0ae5fb3fed8c0b1afdc799b0f991c472315b19dd329807174e8afb1c8e",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "e41b804d8564cdc7c49dbfaf33a374418cef766a08d7916c1436d4f247c3a933",
+                    "side": "left"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "head": {
+          "seq": 16,
+          "record_count": 16,
+          "result_records": 13,
+          "chain_head": "96b8259a0a04180d0fe6cc15e10f5ccee23089682f23b2607e2b9cb80c461132"
+        },
+        "head_signature": {
+          "sig": "cc7401712e626549b9af82e03381fa8ef852a6faac64d548ca482be6dd26a3cd8cb834a146cc70299e420a055b85b43b09ff9fd26caaf89823d199ad42466700",
+          "public_key": "6bb4f50aba866a7693ca4f500c7313fc1d9ce4101908c194bad0db2abcff860a"
+        },
+        "stats": {
+          "resultRecords": 13,
+          "batchSize": 4096,
+          "batchSignatures": 1,
+          "headSignatures": 1,
+          "perRecordSignatures": 0,
+          "totalSignatures": 2,
+          "bound": 3,
+          "withinBound": true
+        }
+      }
+    },
+    {
+      "id": "base_per_record",
+      "mode": "per_record",
+      "chain": {
+        "format": "dsh-testkit/attest/chain/v1",
+        "run_id": "run-attest-vector-0001",
+        "batch_size": 4096,
+        "signature_mode": "per_record",
+        "public_key": "6bb4f50aba866a7693ca4f500c7313fc1d9ce4101908c194bad0db2abcff860a",
+        "records": [
+          {
+            "seq": 1,
+            "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303031222c226475726174696f6e5f6d73223a31322c2274616773223a5b22736d6f6b65225d2c227573616765223a7b226d6f64656c5f63616c6c73223a302c22746f6b656e73223a307d2c2276657264696374223a22706173736564227d",
+            "payload_hash": "b7428e7c620540e6693aea88610b91d2a2643205d2f59b5f4edaf17d9e6813fd",
+            "record_hash": "d78596208ca0c72bbb1fd3ee87fa77dbe39a9744f6809d1044fc6d73062c594c",
+            "ts": 1,
+            "sig": "58529e3858f3f4ef371dfd9d622aca3fcbcf3ee7e5d7a82841b1321ef10a9f3cc83fa076a737497cbe82a59559b5a8aa5502e309f8478d7f3e838cfa23c11e0d"
+          },
+          {
+            "seq": 2,
+            "prev_hash": "d78596208ca0c72bbb1fd3ee87fa77dbe39a9744f6809d1044fc6d73062c594c",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303032222c226475726174696f6e5f6d73223a33312c226e6f7465223a22c3a95c7530303030e4b8ade69687222c2274616773223a5b22736d6f6b65222c226673225d2c227573616765223a7b226d6f64656c5f63616c6c73223a312c22746f6b656e73223a3132307d2c2276657264696374223a22706173736564227d",
+            "payload_hash": "0d09bc5e8641da6c3191f32736482e8f4b75768e8b055af9d6924559344f3445",
+            "record_hash": "212cca932ddcdda08e828f6dddf9424554db5e01fb92cb5e727608ba09382b64",
+            "ts": 2,
+            "sig": "5cf21111affc9dc3d251ab7205b7c07ec1f36dc011173b0247779052f0f30c423190da9d205616a0b8cc23a2490288534afed29df5db002c9b6e4ccaa6c1d60a"
+          },
+          {
+            "seq": 3,
+            "prev_hash": "212cca932ddcdda08e828f6dddf9424554db5e01fb92cb5e727608ba09382b64",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303033222c226475726174696f6e5f6d73223a34342c226572726f72223a22e696ade8a880e5a4b1e8b4a5efbc9a657870656374656420312e30222c2274616773223a5b226c6c6d225d2c227573616765223a7b226d6f64656c5f63616c6c73223a322c22746f6b656e73223a3331307d2c2276657264696374223a226661696c6564227d",
+            "payload_hash": "52fc1f9eb3f60cd49ef79d426a5d50ba09cbb362f0c4a0f3340daa93650c1d3e",
+            "record_hash": "5f505c527cf6454f6c28fb61dadd0673ae90a2ca1c2ff88699cff42bd0a5bb31",
+            "ts": 3,
+            "sig": "802ecefce65e0e47fd07d3c71cec6b773fa9bd022acfcac9cd3359c95267e97852a8fa06afe44ebca405b61ebcf6a5c590ce4a05cc88df556591a0f3b48d5c0f"
+          },
+          {
+            "seq": 4,
+            "prev_hash": "5f505c527cf6454f6c28fb61dadd0673ae90a2ca1c2ff88699cff42bd0a5bb31",
+            "kind": "result",
+            "payload_jcs": "7b22636173655f6964223a22544b2d30303034222c226475726174696f6e5f6d73223a302c22726561736f6e223a22e883bde58a9be7bcbae5a4b1222c227573616765223a7b226d6f64656c5f63616c6c73223a302c22746f6b656e73223a307d2c2276657264696374223a22736b6970706564227d",
+            "payload_hash": "7478600258127eac99c95c33fb0350e20845c9cc928b403e1111e83a365ca081",
+            "record_hash": "f7e08bd19ec1e340a806cddabfaf3434a33cced1a95a8b2a9a113d626a5f9fbc",
+            "ts": 4,
+            "sig": "4194eac870b7580a100b7d6ef9c62d36e5e575d6d7f5103fe19e409efe69ce9c8bd459dc6f3057f2582dd14aac755c98b981231ee262b99c7a7f1834c14fe502"
+          }
+        ],
+        "batches": [
+          {
+            "index": 0,
+            "first_seq": 1,
+            "last_seq": 4,
+            "leaves": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "root": "2a659f5abca24eba996baf6bbb8a44ecff8ac4be44dd19d910ca6914f9280b24",
+            "sig": "df476eb19fd4614a4620c9286bd8dadab3aa40b5d41b61a57ab4cafd36a15b19fe03173d8127700294f0ad9d6db29f58962290c89e70a9bec5816dc5e9e33101",
+            "public_key": "6bb4f50aba866a7693ca4f500c7313fc1d9ce4101908c194bad0db2abcff860a",
+            "proofs": [
+              {
+                "seq": 1,
+                "path": [
+                  {
+                    "sibling": "56a675a9a0fa1e735aed423151805e666f127b00c9761fc3842affe1884306c2",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "3e68a3343790f20591e2a7839080d9737b16bedbcea96ae8d5c5fe9ce88f61d1",
+                    "side": "right"
+                  }
+                ]
+              },
+              {
+                "seq": 2,
+                "path": [
+                  {
+                    "sibling": "90791ff9b78a241c5fb3d0e8650993eeca10f3c6e919bc0aa319436d5dade30b",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "3e68a3343790f20591e2a7839080d9737b16bedbcea96ae8d5c5fe9ce88f61d1",
+                    "side": "right"
+                  }
+                ]
+              },
+              {
+                "seq": 3,
+                "path": [
+                  {
+                    "sibling": "31af845ef3f8b34e247846dd2b4850cacdf22a513e439052813c12fd272a9734",
+                    "side": "right"
+                  },
+                  {
+                    "sibling": "a2f4ef28eec2bb7cfaaa3948fd22a2a1b6a7c1cf9de8282ad8190dcb7913fda9",
+                    "side": "left"
+                  }
+                ]
+              },
+              {
+                "seq": 4,
+                "path": [
+                  {
+                    "sibling": "19c89ebc7a98916709961905771e1a8abc5244e97fa7c4abddd0eec2899f4d48",
+                    "side": "left"
+                  },
+                  {
+                    "sibling": "a2f4ef28eec2bb7cfaaa3948fd22a2a1b6a7c1cf9de8282ad8190dcb7913fda9",
+                    "side": "left"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "head": {
+          "seq": 4,
+          "record_count": 4,
+          "result_records": 4,
+          "chain_head": "f7e08bd19ec1e340a806cddabfaf3434a33cced1a95a8b2a9a113d626a5f9fbc"
+        },
+        "head_signature": {
+          "sig": "e96ddf3e3c1b1bf349d2969cfbd0f1246dec039c35e3a3a46d8e07f7e467c2ac680c3fa0216b1c5cd9736087c1a6e69cc5ab22391d4e743980d491e26c9fec00",
+          "public_key": "6bb4f50aba866a7693ca4f500c7313fc1d9ce4101908c194bad0db2abcff860a"
+        },
+        "stats": {
+          "resultRecords": 4,
+          "batchSize": 4096,
+          "batchSignatures": 1,
+          "headSignatures": 1,
+          "perRecordSignatures": 4,
+          "totalSignatures": 6,
+          "bound": 3,
+          "withinBound": false
+        }
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "field-01-verdict-passed-to-failed",
+      "class": "field",
+      "base": "base_batch",
+      "note": "把通过改成失败",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 1,
+          "path": [
+            "verdict"
+          ],
+          "value": "failed"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 1,
+        "verifiedRecords": 0,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-02-verdict-passed-to-failed",
+      "class": "field",
+      "base": "base_batch",
+      "note": "把通过改成失败",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 2,
+          "path": [
+            "verdict"
+          ],
+          "value": "failed"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 2,
+        "verifiedRecords": 1,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-03-verdict-failed-to-passed",
+      "class": "field",
+      "base": "base_batch",
+      "note": "**最常见的篡改形态**：把失败改成通过",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 3,
+          "path": [
+            "verdict"
+          ],
+          "value": "passed"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 3,
+        "verifiedRecords": 2,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-04-verdict-skipped-to-passed",
+      "class": "field",
+      "base": "base_batch",
+      "note": "把跳过改成通过",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 4,
+          "path": [
+            "verdict"
+          ],
+          "value": "passed"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 4,
+        "verifiedRecords": 3,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-05-gate-allowed",
+      "class": "field",
+      "base": "base_batch",
+      "note": "门控记录：把拒绝改成允许",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 5,
+          "path": [
+            "allowed"
+          ],
+          "value": true
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 5,
+        "verifiedRecords": 4,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-06-duration",
+      "class": "field",
+      "base": "base_batch",
+      "note": "改耗时",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 6,
+          "path": [
+            "duration_ms"
+          ],
+          "value": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 6,
+        "verifiedRecords": 5,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-07-usage-tokens",
+      "class": "field",
+      "base": "base_batch",
+      "note": "嵌套字段：把 token 用量改成 0",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 7,
+          "path": [
+            "usage",
+            "tokens"
+          ],
+          "value": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 7,
+        "verifiedRecords": 6,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-08-tags",
+      "class": "field",
+      "base": "base_batch",
+      "note": "改数组字段（注意不能把值设成原值，否则就是一条空转用例）",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 8,
+          "path": [
+            "tags"
+          ],
+          "value": [
+            "filesystem",
+            "smoke"
+          ]
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 8,
+        "verifiedRecords": 7,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-09-case-id",
+      "class": "field",
+      "base": "base_batch",
+      "note": "改用例 id",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 9,
+          "path": [
+            "case_id"
+          ],
+          "value": "TK-9999"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 9,
+        "verifiedRecords": 8,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-10-capability-to",
+      "class": "field",
+      "base": "base_batch",
+      "note": "能力变更记录：把 missing 改成 available",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 10,
+          "path": [
+            "to"
+          ],
+          "value": "available"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 10,
+        "verifiedRecords": 9,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-11-add-field",
+      "class": "field",
+      "base": "base_batch",
+      "note": "新增字段",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 11,
+          "path": [
+            "tampered_note"
+          ],
+          "value": "新增一个字段也算改载荷"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 11,
+        "verifiedRecords": 10,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-12-usage-model-calls",
+      "class": "field",
+      "base": "base_batch",
+      "note": "嵌套数字字段",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 12,
+          "path": [
+            "usage",
+            "model_calls"
+          ],
+          "value": 999
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 12,
+        "verifiedRecords": 11,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-13-release",
+      "class": "field",
+      "base": "base_batch",
+      "note": "释放记录：把已释放改成未释放",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 15,
+          "path": [
+            "released"
+          ],
+          "value": false
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 15,
+        "verifiedRecords": 14,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-14-last-record",
+      "class": "field",
+      "base": "base_batch",
+      "note": "**末条**篡改（没有后继记录可比 prev_hash，靠 payload_hash 抓）",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 16,
+          "path": [
+            "injected"
+          ],
+          "value": {
+            "nested": [
+              1,
+              2,
+              3
+            ]
+          }
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 16,
+        "verifiedRecords": 15,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-15-flip-payload-hash",
+      "class": "field",
+      "base": "base_batch",
+      "note": "直接改 payload_hash 字段",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_payload_hash",
+          "seq": 14,
+          "offset": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 14,
+        "verifiedRecords": 13,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-16-flip-payload-hash-tail",
+      "class": "field",
+      "base": "base_batch",
+      "note": "末条记录的 payload_hash 被改",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_payload_hash",
+          "seq": 16,
+          "offset": 31
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 16,
+        "verifiedRecords": 15,
+        "errors": [
+          "payload_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-17-flip-record-hash",
+      "class": "field",
+      "base": "base_batch",
+      "note": "改 record_hash",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_record_hash",
+          "seq": 13,
+          "offset": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 13,
+        "verifiedRecords": 12,
+        "errors": [
+          "record_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-18-flip-record-hash-tail",
+      "class": "field",
+      "base": "base_batch",
+      "note": "末条 record_hash 被改",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_record_hash",
+          "seq": 16,
+          "offset": 7
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 16,
+        "verifiedRecords": 15,
+        "errors": [
+          "record_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-19-bump-ts",
+      "class": "field",
+      "base": "base_batch",
+      "note": "改逻辑刻度 ts（record_hash 覆盖它）",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "bump_ts",
+          "seq": 12
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 12,
+        "verifiedRecords": 11,
+        "errors": [
+          "record_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "field-20-bump-ts-tail",
+      "class": "field",
+      "base": "base_batch",
+      "note": "末条改 ts",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "bump_ts",
+          "seq": 16
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 16,
+        "verifiedRecords": 15,
+        "errors": [
+          "record_hash_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "delete-01-index0",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 1,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-02-index1",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 1
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 2,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-03-index2",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 2
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 3,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-04-index3",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 3
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 4,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-05-index4",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 4
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 5,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-06-index5",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 5
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 6,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-07-index6",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 6
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 7,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-08-index7",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 7
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 8,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-09-index8",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 8
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 9,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-10-index9",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 9
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 10,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-11-index10",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 10
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 11,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-12-index11",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉一条记录：序号出现缺口，缺口号就是被删掉的那条 seq",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 11
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 12,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-13-index14",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "删掉中后段的记录",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 14
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 15,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_gap"
+        ]
+      }
+    },
+    {
+      "id": "delete-14-last",
+      "class": "delete",
+      "base": "base_batch",
+      "note": "**删末条**：序号不再有缺口，链自身也自洽——只能靠「批量叶子集合 vs 链上结果记录」或链头比对发现（本例先命中批量叶子集合）",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "delete_record",
+          "index": 15
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 15,
+        "errors": [
+          "batch_leaf_set_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "reorder-01-swap0",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 2,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "reorder-02-swap1",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 1
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 3,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "reorder-03-swap2",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 2
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 4,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "reorder-04-swap3",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 3
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 5,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "reorder-05-swap4",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 4
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 6,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "reorder-06-swap5",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 5
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 7,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "reorder-07-swap6",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 6
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 8,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "reorder-08-swap7",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 7
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 9,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "reorder-09-swap8",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 8
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 10,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "reorder-10-swap9",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 9
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 11,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "reorder-11-swap10",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 10
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 12,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "reorder-12-swap11",
+      "class": "reorder",
+      "base": "base_batch",
+      "note": "交换相邻两条：序号集合仍是 1..n 但顺序错乱",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "swap_records",
+          "index": 11
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 13,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-01-duplicate0",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 1,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-02-duplicate1",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 1
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 2,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-03-duplicate2",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 2
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 3,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-04-duplicate3",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 3
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 4,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-05-duplicate4",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 4
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 5,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-06-duplicate5",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 5
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 6,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-07-duplicate6",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 6
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 7,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-08-duplicate7",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 7
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 8,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-09-duplicate8",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 8
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 9,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-10-duplicate9",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 9
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 10,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-11-duplicate10",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 10
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 11,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-12-duplicate11",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "复制一条插进链里：序号重复",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "duplicate_record",
+          "index": 11
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 12,
+        "verifiedRecords": 0,
+        "errors": [
+          "seq_conflict"
+        ]
+      }
+    },
+    {
+      "id": "insert-13-polished-batch",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "**精修插入**：新记录的 prev_hash 与自身哈希都算对，链看起来连续，但批量签名覆盖的结果记录集合对不上了",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "append_record",
+          "kind": "result",
+          "payload": {
+            "case_id": "TK-9999",
+            "duration_ms": 1,
+            "tags": [],
+            "usage": {
+              "model_calls": 0,
+              "tokens": 0
+            },
+            "verdict": "passed"
+          },
+          "ts": 17
+        },
+        {
+          "op": "recompute_chain_hashes"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 17,
+        "errors": [
+          "batch_leaf_set_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "insert-14-polished-resigned-batch",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "精修插入 + 重建批次但**没有重新签名**：批量签名对不上",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "append_record",
+          "kind": "result",
+          "payload": {
+            "case_id": "TK-9998",
+            "duration_ms": 1,
+            "tags": [],
+            "usage": {
+              "model_calls": 0,
+              "tokens": 0
+            },
+            "verdict": "passed"
+          },
+          "ts": 17
+        },
+        {
+          "op": "recompute_chain_hashes"
+        },
+        {
+          "op": "recompute_batches",
+          "resign": false
+        },
+        {
+          "op": "recompute_head"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 17,
+        "errors": [
+          "batch_signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "insert-15-polished-resigned-report-stale",
+      "class": "insert",
+      "base": "base_batch",
+      "note": "**精修插入 + 全部重新签名**（有私钥的人能做到）：链自身完全自洽，但 run.json 里的链头没跟着改，两处一比就露",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "append_record",
+          "kind": "result",
+          "payload": {
+            "case_id": "TK-9997",
+            "duration_ms": 1,
+            "tags": [],
+            "usage": {
+              "model_calls": 0,
+              "tokens": 0
+            },
+            "verdict": "passed"
+          },
+          "ts": 17
+        },
+        {
+          "op": "recompute_chain_hashes"
+        },
+        {
+          "op": "recompute_batches",
+          "resign": true
+        },
+        {
+          "op": "recompute_head"
+        },
+        {
+          "op": "recompute_head_signature"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 17,
+        "errors": [
+          "chain_head_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "insert-16-polished-per-record",
+      "class": "insert",
+      "base": "base_per_record",
+      "note": "逐条签名模式下的精修插入：新记录没有签名（缺签名按失败处理，不是跳过）",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "append_record",
+          "kind": "result",
+          "payload": {
+            "case_id": "TK-9996",
+            "duration_ms": 1,
+            "tags": [],
+            "usage": {
+              "model_calls": 0,
+              "tokens": 0
+            },
+            "verdict": "passed"
+          },
+          "ts": 5
+        },
+        {
+          "op": "recompute_chain_hashes"
+        },
+        {
+          "op": "recompute_head"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 5,
+        "verifiedRecords": 4,
+        "errors": [
+          "signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-01-batch-offset0",
+      "class": "signature",
+      "base": "base_batch",
+      "note": "翻转批量签名的一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_batch_sig",
+          "batch": 0,
+          "offset": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "batch_signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-02-batch-offset15",
+      "class": "signature",
+      "base": "base_batch",
+      "note": "翻转批量签名的一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_batch_sig",
+          "batch": 0,
+          "offset": 15
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "batch_signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-03-batch-offset31",
+      "class": "signature",
+      "base": "base_batch",
+      "note": "翻转批量签名的一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_batch_sig",
+          "batch": 0,
+          "offset": 31
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "batch_signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-04-batch-offset47",
+      "class": "signature",
+      "base": "base_batch",
+      "note": "翻转批量签名的一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_batch_sig",
+          "batch": 0,
+          "offset": 47
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "batch_signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-05-batch-offset63",
+      "class": "signature",
+      "base": "base_batch",
+      "note": "翻转批量签名的一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_batch_sig",
+          "batch": 0,
+          "offset": 63
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "batch_signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-06-head-offset0",
+      "class": "signature",
+      "base": "base_batch",
+      "note": "翻转链头签名的一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_head_sig",
+          "offset": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "head_signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-07-head-offset16",
+      "class": "signature",
+      "base": "base_batch",
+      "note": "翻转链头签名的一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_head_sig",
+          "offset": 16
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "head_signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-08-head-offset32",
+      "class": "signature",
+      "base": "base_batch",
+      "note": "翻转链头签名的一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_head_sig",
+          "offset": 32
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "head_signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-09-head-offset63",
+      "class": "signature",
+      "base": "base_batch",
+      "note": "翻转链头签名的一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_head_sig",
+          "offset": 63
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "head_signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-10-record1-offset0",
+      "class": "signature",
+      "base": "base_per_record",
+      "note": "逐条签名模式：翻转结果记录的签名一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_sig",
+          "seq": 1,
+          "offset": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 1,
+        "verifiedRecords": 0,
+        "errors": [
+          "signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-11-record1-offset63",
+      "class": "signature",
+      "base": "base_per_record",
+      "note": "逐条签名模式：翻转结果记录的签名一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_sig",
+          "seq": 1,
+          "offset": 63
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 1,
+        "verifiedRecords": 0,
+        "errors": [
+          "signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-12-record2-offset31",
+      "class": "signature",
+      "base": "base_per_record",
+      "note": "逐条签名模式：翻转结果记录的签名一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_sig",
+          "seq": 2,
+          "offset": 31
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 2,
+        "verifiedRecords": 1,
+        "errors": [
+          "signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-13-record3-offset0",
+      "class": "signature",
+      "base": "base_per_record",
+      "note": "逐条签名模式：翻转结果记录的签名一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_sig",
+          "seq": 3,
+          "offset": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 3,
+        "verifiedRecords": 2,
+        "errors": [
+          "signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-14-record4-offset17",
+      "class": "signature",
+      "base": "base_per_record",
+      "note": "逐条签名模式：翻转结果记录的签名一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_sig",
+          "seq": 4,
+          "offset": 17
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 4,
+        "verifiedRecords": 3,
+        "errors": [
+          "signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "signature-15-record4-offset63",
+      "class": "signature",
+      "base": "base_per_record",
+      "note": "逐条签名模式：翻转结果记录的签名一个字节",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_sig",
+          "seq": 4,
+          "offset": 63
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 4,
+        "verifiedRecords": 3,
+        "errors": [
+          "signature_invalid"
+        ]
+      }
+    },
+    {
+      "id": "extra-01-proof-step",
+      "class": "extras",
+      "base": "base_batch",
+      "note": "翻转 inclusion proof 的一步",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_proof",
+          "batch": 0,
+          "seq": 6,
+          "step": 0,
+          "offset": 0
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "merkle_proof_invalid"
+        ]
+      }
+    },
+    {
+      "id": "extra-02-proof-step-deep",
+      "class": "extras",
+      "base": "base_batch",
+      "note": "翻转更深一层的 proof 步骤",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "flip_proof",
+          "batch": 0,
+          "seq": 14,
+          "step": 2,
+          "offset": 31
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "merkle_proof_invalid"
+        ]
+      }
+    },
+    {
+      "id": "extra-03-proof-dropped",
+      "class": "extras",
+      "base": "base_batch",
+      "note": "删掉某片叶的证明：缺证明是失败，不是跳过",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "drop_proof",
+          "batch": 0,
+          "seq": 9
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "merkle_proof_missing"
+        ]
+      }
+    },
+    {
+      "id": "extra-04-leaf-removed",
+      "class": "extras",
+      "base": "base_batch",
+      "note": "把某条结果记录从批次的 leaves 里摘掉：漏签",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "remove_leaf",
+          "batch": 0,
+          "seq": 7
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "batch_leaf_set_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "extra-05-stale-head",
+      "class": "extras",
+      "base": "base_batch",
+      "note": "只改链文件里的链头摘要",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "stale_head_chain_head"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": [
+          "chain_head_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "extra-06-noncanonical-payload",
+      "class": "extras",
+      "base": "base_batch",
+      "note": "载荷被写成「语义相同、形态不同」的字节（缩进），并把链重算重签成完全自洽——此时哈希与签名全都对得上，只有『载荷必须已经是 JCS 字节』这条前提校验能抓（设计 §7.2）",
+      "context": {
+        "expected_chain_head": null,
+        "anchor_head": null,
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "noncanonical_payload",
+          "seq": 6
+        },
+        {
+          "op": "recompute_chain_hashes"
+        },
+        {
+          "op": "recompute_batches",
+          "resign": true
+        },
+        {
+          "op": "recompute_head"
+        },
+        {
+          "op": "recompute_head_signature"
+        }
+      ],
+      "expected": {
+        "chainOk": false,
+        "firstBadSeq": 6,
+        "verifiedRecords": 5,
+        "errors": [
+          "payload_not_canonical"
+        ]
+      }
+    }
+  ],
+  "boundary_cases": [
+    {
+      "id": "boundary-01-rewrite-whole-chain",
+      "class": "boundary",
+      "base": "base_batch",
+      "note": "**已知检不出**：有私钥者改一条载荷、重算全链哈希、重签批次与链头，并把报告与锚定一起改掉；此时所有签名自洽。设计 §7.5：哈希链是 tamper-evident，不是 tamper-proof。",
+      "context": {
+        "expected_chain_head": "self",
+        "anchor_head": "self",
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "set_payload_field",
+          "seq": 3,
+          "path": [
+            "verdict"
+          ],
+          "value": "passed"
+        },
+        {
+          "op": "recompute_chain_hashes"
+        },
+        {
+          "op": "recompute_batches",
+          "resign": true
+        },
+        {
+          "op": "recompute_head"
+        },
+        {
+          "op": "recompute_head_signature"
+        }
+      ],
+      "expected": {
+        "chainOk": true,
+        "firstBadSeq": null,
+        "verifiedRecords": 16,
+        "errors": []
+      }
+    },
+    {
+      "id": "boundary-02-tail-insert-resigned",
+      "class": "boundary",
+      "base": "base_batch",
+      "note": "**已知检不出**：精修插入 + 重签 + 报告与锚定同步改写。文档必须写清这条，否则就是过度承诺。",
+      "context": {
+        "expected_chain_head": "self",
+        "anchor_head": "self",
+        "anchor_declared": null,
+        "expected_public_key": null,
+        "verify_proofs": null
+      },
+      "ops": [
+        {
+          "op": "append_record",
+          "kind": "result",
+          "payload": {
+            "case_id": "TK-9995",
+            "duration_ms": 1,
+            "tags": [],
+            "usage": {
+              "model_calls": 0,
+              "tokens": 0
+            },
+            "verdict": "passed"
+          },
+          "ts": 17
+        },
+        {
+          "op": "recompute_chain_hashes"
+        },
+        {
+          "op": "recompute_batches",
+          "resign": true
+        },
+        {
+          "op": "recompute_head"
+        },
+        {
+          "op": "recompute_head_signature"
+        }
+      ],
+      "expected": {
+        "chainOk": true,
+        "firstBadSeq": null,
+        "verifiedRecords": 17,
+        "errors": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+    "metric":  "D3",
+    "label":  "single-case-tk0001",
+    "command":  "C:\\Users\\19059\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\node\\bin\\node.exe bin/dsh-testkit.mjs run --only TK-0001 --json",
+    "method":  "process-level RSS sampling: poll WorkingSet64 + kernel PeakWorkingSet64 every 100ms; D3 = max of samples",
+    "interval_ms":  100,
+    "sample_size":  5,
+    "peak_rss_bytes":  79089664,
+    "peak_rss_mib":  75.426,
+    "peak_workset_sampled_mib":  75.426,
+    "peak_kernel_sampled_mib":  75.426,
+    "sampling_gap_note":  "PeakWorkingSet64 is kernel-accounted but only observed at poll boundaries; the last \u003c100ms before exit is not sampled",
+    "exit_code":  0,
+    "wall_ms":  592.838,
+    "generated_at":  "2026-10-11T00:04:27.7118773+08:00"
+}

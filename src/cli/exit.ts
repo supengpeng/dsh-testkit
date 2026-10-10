@@ -26,6 +26,15 @@ export const EXIT = {
   USAGE: 2,
   /** 基础设施错误（宿主 / 目录 / 依赖模块）。 */
   INFRA: 3,
+  // ⚠️ `4` / `5` **保留不使用**：它们是同名第三方包（`iiwish/dsh-testkit`）的发布语义，
+  //    同名不同义是最贵的坑——CI 只能依赖退出码时，一个数字的歧义会跨项目传播。
+  /** 协议不兼容：握手失败（设计 §4.5 的 `-32001`；见 `crates/protocol`）。 */
+  PROTOCOL: 6,
+  /** **必需**能力缺失且档位为严格（设计 §4.5 的 `-32002` + `mandatory`）。 */
+  CAPABILITY: 7,
+  // ⚠️ `8` **不定义**：RFC §8 Q3 提到过"6/7/8 采纳"，但设计的裁决表（§4.5）只给出到 `7` 的映射，
+  //    `8` 没有任何来源。**定义没人用的码 = 制造歧义**（与 4/5 的处置同理）。
+  //    将来若确有需要，必须先有映射来源，再在这里加。
 } as const
 
 export type ExitCode = (typeof EXIT)[keyof typeof EXIT]
@@ -36,6 +45,8 @@ export const EXIT_DOC: readonly { code: ExitCode; meaning: string }[] = [
   { code: EXIT.FAILED, meaning: '有 failed / errored' },
   { code: EXIT.USAGE, meaning: '用法错误，或选中 0 条' },
   { code: EXIT.INFRA, meaning: '基础设施错误（宿主 / 目录 / 依赖模块建不起来）' },
+  { code: EXIT.PROTOCOL, meaning: '协议不兼容（握手失败）' },
+  { code: EXIT.CAPABILITY, meaning: '必需能力缺失（严格档位）' },
 ]
 
 /**

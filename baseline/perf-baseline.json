@@ -1,0 +1,226 @@
+{
+  "schema": "dsh-testkit/perf-baseline@1",
+  "title": "D1–D3 性能冻结基线（重构阶段 0 实测，分母落盘）",
+  "frozen_on": "2026-10-11",
+  "frozen_by": "baseline-freezer（阶段 0-D）",
+  "authority": "docs/REWRITE-METRICS.md §5（D1–D3 基线冻结的三条纪律）与 §15（阶段 0 退出条件：D1–D3 基线冻结完成）",
+  "why_frozen": "原稿把 D1/D2 的分母定义为『旧实现』，而 RFC 0001 决定 4 的终点是删除旧实现——基线会随旧代码一起消失。因此在阶段 0 实测后把分母**冻结成数值**；阶段 3 删旧实现后，D1–D3 仍可计算。",
+  "degraded": false,
+  "degraded_rule": "若本文件与 baseline/env.json 未在阶段 3 删旧实现之前落盘，则 D1–D3 降级为『仅记录、不阻断』并在报告里标 degraded（REWRITE-METRICS §5 纪律 3）。本次已在阶段 0 完成冻结，故 degraded = false。",
+  "env_fingerprint": {
+    "file": "baseline/env.json",
+    "sha256": "8a2a74f575fad17d4bd71307516935fb92cd802158f15cd9e95c40ad8d6d4899",
+    "verify_command": "& 'C:/Users/19059/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/node/bin/node.exe' baseline/check-env.mjs",
+    "rule": "只有 env.json 的 comparability.must_match 全部一致时，才允许把当前读数除以本文件的冻结值；不一致必须由人发起重采基线并记录原因（纪律 1、2）"
+  },
+  "runtime_prefix": {
+    "node": "C:/Users/19059/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/node/bin/node.exe",
+    "pnpm": "C:/Users/19059/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/pnpm/bin/pnpm.mjs",
+    "note": "本机没有全局 node/pnpm，命令里的绝对路径不可省略；跑 `pnpm run gate` 时还要把 node bin 目录前置到 PATH，否则 gate 脚本里的 `node -e` 会报 'node' is not recognized"
+  },
+  "metrics": {
+    "D1": {
+      "definition": "单用例执行时间比 = 当前基线值 / 冻结基线值（门槛 ≤ 1.10，目标 ≤ 1.00）",
+      "value": 453.935,
+      "unit": "ms",
+      "statistic": "median",
+      "measured_at": "2026-10-11T00:03:43.654+08:00",
+      "method": "CLI 端到端墙钟：每条运行都是**全新进程**，因此**包含** Node 冷启动 + CLI 装载 + headless 宿主装配；不预热；串行执行 7 次取中位数；每次解析 --json 载荷的 totals 确认该条确实 passed=1（避免把『失败得快』当成快）",
+      "sample_size": 7,
+      "command": "& '<node>' bin/dsh-testkit.mjs run --only TK-0001 --json",
+      "case_id": "TK-0001",
+      "case_why_representative": "kind=tool（覆盖最核心的 driver → 断言 → 取证链路）、cost=none、纯离线、无外部依赖，是 README 自述的 driver 自检 smoke 用例；确定性最高，最适合当对拍分母",
+      "warmup": "none（不预热：冷启动是单用例成本的一部分，预热会把它藏起来）",
+      "includes_cold_start": true,
+      "raw_samples_ms": [679.333, 400.333, 409.353, 497.229, 470.493, 453.935, 416.652],
+      "min_ms": 400.333,
+      "max_ms": 679.333,
+      "mean_ms": 475.333,
+      "all_runs_passed": true,
+      "observed_spread": "max/min = 1.697；第 1 次 679.333ms 明显高于后续 6 次（400–497ms），是首轮冷启动/缓存未热的形态。这正是 D1 取中位数而不是取单次的原因",
+      "artifact": "baseline/d1-samples.json",
+      "raw_log": "baseline/d1-samples.log",
+      "gate": 1.1,
+      "target": 1.0
+    },
+    "D2": {
+      "definition": "全套执行时间比 = 当前基线值 / 冻结基线值（门槛 ≤ 1.15，目标 ≤ 1.00）",
+      "value": 80.497,
+      "unit": "s",
+      "statistic": "single official run（三次独立读数见 readings；冻结值 80.497s 同时是三次的中位数）",
+      "measured_at": "2026-10-11T00:02:12.7813423+08:00",
+      "method": "`pnpm run gate` 全链墙钟。gate 是本仓自述的**唯一质量门入口**（README『唯一入口 pnpm run gate』），一条 `a && b && ...` 链共 20 段：清 lib → tsc → build-client → 12 个守卫 → 契约轨(65) → 主套件(733) → export → 导出轨(26 场景) → client typecheck。串行单次，含冷启动与进程启动开销",
+      "sample_size": 1,
+      "command": "$env:PATH='<node-bin>;'+$env:PATH; Set-Location <repo>; & '<node>' '<pnpm>' run gate",
+      "workload_definition": "全套 = package.json#scripts.gate 的完整链条（不是其中某一段）；解析真源见 baseline/run-gate-stages.mjs",
+      "readings": [
+        {
+          "label": "official_full_gate",
+          "value_s": 80.497,
+          "sample_size": 1,
+          "measured_at": "2026-10-11T00:02:12.7813423+08:00",
+          "method": "单次 `pnpm run gate`，退出码 0；墙钟由 Stopwatch 在 cmd 原生重定向前后取得（不含 PowerShell 管道开销）",
+          "command": "& '<node>' '<pnpm>' run gate",
+          "artifact": "baseline/gate-rewrite-stage0.log"
+        },
+        {
+          "label": "gate_stages_sum",
+          "value_s": 72.807,
+          "sample_size": 1,
+          "measured_at": "2026-10-11T00:03:37.072+08:00",
+          "method": "同一条链条按 ` && ` 切段后**逐段独立 spawn** 并计时求和（忠实复刻 && 短路语义，20/20 段 exit=0）；段间少了 pnpm 的进程与壳开销",
+          "command": "& '<node>' baseline/run-gate-stages.mjs",
+          "artifact": "baseline/gate-stages.json",
+          "artifact_log": "baseline/gate-stages.log"
+        },
+        {
+          "label": "confirm_full_gate_after_stage0_artifacts",
+          "value_s": 144.399,
+          "sample_size": 1,
+          "measured_at": "2026-10-11T00:14:59.9226942+08:00",
+          "method": "同一口径的第三次 `pnpm run gate`（started_at 2026-10-11T00:12:35.4011124+08:00），退出码 0；目的有二：① 证明新增 baseline/** 与 spec/metrics/** 不会让既有 gate 变红；② 暴露系统的真实离散度",
+          "command": "& '<node>' '<pnpm>' run gate",
+          "artifact": "baseline/gate-rewrite-stage0-confirm.log",
+          "same_code_same_tests": "本次 733/733 主套件、65/65 契约轨、26 条导出场景结果与首轮完全一致，但主套件墙钟从 57.72s 涨到 114.08s（node --test 自报 duration_ms）"
+        }
+      ],
+      "observed_spread": {
+        "ratio": 1.9834,
+        "comparison": "144.399 / 72.807 = 1.9834（max/min，三次读数）",
+        "also": "80.497 / 72.807 = 1.1056",
+        "median_of_three": 80.497,
+        "interpretation": "同一个代码基座、同一天、同一台机器上，三次『全套』读数的极差是 1.98 倍。**这不是普通的测量噪声，是资源争用**：本机只有 2 物理核 / 4 逻辑核，第三轮运行时阶段 0 的其他成员（spec 提取、契约评审）正在并发跑自己的 node 进程。证据：三次运行的通过数完全一致（733/733、65/65、18/26+8skip），唯独墙钟翻倍——即**结果没变，只是被抢了 CPU**。",
+        "consequence": "D2 的门槛是 ≤1.15。若在负载不受控的环境下用单次读数判定，**同一份代码会被判成 1.98 倍回归**。因此：① 冻结值 80.497s 恰好也是三次读数的中位数，保留它作为分母是可辩护的；② 阶段 1 之后要用 D2 守 15%，必须先定义『空载 + 同口径 + N≥3 取中位数』的采集协议，否则 D2 会周期性假红/假绿。"
+      },
+      "components_ms": {
+        "clean_lib": 213,
+        "tsc_host": 5913,
+        "build_client": 149,
+        "guards_12_total": 3565,
+        "contracts_track": 1474.3347,
+        "main_suite": 57717.9963,
+        "export_scenarios": 324,
+        "export_track": 1502.6913,
+        "tsc_client_typecheck": 1940,
+        "note": "guards_12_total 是 12 个守卫的逐段之和（来自 gate-stages.json）；契约轨/主套件/导出轨的 duration_ms 来自官方日志（node --test 自报）"
+      },
+      "gate": 1.15,
+      "target": 1.0
+    },
+    "D3": {
+      "definition": "内存峰值比 = 当前基线值 / 冻结基线值（门槛 ≤ 1.20，目标 ≤ 1.00）",
+      "value": 252.566,
+      "unit": "MiB",
+      "statistic": "peak of sampled WorkingSet64 / PeakWorkingSet64",
+      "measured_at": "2026-10-11T00:05:23.3757470+08:00",
+      "method": "进程级 RSS 采样：每 100ms 轮询被测进程的 WorkingSet64（当前 RSS）与 PeakWorkingSet64（内核记账的峰值），D3 取全部采样的最大值。为让单进程真正承载全部工作，被测进程用 `--test-isolation=none --test-concurrency=1`（默认隔离会把每个测试文件派到子进程，父进程 RSS 不代表工作负载）",
+      "sample_size": 469,
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& '<repo>/baseline/sample-rss.ps1' -NodePath '<node>' -RepoRoot '<repo>' -Label main-suite -OutJson baseline/rss-main-suite.json -TargetArgs @('--test','--test-isolation=none','--test-concurrency=1','tests/contracts/*.test.mjs','tests/*.test.mjs') -IntervalMs 100\"",
+      "primary_workload": "契约轨 + 主套件在**一个进程**里跑完（798 tests / 798 pass / 0 fail），这是当前仓里最大的单进程工作负载",
+      "readings": [
+        {
+          "label": "main_suite_single_process",
+          "value_mib": 252.566,
+          "value_bytes": 264835072,
+          "sample_size": 469,
+          "measured_at": "2026-10-11T00:05:23.3757470+08:00",
+          "method": "见本项 method；被测负载 798 tests（65 契约 + 733 主套件），exit=0，墙钟 53.913s",
+          "command": "见本项 command",
+          "artifact": "baseline/rss-main-suite.json",
+          "raw_log": "baseline/rss-main-suite.log"
+        },
+        {
+          "label": "single_case_tk0001",
+          "value_mib": 75.426,
+          "value_bytes": 79089664,
+          "sample_size": 5,
+          "measured_at": "2026-10-11T00:04:27.7118773+08:00",
+          "method": "同一采样器，负载 = 与 D1 完全相同的那一条命令（TK-0001 单用例，新进程）",
+          "command": "& '<node>' bin/dsh-testkit.mjs run --only TK-0001 --json（在同一采样器下运行）",
+          "artifact": "baseline/rss-single-case.json",
+          "raw_log": "baseline/rss-single-case-tk0001.log"
+        },
+        {
+          "label": "scenario_suite_single_process",
+          "value_mib": 70.645,
+          "value_bytes": 74076160,
+          "sample_size": 6,
+          "measured_at": "2026-10-11T00:04:28.9393246+08:00",
+          "method": "同一采样器，负载 = 全量导出场景 26 条（18 pass / 8 skip），单进程",
+          "command": "& '<node>' --test --test-isolation=none export/scenarios.test.mjs（在同一采样器下运行）",
+          "artifact": "baseline/rss-scenario-suite.json",
+          "raw_log": "baseline/rss-scenario-suite.log"
+        }
+      ],
+      "caveats": [
+        "① D3 的口径必须**先钉住工作负载**，否则比值没有意义：同一个 Node 进程在单用例与全套之间的峰值差 3.5 倍。本文件把 primary 定为 main_suite_single_process。",
+        "② 单用例 75.4 MiB 与场景套件 70.6 MiB 已经贴近**空 Node 进程的地板（约 70 MiB）**，这两个读数对实现变化几乎没有判别力；只有 main_suite（252.6 MiB）真正反映了分配量。",
+        "③ PeakWorkingSet64 由内核记账，但只在轮询点被观测到——退出前最后 <100ms 的峰值不可见；采样值与本进程读到的内核峰值本次完全一致（两者取 max 后相同）。",
+        "④ 工作负载用了 `--test-isolation=none`，与 gate 的默认（每文件一个子进程）**不是**同一执行模型；这是为了得到『单进程 RSS』这个可定义量而做的显式取舍。",
+        "⑤ Rust 侧重写后若换用 dhat（堆分配口径），**不能**直接与本文件的 RSS 相除——口径不同（RSS 含运行时与映射，dhat 只记堆）。若换工具，D3 必须重采基线并在此声明。"
+      ],
+      "gate": 1.2,
+      "target": 1.0
+    }
+  },
+  "gate_run_at_freeze": {
+    "command": "pnpm run gate",
+    "exit_code": 0,
+    "verdict": "全绿（既有实现无红）",
+    "log": "baseline/gate-rewrite-stage0.log",
+    "observed": {
+      "contracts_track": { "tests": 65, "pass": 65, "fail": 0, "skipped": 0, "duration_ms": 1474.3347 },
+      "main_suite": { "tests": 733, "pass": 733, "fail": 0, "skipped": 0, "duration_ms": 57717.9963 },
+      "export_track": { "tests": 26, "pass": 18, "fail": 0, "skipped": 8, "duration_ms": 1502.6913 },
+      "exported_scenarios": 26,
+      "available_cases": 39,
+      "fixture_scenarios_excluded_by_export": 7,
+      "guards_run": 12,
+      "encoding_guard_files_scanned": 309,
+      "skipped_reasons": "8 条 skipped 全部是『宿主缺少能力』的如实降级（subprocess / fs / sessions / compaction），不是失败；与既有 baseline/README.md 的记载一致"
+    },
+    "environment_incidents": [
+      {
+        "attempt": 1,
+        "result": "exit 1（2.005s）",
+        "cause": "环境：本机 node 不在 PATH，`pnpm run gate` 脚本内的 `node -e` 报 \"'node' is not recognized\"",
+        "fix": "把 node bin 目录前置到 PATH",
+        "log": "baseline/gate-attempt1-node-not-on-path.log",
+        "verdict": "不是仓库红，是采集环境缺 PATH"
+      },
+      {
+        "attempt": 2,
+        "result": "exit 1（12.689s）",
+        "cause": "采集副作用：本次采集用 PowerShell 5.1 的 `Set-Content -Encoding utf8` 写的 `baseline/git-status-before.txt` 带了 UTF-8 BOM，被 check-encoding 守卫抓住",
+        "fix": "该文件改写为 UTF-8 无 BOM（内容不变），check-encoding 随即 OK",
+        "verdict": "守卫按设计工作了；**这条恰好是该守卫的又一次负向证明**"
+      },
+      {
+        "attempt": 3,
+        "result": "exit 0（80.497s）",
+        "cause": "正式基线读数",
+        "log": "baseline/gate-rewrite-stage0.log"
+      }
+    ],
+    "confirmation_run_after_stage0_artifacts": {
+      "command": "pnpm run gate",
+      "exit_code": 0,
+      "wall_seconds": 144.399,
+      "started_at": "2026-10-11T00:12:35.4011124+08:00",
+      "finished_at": "2026-10-11T00:14:59.9226942+08:00",
+      "log": "baseline/gate-rewrite-stage0-confirm.log",
+      "purpose": "证明本次新增的 baseline/** 与 spec/metrics/**（含 .md/.json/.mjs/.ps1/.txt）在 gate 下**全绿**——编码守卫、文档守卫、12 个静态守卫、契约轨、主套件、导出轨都不因新增 spec/ 与 baseline/ 而变红",
+      "result": "退出码 0；契约轨 65/65、主套件 733/733、导出轨 26 条（18 通过 / 8 跳过 / 0 失败）——与首轮完全一致",
+      "reading": "本轮墙钟 144.399s（主套件 node --test 自报 duration_ms 114080.126ms，首轮 57717.9963ms）。**同一份代码、同样的通过数，墙钟 1.98 倍**：原因是阶段 0 其他成员的并发工作抢占了本机仅 4 个逻辑核。这条读数不进 D2 的冻结值，只作为离散度证据（见 metrics.D2.observed_spread）"
+    }
+  },
+  "consumers": {
+    "D1_D2_D3_ratios": "阶段 1–3 的 Rust 实现：当前读数 / 本文件 metrics.*.value；先跑 baseline/check-env.mjs 确认指纹匹配",
+    "B1": "spec/metrics/coverage.md（旧代码分支覆盖率：最终变更清单 31 文件，6 次读数 81.14/81.25/81.33/81.33/81.36/81.40%，中位数 81.33% → 阶段 0 的 B1 ≥80% 达成，最弱一次余量 +1.14pp；另保留全旧代码 78.03%/107、补全前 83.87%/30、含 kinds/types.ts 81.46%/32、已撤销裁决五口径 81.21%/32(superseded)、含 cli 敏感度 77.11%/41、变更+未列 79.84%/90；引用覆盖率 31/31=100%，分子只算 status=active 且 source.file 指向旧代码的条目）"
+  },
+  "known_limits": [
+    "所有读数都来自同一台机器（i7-7500U / 2 物理核 / 4 逻辑核 / 19.9 GiB），且本机同时运行着 DSH harness 与阶段 0 其他成员的并发任务；绝对数值不可移植，只有『同指纹 + 空载』下的比值才有意义。",
+    "D2 的三次读数极差达 1.98 倍（80.497 / 72.807 / 144.399），主因是 CPU 争用而非测量噪声（三次通过数完全一致）。要守住 15% 门槛，必须先定『空载 + 同口径 + N≥3 取中位数』的采集协议；否则同一份代码会被判成 1.98 倍回归。",
+    "采样都是墙钟（wall clock），没有测 CPU 时间；本机只有 4 个逻辑核，多进程阶段（tsc / node --test）对系统负载极其敏感。"
+  ]
+}

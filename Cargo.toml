@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+# Rust 核心（RFC 0001 决定 1/2）。TS interface layer 仍在 src/，lib/ 仍是 npm 产物。
+# 跨语言契约只经由 crates/protocol 的 ts-rs 导出（设计 §1.1），两侧都不读对方内部类型。
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.99"
+repository = "https://github.com/supengpeng/dsh-testkit"
+
+[workspace.dependencies]
+# 依赖纪律：每一项新增都要过 RFC 0001 §7 停止线 5（新增 crate 数上限 5）。
+# 实测与评审见 spec/metrics/dependency-review.md。
+#
+# 这四个是 RFC §5 明确批准的直接依赖（ts-rs / serde+serde_json / 一个 Ed25519 实现）
+# 加 SHA-256（设计 §7.1 的记录链必需，RFC 的"三个 crate"表述未单列它）。
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ts-rs = { version = "12", features = ["serde-compat", "serde-json-impl"] }
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+sha2 = "0.10"

@@ -1,0 +1,242 @@
+# spec/contracts/versions.yaml
+#
+# DSH 版本覆盖的**声明集合** —— 指标 B3 的分母。
+#   B3 版本覆盖 = spec 覆盖的 DSH 版本数 / 声明的支持版本总数（门槛 100%）
+#   定义见 docs/REWRITE-METRICS.md §3 L83。
+#
+# ⚠️ 本文件最重要的一条读数：**声明支持的版本只有 1 个（0.2.0-rc.2）**，
+#    而它来自 package.json 的 `dsh.compatibility.dshReleases`——那份声明**没有任何代码消费者**
+#    （见 declared_set.has_code_consumer = false）。运行期真正生效的版本判定走的是
+#    fixture 的 `dsh_version` 范围（src/fixtures/compat.ts + apply.ts / by-version.ts）。
+#    两套东西**不是一回事**：前者是"我们实测过哪些 DSH 版本"，后者是"这份夹具适用于哪些版本"。
+
+meta:
+  contract: DSH 版本覆盖声明 + 版本判定逻辑
+  metric: 'B3 版本覆盖 = spec 覆盖的 DSH 版本数 / 声明的支持版本总数（门槛 100%）'
+  metric_source: docs/REWRITE-METRICS.md §3 L83
+  decision_logic_source: src/fixtures/compat.ts（parseVersion / compareVersions / parseRange / checkDshVersion / satisfies）
+  runtime_gate_sources:
+    - 'src/fixtures/schema.ts:126-132 —— 夹具的 dsh_version 必填且必须是合法范围'
+    - 'src/fixtures/apply.ts:146 —— 夹具应用时判定宿主版本是否落在范围内'
+    - 'src/selection/by-version.ts:77 —— 增量选择 --dsh-version 的过滤'
+    - 'src/surface/selection-args.ts:107 —— 选择器参数到 selectByDshVersion 的连接'
+  runtime:
+    node: C:\Users\19059\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe
+  recompute:
+    - '$NODE $REPO/bin/dsh-testkit.mjs fixtures --json   # 3 份夹具的 dshVersion 绑定（运行期读数）'
+    - '$NODE -e "const p=require(''$REPO/package.json'');console.log(JSON.stringify(p.dsh,null,2))"   # dsh.engines / dsh.compatibility'
+    - 'Select-String -Path $REPO/fixtures -Include *.yaml -Recurse -Pattern "dsh_version"   # 夹具侧范围'
+    - 'cd $REPO && $NODE --test tests/fixture-governance.test.mjs   # 版本序与范围语义的冻结测试（L97-126）'
+    - 'Select-String -Path $REPO/src -Include *.ts -Recurse -Pattern "compatibility|dshReleases"   # 证明无代码消费者'
+  readouts:
+    declared_supported_versions: 1
+    declared_version_names: ['0.2.0-rc.2']
+    declared_range: '>=0.2.0-rc.2'
+    declared_profiles: [desktop, web]
+    fixture_bindings: 3
+    fixture_binding_ranges_distinct: 1
+    fixture_binding_range: '>=0.2.0-rc.2'
+    peer_dependency_dsh_ranges_distinct: 1
+    engines_node: '>=22.19'
+    decision_logic_tests: 'tests/fixture-governance.test.mjs:97-126'
+
+# ---------------------------------------------------------------- 声明集合（B3 分母） --
+declared_set:
+  authoritative_for_b3: true
+  source: package.json:50-62（dsh 字段）
+  raw:
+    engines_dsh: '>=0.2.0-rc.2'
+    engines_dsh_line: package.json:52
+    compatibility_dshReleases:
+      0.2.0-rc.2: compatible
+    compatibility_dshReleases_line: package.json:55-57
+    compatibility_profiles: [desktop, web]
+    compatibility_profiles_line: package.json:58-61
+  semantics:
+    engines_dsh: '**范围**，不是版本；语义是"宿主 DSH 至少 0.2.0-rc.2"'
+    dshReleases: '**实测过的版本清单**——每个键是一个具体版本，值是兼容判定。这是 B3 的分母。'
+    profiles: '实测过的 profile：desktop / web（docs/DSH-INTEGRATION.md:62,71 明确「不承诺跨 DSH 大版本兼容」）'
+  has_code_consumer: false
+  code_consumer_evidence:
+    grep: 'Select-String -Path $REPO/src -Include *.ts -Recurse -Pattern "compatibility|dshReleases"'
+    hits: 1
+    only_hit: 'src/kinds/tool.ts:31（注释里提到 dsh.engines 必须为 >=0.2.0-rc.2）'
+    conclusion: >
+      `dsh.compatibility.dshReleases` 是**给宿主/发布流程读的声明**，本包 src/ 内没有任何读取点。
+      因此"声明的支持版本"与"运行时真正会拦的版本"是两条独立的线，B3 与版本门控不可互相引用。
+
+# ---------------------------------------------------------------- 判定逻辑真源 --
+decision_logic:
+  file: src/fixtures/compat.ts
+  exported:
+    - { symbol: parseVersion, line: 47, purpose: '解析版本号（含预发布）' }
+    - { symbol: compareVersions, line: 68, purpose: '按 semver 序比较' }
+    - { symbol: parseRange, line: 215, purpose: '解析范围（空格 = AND，|| = OR，a - b = 区间）' }
+    - { symbol: isValidRange, line: 250, purpose: '范围语法校验（schema 用）' }
+    - { symbol: checkDshVersion, line: 276, purpose: '判定版本是否落在范围内；解析失败返回 {ok:false, reason}' }
+    - { symbol: satisfies, line: 290, purpose: '便捷判定（解析失败即 false）' }
+  supported_syntax: ['>=x.y.z', '<=x.y.z', '>x.y.z', '<x.y.z', '=x.y.z', '^x.y.z', '~x.y', '1.x', '1.2.*', '*', 'x', 'a - b', '||', '空格 AND']
+  declared_deviation_from_npm_semver:
+    detail: >
+      标准 semver 有「预发布默认被排除」规则：`0.3.0-rc.1` 不满足 `>=0.2.0`，
+      除非范围里显式写了同 major.minor.patch 的预发布。本实现**不做**这条排除，
+      直接按 semver 序比较（预发布 < 同版本正式版）。
+    reason: '本仓的场景夹具恰恰是给 RC 用的（`>=0.2.0-rc.2` 就是范例）——按标准规则会把 RC 宿主判成不兼容。'
+    declared_in: src/fixtures/compat.ts:8-17
+    verified_by: 'tests/fixture-governance.test.mjs:97-100（satisfies(''0.2.0-rc.2'',''>=0.2.0-rc.2'') === true）'
+  failure_policy:
+    rule: '解析失败（范围语法不认识 / 版本不可解析）一律返回 {ok:false}，**绝不**当成"满足"或"不满足"'
+    declared_in: src/fixtures/compat.ts:17-18, 270-275
+    callers:
+      - { file: src/fixtures/apply.ts, line: 146, behavior: '版本不可判定 → 场景跳过并说明原因' }
+      - { file: src/selection/by-version.ts, line: 77, behavior: '不可判定 → **纳入**（多跑比少跑安全）' }
+    asymmetry_note: >
+      两处对"不可判定"的处置方向**相反**：apply 走 skip（如实告知），by-version 走纳入（默认多跑）。
+      这是刻意的，但必须在 spec 里显式记录，否则阶段 2 会把它当矛盾。
+
+# ---------------------------------------------------------------- 夹具侧绑定 --
+fixtures:
+  source: fixtures/**
+  runtime_readout_command: '$NODE $REPO/bin/dsh-testkit.mjs fixtures --json'
+  readout_before_run: { total: 3, valid: 3, invalid: 0 }
+  required_field: dsh_version
+  required_field_declared_in: src/fixtures/schema.ts:126-132
+  api_field_name_note:
+    file_key: 'dsh_version（snake_case，YAML 文件里）'
+    api_key: 'dshVersion（camelCase，CLI --json 与 FixtureRef 里）'
+    evidence: ['fixtures/llm/timeout.yaml:8', 'src/cli/commands/inspect.ts（fixturesCommand 输出 dshVersion）']
+  bindings:
+    - { name: llm/error-mid-stream, file: fixtures/llm/error-mid-stream.yaml, dsh_version_line: 8, range: '>=0.2.0-rc.2', source: hand-written }
+    - { name: llm/timeout, file: fixtures/llm/timeout.yaml, dsh_version_line: 8, range: '>=0.2.0-rc.2', source: hand-written }
+    - { name: tool/read-file-enoent, file: fixtures/tool/read-file-enoent.yaml, dsh_version_line: 9, range: '>=0.2.0-rc.2', source: hand-written }
+  distinct_ranges: ['>=0.2.0-rc.2']
+  note: '3 份夹具的范围完全相同 ⇒ 夹具侧无法区分"版本覆盖"（都覆盖 / 都不覆盖是同一件事）。B3 的区分度全部来自 docs 与 spec 的声明。'
+
+# ---------------------------------------------------------------- B3 覆盖读数与机制 --
+b3_coverage:
+  metric: 'B3 版本覆盖 = spec 覆盖的 DSH 版本数 / 声明的支持版本总数（docs/REWRITE-METRICS.md §3 L83；阶段 0 门槛 100%，§15 L316）'
+  denominator: 1
+  numerator: 1
+  ratio: 1.0
+  declared_versions: ['0.2.0-rc.2']
+  display: '1/1 = 100%'
+  spec_association_mechanism:
+    design_basis: >
+      docs/REWRITE-DESIGN.md §9.1 L771（RFC 0001 §8 Q5 的解法）：**spec 与 DSH 版本的绑定复用既有
+      `fixtures` 的 `dshVersion` 兼容机制**，不新造第二套。原文理由：同一个问题在本仓已有可运行实现与守卫
+      （`pnpm run verify:fixtures`），再造一套会让"版本兼容"出现两个真源。
+    chain:
+      - 'spec/behaviors/** 的条目通过它引用的 `fixtures:` 名间接绑定版本（spec/README.md 的 front-matter 没有版本字段——这是刻意的：版本不吃在 spec 里，而是吃在夹具上）。'
+      - '夹具文件用 `dsh_version` 声明范围（src/fixtures/schema.ts:126-132，必填且必须是合法范围）。'
+      - '判定同源：src/fixtures/compat.ts 的 `checkDshVersion` / `satisfies`（parseRange:215 / checkDshVersion:276）。'
+      - '运行期落点：src/fixtures/apply.ts:146（不满足 → 场景 skip 并说明原因）与 src/selection/by-version.ts:77（选择期过滤）。'
+    how_a_spec_entry_binds: >
+      一个 kind / 模块的 spec 条目只要引用了夹具 `X`，该条目就绑定了 `X` 的 `dsh_version` 范围；
+      spec 目录**可以**按版本分子目录组织（§9.1 L771），但判定逻辑必须与夹具同源。
+    in_one_line: 'spec 条目 → fixtures 名 → 夹具 dsh_version 范围 → compat.satisfies(宿主版本, 范围)'
+  machine_check:
+    command: 'node C:/Users/19059/AppData/Local/Temp/tk-enum/b3-check.mjs $REPO'
+    semantics: >
+      B3 分子 = 同时满足两条的声明版本数：① 落在 `dsh.engines.dsh` 范围内；
+      ② 与**每一份** spec 侧绑定的夹具 `dsh_version` 范围兼容（直接调用真实 compat.satisfies，不重写判定）。
+      于是"新声明一个 DSH 版本、但没有任何夹具范围覆盖它"会**掉出分子**并可见，而不是自动算 100%。
+    observed_2026_10_11: |
+      声明支持的版本（B3 分母）: 1 → 0.2.0-rc.2(compatible)
+      engines.dsh 范围          : >=0.2.0-rc.2
+      spec 绑定的夹具版本范围   : 3 份 → >=0.2.0-rc.2
+      版本 0.2.0-rc.2: 落在 engines.dsh 范围内=true · 与每份夹具范围兼容=全部 true ⇒ 覆盖
+      B3 = 1 / 1 = 100%
+    precondition: '需要宿主构建产物 lib/（`pnpm run build` 或 `gate` 先建）——因为要调用真实的 compat.satisfies。'
+  residual_risks:
+    - id: B3-R1
+      severity: medium
+      detail: >
+        `dsh.compatibility.dshReleases`（B3 分母的真源）在本包 src/ 里**零消费者**：唯一命中是
+        src/kinds/tool.ts:31 的注释。即"声明支持哪些版本"与"运行期会不会因此拒绝"是两条独立的线。
+        B3 的分子因此**只能**靠上面那条夹具链机械复算，不能靠"运行时确实拒绝过"来证明。
+    - id: B3-R2
+      severity: low
+      detail: >
+        3 份夹具的 `dsh_version` 范围完全相同（都是 `>=0.2.0-rc.2`）⇒ 夹具侧对"版本覆盖"没有区分度；
+        新增一个声明版本时，区分度全部来自声明本身。阶段 4 若要扩版本矩阵，必须同时扩夹具范围。
+    - id: B3-R3
+      severity: low
+      detail: >
+        夹具字段名是 snake_case `dsh_version`，CLI/工具面的 JSON 输出是 camelCase `dshVersion`
+        ——两个名字都真实，但不同层，写复算脚本时容易混（见 DRIFT-VER-4）。
+
+# ---------------------------------------------------------------- 依赖面（不是 B3 分母，登记用于对齐） --
+dependency_ranges:
+  note: 'peerDependencies / devDependencies 的 DSH 版本范围不是 B3 的分母（它们约束的是开发/安装环境），但改一处必须四处同步，故登记。'
+  peer_dependencies:
+    '@deepseek-ai/cordis': '>=4.0.4'
+    '@deepseek-ai/dsh-llm': '>=0.2.0-rc.2'
+    '@deepseek-ai/dsh-session': '>=0.2.0-rc.2'
+    '@deepseek-ai/dsh-system-prompt': '>=0.2.0-rc.2'
+    '@deepseek-ai/dsh-tools': '>=0.2.0-rc.2'
+    '@deepseek-ai/schemastery': '>=3.0.0'
+  dev_dependencies:
+    '@deepseek-ai/cordis': '^4.0.4'
+    '@deepseek-ai/dsh-llm': '^0.2.0-rc.2'
+    '@deepseek-ai/dsh-session': '^0.2.0-rc.2'
+    '@deepseek-ai/dsh-system-prompt': '^0.2.0-rc.2'
+    '@deepseek-ai/dsh-tools': '^0.2.0-rc.2'
+    '@deepseek-ai/schemastery': '^3.0.0'
+  package_json_lines: { peer: 'package.json:78-85', dev: 'package.json:94-100' }
+  engines_node: { range: '>=22.19', line: 'package.json:47-49' }
+
+# ---------------------------------------------------------------- 文档一致性 --
+docs_consistency:
+  - { doc: docs/DSH-INTEGRATION.md, line: 14, claims: '"engines": { "dsh": ">=0.2.0-rc.2" }', agrees: true }
+  - { doc: docs/DSH-INTEGRATION.md, line: 15, claims: '"compatibility": { "dshReleases": { "0.2.0-rc.2": "compatible" }, "profiles": ["desktop","web"] }', agrees: true }
+  - { doc: docs/DSH-INTEGRATION.md, line: 62, claims: 'compatibility.dshReleases 记录**实测过**的版本（当前 0.2.0-rc.2）', agrees: true }
+  - { doc: docs/DSH-INTEGRATION.md, line: 71, claims: '不承诺跨 DSH 大版本兼容', agrees: true }
+  - { doc: docs/MIGRATION.md, line: 106, claims: 'dsh.engines: >=0.2.0-rc.2；兼容矩阵见 package.json 的 dsh.compatibility', agrees: true }
+  - { doc: docs/DEVELOPMENT.md, line: 14, claims: 'DSH 版本 0.2.0-rc.2', agrees: true }
+  - { doc: docs/ARCHITECTURE.md, line: 3, claims: '对应 DSH 0.2.0-rc.2', agrees: true }
+  - { doc: README.md, line: 327, claims: '当前 DSH 版本 0.2.0-rc.2，profile desktop', agrees: true, incompleteness: '未提 profile web（package.json 声明两个）' }
+  - { doc: docs/PUBLISHING.md, lines: '36-37', claims: '本仓对齐的是 0.2.0-rc.2', agrees: true }
+  - { doc: docs/SCENARIO-SPEC.md, line: 241, claims: '夹具必备字段含 dsh_version', agrees: true }
+  - { doc: docs/SCENARIO-SPEC.md, line: 245, claims: 'dsh_version 不匹配或夹具缺失/解析失败 → 场景 skipped 并说明原因', agrees: true, points_to: 'src/fixtures/apply.ts:146（skip 方向）' }
+
+# ---------------------------------------------------------------- 漂移 --
+drift:
+  - id: DRIFT-VER-1
+    severity: high
+    kind: 声明与实现分离（B3 的口径风险）
+    claim: >
+      docs/REWRITE-METRICS.md:83 把 B3 的分子写成「spec 覆盖的 DSH 版本数 / **声明的支持版本总数**」，
+      隐含「声明 = package.json 的 dsh.compatibility」。
+    reality: >
+      该声明在 src/ 里**零消费者**（唯一命中是 src/kinds/tool.ts:31 的注释）。运行期真正生效的版本判定
+      是 fixture 的 dsh_version（src/fixtures/compat.ts 等）。照"声明"算分母则 B3 = spec 里出现
+      `0.2.0-rc.2` 的次数，照"实现"算则要覆盖 compat.ts 的全部范围语法与两处相反方向的不可判定处置。
+    evidence:
+      - docs/REWRITE-METRICS.md:83
+      - package.json:50-62
+      - src/fixtures/compat.ts:215-293
+      - src/fixtures/apply.ts:146
+      - src/selection/by-version.ts:77
+    impact: 'B3 在阶段 1 之前必须先冻结"版本覆盖"到底覆盖什么，否则 100% 是一个口径不明的数。'
+  - id: DRIFT-VER-2
+    severity: medium
+    kind: 两处「不可判定」处置方向相反且只有一处写在文档
+    claim: docs/REWRITE-METRICS.md:83 未区分选择期与执行期
+    reality: >
+      src/fixtures/apply.ts:146（执行期）在不可判定时 skip；
+      src/selection/by-version.ts:77（选择期）在不可判定时**纳入**（多跑比少跑安全，by-version.ts:10-13 有明确理由）。
+      两处都写明了理由，但没有任何一处把两者并列——单看任一处都会得出"处置矛盾"的结论。
+    evidence: [src/fixtures/apply.ts:140-155, src/selection/by-version.ts:6-14, src/selection/by-version.ts:70-90]
+  - id: DRIFT-VER-3
+    severity: low
+    kind: 文档措辞与声明的差异面
+    claim: README.md:327「当前 DSH 版本 0.2.0-rc.2，profile desktop」
+    reality: package.json:58-61 声明了两个 profile（desktop、web），且 README:102 自己记录了 web profile 的实测。
+    evidence: [README.md:327, README.md:102, package.json:58-61]
+  - id: DRIFT-VER-4
+    severity: low
+    kind: 任务锚点与代码不符
+    claim: 阶段 0 任务描述写「fixtures/**/dshVersion」
+    reality: 夹具 YAML 的字段名是 **snake_case** `dsh_version`（fixtures/schema.ts:127-132）；
+      只有 CLI/工具面的 JSON 输出才用 camelCase `dshVersion`。两者都真实存在，但是不同层。
+    evidence: [fixtures/llm/timeout.yaml:8, src/fixtures/schema.ts:126-132, src/cli/commands/inspect.ts]

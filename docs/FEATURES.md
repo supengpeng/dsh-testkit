@@ -30,7 +30,7 @@
 
 ## 2. 人类命令与独立 CLI
 
-**DSH 命令面**（`/testkit`，14 个子命令）：
+**DSH 命令面**（`/testkit`；完整子命令表见 `src/commands.ts`，`/testkit help` 会列全部。下面是常用集）：
 
 ```
 /testkit list  run  report  expand  export  import  trace  trend  coverage  search  triage  doctor  reload  issue

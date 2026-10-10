@@ -1,0 +1,11 @@
+[package]
+name = "dsh-testkit-reconciler"
+description = "对拍器：逐字段等价关系比对，未比对字段必须可见（设计 §3.6 / §9.3）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

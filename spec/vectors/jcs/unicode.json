@@ -1,0 +1,98 @@
+{
+  "domain": "jcs",
+  "covers": [
+    "unicode"
+  ],
+  "note": "Unicode：转义与字面等价，但不做任何归一化（RFC 8785 §3.2.2.2）",
+  "source": "src/attest/tools/make-jcs-vectors.mjs（oracle = JS 的 JSON.stringify + 默认键排序；RFC 8785 §3.2.2.3 把数字形态定义为 ECMAScript Number::toString）",
+  "cases": [
+    {
+      "id": "unicode-01",
+      "covers": "unicode",
+      "note": "\\u00e9 与字面 é 规范化后相同",
+      "input_json": "\"\\u00e9\"",
+      "expected_hex": "22c3a922",
+      "expected_text": "\"é\""
+    },
+    {
+      "id": "unicode-02",
+      "covers": "unicode",
+      "note": "字面 é（UTF-8 C3 A9）",
+      "input_json": "\"é\"",
+      "expected_hex": "22c3a922",
+      "expected_text": "\"é\""
+    },
+    {
+      "id": "unicode-03",
+      "covers": "unicode",
+      "note": "大写的 \\u00E9 同样",
+      "input_json": "\"\\u00E9\"",
+      "expected_hex": "22c3a922",
+      "expected_text": "\"é\""
+    },
+    {
+      "id": "unicode-04",
+      "covers": "unicode",
+      "note": "中文（非 ASCII 原样输出 UTF-8）",
+      "input_json": "\"中文\"",
+      "expected_hex": "22e4b8ade6968722",
+      "expected_text": "\"中文\""
+    },
+    {
+      "id": "unicode-05",
+      "covers": "unicode",
+      "note": "代理对转义 → 增补平面字符 😀",
+      "input_json": "\"\\ud83d\\ude00\"",
+      "expected_hex": "22f09f988022",
+      "expected_text": "\"😀\""
+    },
+    {
+      "id": "unicode-06",
+      "covers": "unicode",
+      "note": "字面 😀",
+      "input_json": "\"😀\"",
+      "expected_hex": "22f09f988022",
+      "expected_text": "\"😀\""
+    },
+    {
+      "id": "unicode-07",
+      "covers": "unicode",
+      "note": "U+007F DEL 不在强制转义集里 → 原样输出",
+      "input_json": "\"\\u007f\"",
+      "expected_hex": "227f22",
+      "expected_text": "\"\""
+    },
+    {
+      "id": "unicode-08",
+      "covers": "unicode",
+      "note": "U+2028 / U+2029 不转义 → 原样输出",
+      "input_json": "\"\\u2028\\u2029\"",
+      "expected_hex": "22e280a8e280a922",
+      "expected_text": "\"  \""
+    },
+    {
+      "id": "unicode-09",
+      "covers": "unicode",
+      "note": "不做 NFC：e + U+0301 组合尖音符保持两个码点",
+      "input_json": "\"e\\u0301\"",
+      "expected_hex": "2265cc8122",
+      "expected_text": "\"é\""
+    },
+    {
+      "id": "unicode-10",
+      "covers": "unicode",
+      "note": "不做 NFKC：U+FB01（ﬁ 连字）保持",
+      "input_json": "\"\\uFB01\"",
+      "expected_hex": "22efac8122",
+      "expected_text": "\"ﬁ\""
+    },
+    {
+      "id": "unicode-11",
+      "covers": "unicode",
+      "note": "键与值都涉及非 ASCII",
+      "input_json": "{\"é\":\"\\u00e9\"}",
+      "expected_hex": "7b22c3a9223a22c3a9227d",
+      "expected_text": "{\"é\":\"é\"}"
+    }
+  ]
+}

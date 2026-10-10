@@ -1,0 +1,15 @@
+[package]
+name = "dsh-testkit-executor"
+description = "执行器与报告聚合：plan 校验、执行循环、可信度标记（设计 §3.5 / §5.4 / §6）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+# 跨语言契约（ExecutionPlan / ConfidenceLevel / Layer）与能力门控都复用上游 crate，
+# 不在本 crate 里重新定义类型——设计 §1.1：跨语言契约只经由 protocol。
+dsh-testkit-protocol = { path = "../protocol" }
+dsh-testkit-capability = { path = "../capability" }

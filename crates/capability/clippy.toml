@@ -1,0 +1,14 @@
+# 设计 §6.4 的硬纪律：**判定路径上禁止 `std::collections::HashMap` / `HashSet`**。
+#
+# 理由不是"风格"：Rust 的 `HashMap` 默认用 `RandomState`（每进程随机种子），
+# 迭代顺序**每次运行都不同**。能力快照既要参与门控判定、又要进报告，
+# 一旦用 HashMap，同一次运行重跑就可能产出不同的字段顺序 —— "Rust 更确定"的论断当场失效。
+#
+# 一律用 `BTreeMap` / `BTreeSet`（有序）。本文件让 clippy 的 `disallowed_types`
+# 在**本 crate** 里把这条纪律变成可执行的守卫（lint 在 lib.rs 里以 deny 打开）。
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "设计 §6.4：迭代顺序不确定，判定路径改用 BTreeMap" },
+    { path = "std::collections::HashSet", reason = "设计 §6.4：迭代顺序不确定，判定路径改用 BTreeSet" },
+    { path = "std::collections::hash_map::RandomState", reason = "设计 §6.4：随机种子的来源" },
+    { path = "std::collections::hash_set::HashSet", reason = "设计 §6.4：同 HashSet" },
+]

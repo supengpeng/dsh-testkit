@@ -1,0 +1,431 @@
+# spec/contracts/capabilities.yaml
+#
+# HostCapability 联合类型的**逐个成员清单** —— 指标 B2 的分母。
+#   B2 能力覆盖 = spec 覆盖的能力数 / HostCapability 联合类型的能力总数（门槛 100%）
+#   定义见 docs/REWRITE-METRICS.md §3 L82；「为什么能 100%」见 L89。
+#
+# ⚠️ 探测来源的**更正**（与直觉锚点不符，先写清）：
+#   任务书提示「每个能力的探测来源（src/isolation/probes.ts 等）」。
+#   实测：src/isolation/probes.ts **不是**能力探针——它探的是**残留**（tmpdir / 端口 / 进程，
+#   见 probes.ts:1-21 与 detectResidue）。能力的真正探测链是：
+#     ① 声明：src/cases/types.ts:26-50（HostCapability 联合类型，唯一真源）
+#     ② 映射：src/host-facade.ts:29-54（CAPABILITY_SERVICE：能力名 → DSH 服务 key）
+#     ③ 探测：src/host-facade.ts:105-147（CapabilitySet，**惰性** ctx.get()，每次现查）
+#     ④ 组合：src/headless/index.ts:38-47（HEADLESS_CAPABILITIES：最小宿主具备哪些）
+#     ⑤ 判定：src/runtime/runner.ts:332-337（driver.requires ∪ scenario.runtime.requires → SkipCase）
+#     ⑥ 报告：src/doctor/run.ts:55-59（present / requiredByDrivers / missing）
+#     ⑦ 缺口：src/cli/context.ts:201-219（describeHostGap：从 driver.requires 反推）
+#   惰性求值的理由与实测证据见 src/host-facade.ts:88-104（快照式探测曾把 subagents / userQuestions 误判为缺失）。
+
+meta:
+  contract: HostCapability 能力面（B2 的分母）
+  metric: 'B2 能力覆盖 = spec 覆盖的能力数 / HostCapability 成员总数（门槛 100%）'
+  metric_source: docs/REWRITE-METRICS.md §3 L82、L89
+  type_source: src/cases/types.ts:26-50
+  service_map_source: src/host-facade.ts:29-54
+  probe_source: src/host-facade.ts:105-147（CapabilitySet，惰性）
+  gate_source: src/runtime/runner.ts:332-337
+  headless_source: src/headless/index.ts:38-47
+  report_source: src/doctor/run.ts:55-59
+  runtime:
+    node: C:\Users\19059\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe
+  recompute:
+    - '$NODE <TEMP>/cap-refs.mjs $REPO   # 逐个能力列出 src/ 里所有引用点（本文件的 used_in / gated_in 即由它产出）'
+    - 'Select-String -Path $REPO/src/cases/types.ts -Pattern "^\s{2}\|\s''\w+''"   # 联合类型成员枚举'
+    - '$NODE $REPO/bin/dsh-testkit.mjs doctor   # 运行时读数：「具备」「driver 依赖的并集」「缺失」三段'
+    - 'Select-String -Path $REPO/src/host-facade.ts -Pattern "^\s{2}[A-Za-z]+: ''[A-Za-z]+'',"   # 能力 → 服务映射'
+  readouts:
+    members_total: 20
+    members_by_headless: 8
+    members_with_static_requires: 8
+    # ⚠️ 2026-10-11 阶段 1-B 复算更正：原读数 11 保留在下方 *_original。
+    #    读到的原值不动（本仓读数纪律），新事实用更正块追加。
+    members_gated_anywhere: 12
+    members_gated_anywhere_original: 11
+    members_gated_anywhere_correction:
+      corrected_at: '2026-10-11（阶段 1-B crates/capability 独立复算）'
+      original: 11
+      corrected: 12
+      evidence: '同文件逐成员 gated: true = 12；gated_in: [] = 8 = 20−12；与 segment_a_behavior 的 16 = 12 gated + 4 probe-only 自洽 ⇒ 错的是这条聚合读数，不是成员清单'
+      recompute: "Select-String -Path <repo>/spec/contracts/capabilities.yaml -Pattern '^    gated: true$' | Measure-Object"
+    members_with_zero_code_usage: 4
+    # ⚠️ 读数纪律（Lead 2026-10-11 授权口径）：下面的 claimed 是**当时读到的原值**，一律不改。
+    #    真源后来的变化属于"新事实"，用 status / resolved_in 追加注解表达，不覆盖历史读数。
+    doc_claimed_counts:
+      - { doc: 'docs/REWRITE-METRICS.md:89', claimed: 19, observed: 20, status: resolved, resolved_in: 'docs/REWRITE-METRICS.md B2 勘误 2026-10-11（19→20，含 4 个 declared-only 纪律）' }
+      - { doc: 'docs/SCENARIO-SPEC.md:137-139', claimed: 14, observed: 20, status: open, note: '缺 llm / subagents / agentTeams / sessions / goals / compaction 六个名字；尚未修正（见 DRIFT-CAP-2）' }
+    runtime_headless_present: 8
+    runtime_headless_gap_vs_driver_union: [compaction, fs, subagents, subprocess]
+    b2_display: '16/16（有行为）+ 4/4（declared-only，单列）'
+    b2_note: '见顶层 b2_coverage：**不得**把两段合并成 20/20 = 100%'
+  reading_discipline: >
+    读数一旦写下就是事实记录；真源后来的变化是"新事实"，不是"旧读数错了"。
+    故本文件的全部读数原样保留，只用 resolved_in / superseded_by / status / pending 追加注解，**不改数字**
+    （Lead 2026-10-11 授权口径；与 spec/README.md §5 及 scripts/verify-docs.mjs 的 COUNT_EXEMPT_DOCS 同向）。
+  headless_composition:
+    source: src/headless/index.ts:38-47
+    members: [tools, commands, systemPrompt, web, webServer, llm, userQuestions, approval]
+    runtime_evidence: 'dsh-testkit doctor 的「具备」行：approval、commands、llm、systemPrompt、tools、userQuestions、web、webServer'
+  driver_union:
+    source: src/doctor/run.ts:57-59（按 driver.requires 推导）
+    members: [commands, compaction, fs, llm, subagents, subprocess, systemPrompt, tools]
+    runtime_evidence: 'dsh-testkit doctor 的「driver 依赖的并集」行'
+
+# ---------------------------------------------------------------- 20 个成员 --
+members:
+  - name: tools
+    service: tools
+    service_line: src/host-facade.ts:30
+    in_headless: true
+    headless_line: src/headless/index.ts:39
+    static_requires_of: [tool]
+    gated_in: ['src/index.ts:132', 'src/runtime/runner.ts:332-337（经 tool.requires）']
+    used_in: ['src/kinds/tool.ts:372', 'src/kinds/tool.ts:448', 'src/host-facade.ts:193']
+    gated: true
+  - name: llm
+    service: llm
+    service_line: src/host-facade.ts:31
+    in_headless: true
+    headless_line: src/headless/index.ts:44
+    static_requires_of: [llm]
+    gated_in: ['src/runtime/runner.ts:332-337（经 llm.requires）']
+    used_in: ['src/kinds/llm.ts:201']
+    gated: true
+  - name: commands
+    service: commands
+    service_line: src/host-facade.ts:32
+    in_headless: true
+    headless_line: src/headless/index.ts:40
+    static_requires_of: [session]
+    gated_in: ['src/index.ts:160', 'src/kinds/session.ts:236']
+    used_in: ['src/host-facade.ts:222']
+    gated: true
+  - name: systemPrompt
+    service: systemPrompt
+    service_line: src/host-facade.ts:33
+    in_headless: true
+    headless_line: src/headless/index.ts:41
+    static_requires_of: [prompt]
+    gated_in: ['src/runtime/runner.ts:332-337（经 prompt.requires）']
+    used_in: ['src/kinds/prompt.ts:95']
+    gated: true
+  - name: approval
+    service: approval
+    service_line: src/host-facade.ts:34
+    in_headless: true
+    headless_line: src/headless/index.ts:46
+    static_requires_of: []
+    gated_in: []
+    used_in: []
+    gated: false
+    note: >
+      最小宿主提供了 approval（headless/index.ts:46），但 **没有任何能力检查**：
+      interaction driver 的 approval 分支直接走 `host.waterfall('approval/request', ...)`（interaction.ts:229），
+      不需要 approval 服务。故它是一个「只被探测、从不门控」的能力。
+  - name: userQuestions
+    service: userQuestions
+    service_line: src/host-facade.ts:35
+    in_headless: true
+    headless_line: src/headless/index.ts:45
+    static_requires_of: []
+    gated_in: ['src/kinds/interaction.ts:120', 'src/kinds/interaction.ts:175']
+    used_in: []
+    gated: true
+    note: '刻意不进静态 requires——question 分支需要、approval 分支不需要（interaction.ts:110-113）。'
+  - name: session
+    service: agents
+    service_line: src/host-facade.ts:37
+    in_headless: false
+    headless_line: null
+    static_requires_of: []
+    gated_in: []
+    used_in: ['src/kinds/session.ts:215', 'src/kinds/session.ts:305', 'src/kinds/session.ts:427', 'src/kinds/agent.ts:483', 'src/kinds/agent.ts:557', 'src/kinds/compaction.ts:269']
+    gated: false
+    note: '能力名到服务名**不同名**（session → agents）；只被 service 形状使用，从不按能力名门控。'
+  - name: fs
+    service: fs
+    service_line: src/host-facade.ts:38
+    in_headless: false
+    headless_line: null
+    static_requires_of: [fs]
+    gated_in: ['src/kinds/fs.ts:193']
+    used_in: ['src/kinds/fs.ts:220', 'src/kinds/fs.ts:258']
+    gated: true
+  - name: subprocess
+    service: subprocess
+    service_line: src/host-facade.ts:39
+    in_headless: false
+    headless_line: null
+    static_requires_of: [shell]
+    gated_in: ['src/runtime/runner.ts:332-337（经 shell.requires）']
+    used_in: ['src/kinds/shell.ts:199']
+    gated: true
+  - name: web
+    service: web
+    service_line: src/host-facade.ts:40
+    in_headless: true
+    headless_line: src/headless/index.ts:42
+    static_requires_of: []
+    gated_in: []
+    used_in: ['src/kinds/resource.ts:153', 'src/kinds/resource.ts:207']
+    gated: false
+    note: >
+      resource driver 用 `host.service('web')` 但 requires 为空（resource.ts:143-147）。
+      能力缺失时它不会命中能力门控，只会走到 service 为 undefined 的降级分支——
+      这两条降级路径正是 TK 场景在测的（docs/FEATURES.md:76）。
+  - name: webServer
+    service: webServer
+    service_line: src/host-facade.ts:41
+    in_headless: true
+    headless_line: src/headless/index.ts:43
+    static_requires_of: []
+    gated_in: ['src/index.ts:253']
+    used_in: ['src/index.ts:248（ctxInject 注册 bridge）']
+    gated: true
+  - name: agentLoop
+    service: agentLoop
+    service_line: src/host-facade.ts:42
+    in_headless: false
+    headless_line: null
+    static_requires_of: []
+    gated_in: []
+    used_in: []
+    gated: false
+    zero_usage: true
+  - name: subagents
+    service: subagents
+    service_line: src/host-facade.ts:43
+    in_headless: false
+    headless_line: null
+    static_requires_of: [agent]
+    gated_in: ['src/runtime/runner.ts:332-337（经 agent.requires）']
+    used_in: ['src/kinds/agent.ts:422', 'src/kinds/agent.ts:478', 'src/kinds/agent.ts:595']
+    gated: true
+  - name: agentTeams
+    service: agentTeams
+    service_line: src/host-facade.ts:45
+    in_headless: false
+    headless_line: null
+    static_requires_of: []
+    gated_in: ['src/kinds/agent.ts:414']
+    used_in: ['src/kinds/agent.ts:461', 'src/kinds/agent.ts:547']
+    gated: true
+    note: '只在 teammate 分支动态检查；docs/FEATURES.md:77 把它写成静态 requires，见 drift。'
+  - name: sessions
+    service: sessions
+    service_line: src/host-facade.ts:47
+    in_headless: false
+    headless_line: null
+    static_requires_of: []
+    gated_in: ['src/kinds/session.ts:254']
+    used_in: ['src/kinds/session.ts:362', 'src/kinds/compaction.ts:172']
+    gated: true
+  - name: goals
+    service: goals
+    service_line: src/host-facade.ts:48
+    in_headless: false
+    headless_line: null
+    static_requires_of: []
+    gated_in: []
+    used_in: ['src/kinds/session.ts:304', 'src/kinds/session.ts:423']
+    gated: false
+    note: 'goal 分支只做 service 形状检查；docs/FEATURES.md:75 把它写成 requires，见 drift。'
+  - name: compaction
+    service: compaction
+    service_line: src/host-facade.ts:49
+    in_headless: false
+    headless_line: null
+    static_requires_of: [compaction]
+    gated_in: ['src/kinds/compaction.ts:163']
+    used_in: ['src/kinds/compaction.ts:167', 'src/kinds/compaction.ts:227']
+    gated: true
+  - name: storage
+    service: storage
+    service_line: src/host-facade.ts:50
+    in_headless: false
+    headless_line: null
+    static_requires_of: []
+    gated_in: []
+    used_in: []
+    gated: false
+    zero_usage: true
+  - name: timer
+    service: timer
+    service_line: src/host-facade.ts:51
+    in_headless: false
+    headless_line: null
+    static_requires_of: []
+    gated_in: []
+    used_in: []
+    gated: false
+    zero_usage: true
+  - name: client
+    service: clientModules
+    service_line: src/host-facade.ts:53
+    in_headless: false
+    headless_line: null
+    static_requires_of: []
+    gated_in: []
+    used_in: []
+    gated: false
+    zero_usage: true
+    note: '能力名 client → 服务名 clientModules（能力名与服务名不同的第二例）。'
+
+# ---------------------------------------------------------------- B2 风险面 --
+b2_risk:
+  zero_usage_members: [agentLoop, storage, timer, client]
+  detail: >
+    这 4 个成员只存在于联合类型与 CAPABILITY_SERVICE 映射里，src/ 中没有任何消费点，
+    也没有任何场景能触发它们。B2 的分母是 20，但**可关联行为的只有 16 个**。
+  ruling:
+    decided_at: 2026-10-11
+    decided_by: lead
+    decision: '4 个零使用能力**不删类型**，改为各写一条 `declared_only: true` 条目（阶段 1 落实）。'
+    reason: >
+      它们是 `HostCapability` 公共联合类型的成员，删类型是**破坏性变更**；
+      而 docs/rfc/0001-rust-core-full-rewrite.md §3.2 明确「`cases` schema 与数据结构不变」是本次重构的兼容承诺。
+    rejected_option: '把它们从联合类型里删掉（并同步 CAPABILITY_SERVICE 与 SCENARIO-SPEC.md 词汇表）——否决。'
+    reporting_rule: >
+      **B2 的 100% 里必须把这 4 条与「有行为的能力」显式区分**——不许混在一起报 100%。
+      正确形态是两段式读数：有行为的能力 16/16 + declared-only 4/4（declared-only 单列，不计入行为覆盖）。
+  declared_only_entries_required:
+    count: 4
+    members: [agentLoop, storage, timer, client]
+    required_fields: ['declared_only: true', 'reason: 只有联合类型成员身份，无消费点/无场景可触发']
+    still_forbidden: '「写一条空条目凑覆盖率」被 spec/README.md §6 明确禁止（空条目按未覆盖计）——declared_only 条目必须写清"为什么没有行为"，不是占位。'
+  probe_only_members: [approval, session, web, goals]
+  probe_only_detail: '被探测/被使用但**从不按能力名门控**——它们不会让场景 skip，只会让 driver 走降级分支。'
+  mapping_asymmetry:
+    detail: '两个能力名与服务名不同：session → agents、client → clientModules（src/host-facade.ts:37,53）。'
+    risk: '按能力名去 grep 服务消费点会漏掉这两处；阶段 1 的 Rust CapabilityGate 必须用同一张映射表，否则会静默判错。'
+
+# ---------------------------------------------------------------- B2 覆盖读数（两段式，不许混报 100%） --
+b2_coverage:
+  metric: 'B2 能力覆盖 = spec 覆盖的能力数 / HostCapability 成员总数（docs/REWRITE-METRICS.md §3 L82；阶段 0 门槛 100%，§15 L316）'
+  denominator: 20
+  behavior_covered: 16
+  declared_only: 4
+  numerator_including_declared_only: 20
+  ratio_including_declared_only: 1.0
+  reporting_form: >
+    **必须两段式报**：「有行为的能力 16/16」+「declared-only 4/4（单列）」。
+    **不允许**只写「20/20 = 100%」——那会把"声明了但没有任何行为可验"与"有行为可验"混成一个数
+    （Lead 2026-10-11 裁决；与 spec/README.md §6「禁止为凑覆盖率写空条目」同源）。
+  segment_a_behavior:
+    count: 16
+    ratio: '16/16 = 100%'
+    definition: '在 src/ 里有消费点或被能力门控引用：tools llm commands systemPrompt approval userQuestions session fs subprocess web webServer subagents agentTeams sessions goals compaction'
+    recompute: '$NODE <TEMP>/cap-refs.mjs $REPO   # 逐个能力列出引用点；本段 16 个的引用数均 > 0'
+  segment_b_declared_only:
+    count: 4
+    ratio: '4/4 = 100%（declared-only；单列，不计入上面的 16）'
+    definition: '只有联合类型成员身份与能力→服务映射，src/ 里零消费点、零场景可触发'
+    recompute: '$NODE <TEMP>/cap-refs.mjs $REPO   # 本段 4 个的引用数为 0；唯一的"命中"是映射表自身'
+    entries:
+      - capability: agentLoop
+        declared_only: true
+        defined_at: src/cases/types.ts:42
+        service_map: 'src/host-facade.ts:42（agentLoop → agentLoop）'
+        why_no_consumer: >
+          本仓从不驱动宿主的 agent 主循环：`agent` kind 只走两条派生通道——`subagents`（一次性派生）
+          与 `agentTeams`（可续接队友），见 src/kinds/agent.ts:403,422,478,461,547。
+          src/ 里除映射表外 'agentLoop' 零出现。
+        is_it_expressible: '不可表达：现有 12 个 kind 的语义里没有"驱动 agent 循环本身"这一类干预点。'
+        stage1_disposition: '保留类型成员；在 CapabilityGate 里显式声明为 declared-only（永不触发，不参与策略矩阵）；不写空观测条目。'
+      - capability: storage
+        declared_only: true
+        defined_at: src/cases/types.ts:48
+        service_map: 'src/host-facade.ts:50（storage → storage）'
+        why_no_consumer: >
+          本仓的持久化需求由两条既有机制承担：会话日志检查点走 `sessions`（src/kinds/session.ts:254,362）
+          与夹具的临时文件（`file` / `fs` kind）。src/ 里除映射表外 'storage' 零出现。
+        is_it_expressible: '当前不可表达：没有 kind 需要通用键值存储的语义（`session` 的 flush 面已覆盖"持久化检查点"）。'
+        stage1_disposition: '保留类型成员；声明为 declared-only；若阶段 4 引入数据集/资产缓存再评估是否升级为有行为的能力。'
+      - capability: timer
+        declared_only: true
+        defined_at: src/cases/types.ts:49
+        service_map: 'src/host-facade.ts:51（timer → timer）'
+        why_no_consumer: >
+          等待语义由 **Node 的 `setTimeout`** 直接实现（src/runtime/runner.ts:369,806,927 的 `{ wait: { ms } }` 分支），
+          刻意不经宿主 timer 服务——等待是场景自己的时间控制，不是宿主能力。
+          src/ 里除映射表外 'timer' 零出现。
+        is_it_expressible: '不可表达：`{ wait: { ms } }` 已经覆盖等待，用宿主 timer 反而会把"场景自控的时间"绑到宿主实现上。'
+        stage1_disposition: '保留类型成员；声明为 declared-only；不写空观测条目。'
+      - capability: client
+        declared_only: true
+        defined_at: src/cases/types.ts:50
+        service_map: 'src/host-facade.ts:53（client → clientModules）'
+        why_no_consumer: >
+          client 半产物的验证走 **`ui` kind**：它用 `node:vm` 直接加载 bundle 文件（默认 `<包根>/lib/client.js`，
+          src/kinds/ui.ts:31,48-49），requires 为空——**不读宿主的 clientModules 注册表**。
+          src/ 里除映射表外 'clientModules' 零出现。
+        is_it_expressible: '不可表达：`ui` 验证的是 bundle 产物契约，而 `client` 能力描述的是宿主侧已装载模块的注册表——两者不是一回事。'
+        stage1_disposition: '保留类型成员；声明为 declared-only；若阶段 4 要验证"宿主真的把本插件装载进 client 注册表"，再另立 kind 而不是复用这个能力名。'
+  recompute:
+    - '$NODE <TEMP>/cap-refs.mjs $REPO   # 引用的唯一真源：逐个能力在 src/ 里的出现点（排除联合类型与 CAPABILITY_SERVICE 映射本身）'
+    - '$NODE $REPO/bin/dsh-testkit.mjs doctor   # 运行时读数：「具备」8 / 「driver 依赖的并集」8 / 「缺失」4'
+    - 'Select-String -Path $REPO/src/cases/types.ts -Pattern "^\s{2}\|\s''\w+''"   # 分母 20 行'
+  readings:
+    - { key: members_total, value: 20, from: src/cases/types.ts:26-50 }
+    - { key: behavior_covered, value: 16, from: 'cap-refs 引用数 > 0' }
+    - { key: declared_only, value: 4, from: 'cap-refs 引用数 = 0' }
+    - { key: b2_display, value: '16/16 + 4/4（分段）', note: 'B2 在报告里必须写成两段，不得合并成 20/20' }
+
+# ---------------------------------------------------------------- 漂移 --
+drift:
+  - id: DRIFT-CAP-1
+    severity: high
+    kind: 文档读数与代码不一致
+    claim: docs/REWRITE-METRICS.md:89「HostCapability 是一个有限联合类型（**19 个成员**）」
+    reality: src/cases/types.ts:26-50 实际有 **20** 个成员；逐个枚举见本文件 members。
+    evidence: [docs/REWRITE-METRICS.md:89, src/cases/types.ts:26-50]
+    recompute: 'Select-String -Path $REPO/src/cases/types.ts -Pattern "^\s{2}\|\s''\w+''"  # 20 行'
+    impact: 'B2 的分母被文档写错；若照 19 算，会有一个能力永远不在分母里（静默漏覆盖）。'
+    # 读数纪律：原读数 19 **保留不改**；真源已被 lead 修正，记为"新事实"。
+    resolved_in: 'docs/REWRITE-METRICS.md B2 勘误 2026-10-11（19→20，含 4 个 declared-only 纪律）'
+    original_reading_preserved: 19
+    observed_reading: 20
+    resolution_note: '本条是**真源已被修正**（不是读数被修正）：19 这个当时读到的值原样保留，见 meta.readouts.doc_claimed_counts[0].claimed。'
+  - id: DRIFT-CAP-2
+    severity: high
+    kind: 文档词汇表与代码不一致
+    claim: docs/SCENARIO-SPEC.md:137-139「可用能力名（与 host 半服务对应）」列出 14 个
+    reality: >
+      代码是 20 个。文档缺 6 个：llm、subagents、agentTeams、sessions、goals、compaction；
+      同时文档独有 0 个（它列的 14 个都在代码里，但 session/agentLoop/storage/timer/client 这 5 个在代码里从不被门控）。
+    evidence: [docs/SCENARIO-SPEC.md:135-140, src/cases/types.ts:26-50]
+    impact: >
+      SCENARIO-SPEC 是**场景作者**的唯一能力参考。照它写 `requires: [compaction]` 的作者会以为
+      写错了，照它写 `requires: [agentTeams]` 的人会发现文档里根本没有这个词。
+  - id: DRIFT-CAP-3
+    severity: medium
+    kind: 文档把动态门控写成静态 requires
+    claim: docs/FEATURES.md:75,77,82 的 kind 表把 session / agent / compaction 的 requires 写成并集
+    reality: >
+      静态 `requires` 只有 8 个能力（doctor 的「driver 依赖的并集」即可复现）；
+      agentTeams（agent.ts:414）、sessions（session.ts:254）是分支内动态检查，
+      goals（session.ts:304,423）、sessions（compaction.ts:172）只做 service 形状检查。
+    evidence:
+      - docs/FEATURES.md:75,77,82
+      - src/kinds/agent.ts:403,414
+      - src/kinds/session.ts:225,254,304
+      - src/kinds/compaction.ts:158,172
+      - src/doctor/run.ts:57-59
+    recompute: '$NODE $REPO/bin/dsh-testkit.mjs doctor   # 并集只列 8 个，不含 goals / agentTeams / sessions'
+  - id: DRIFT-CAP-4
+    severity: medium
+    kind: 任务锚点与代码不符（不是仓库文档问题，登记以防阶段 1 复现同一误解）
+    claim: 阶段 0 任务描述把「能力的探测来源」指向 src/isolation/probes.ts
+    reality: >
+      src/isolation/probes.ts 探的是**残留**（tmpdir / 端口 / 进程；见 probes.ts:1-21、
+      detectResidue:340-374），与 HostCapability 无关。能力探测在 src/host-facade.ts:29-54 + 105-147。
+    evidence: [src/isolation/probes.ts:1-21, src/isolation/probes.ts:340-374, src/host-facade.ts:29-54, src/host-facade.ts:105-147]
+  - id: DRIFT-CAP-5
+    severity: low
+    kind: 文档未给能力→行为的关联口径
+    claim: docs/REWRITE-METRICS.md:82「从 src/cases/types.ts 枚举 HostCapability，与 spec 关联」
+    reality: >
+      「与 spec 关联」的判定口径未定义：spec 的 front-matter 有 `capabilities:` 字段
+      （spec/README.md:66），但没有任何地方规定"关联"是指 spec 里出现该名字，
+      还是指该能力有被实测的行为。本文件按后者（可触发）给出 risk 面，口径需在阶段 1 冻结。
+    evidence: [docs/REWRITE-METRICS.md:82, spec/README.md:66, src/cases/types.ts:97]

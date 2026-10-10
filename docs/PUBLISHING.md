@@ -46,7 +46,7 @@
 |---|---|---|
 | 1 | **改名**（scoped 或新名）并跑通 §4 的全量清单 | ✅ **已改名**（`@supengpeng/dsh-testkit`）且 **§5 四步已验完**（见 §5.1）——验证当场抓到 A6 的漏改（patch 的 `name` 写旧名 → client 半静默不进启动图），已修并加守卫 `verify:bundle` |
 | 2 | 版本号 `0.1.0` → `0.2.0`，`CHANGELOG.md` 里去掉「未发布」 | ✅ 已做（2026-10-10，随 `v0.2.0` tag 发布） |
-| 3 | 本机 `pnpm run gate` 全绿 | ✅ 每次改动都在跑（当前 **710 单测** + 契约轨 65 + CI 轨 26 条场景 + **11 个守卫**） |
+| 3 | 本机 `pnpm run gate` 全绿 | ✅ 每次改动都在跑（当前 **主套件 733 项** + 契约轨 65 + CI 轨 26 条场景 + **13 个守卫**） |
 | 4 | CI 组合全绿（`.github/workflows/ci.yml`） | ✅ **6/6 全绿**（Node 22/24 × ubuntu/windows/macos，实测 run #5/#6） |
 | 5 | `npm run verify:pack` 退出码 0（`files` 白名单覆盖全部入口声明的路径） | ✅ 已接进 gate（`scripts/check-pack-files.mjs`） |
 | 6 | `npm pack --dry-run` 人工核一遍清单（尤其 `bin/`、`lib/cli/`、`schemas/`、`cases/`、`fixtures/`、`registry/`、`templates/`、`dsh/`） | ✅ **已由发布工作流核过**：`npm pack --dry-run --json`（Release run #2）清单断言通过，`npm notice` 里能看到 `bin/`、`lib/cli/`、`lib/doctor/`、`cases/TK-0004.yaml`、`src/client/console.tsx` 等条目 |
@@ -259,7 +259,7 @@ $DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 3. `npm run verify:pack` + `npm pack --dry-run`：确认 `lib/`、`cases/`、`dsh/`、`docs/`、
    `schemas/`、`src/` 都在清单里（**`schemas/` 曾经漏过**——它由 `exports` 里那条
    `./schemas/run-report.schema.json` 推导出来，所以那条 exports 不能删）
-4. push → 等 CI 9 个组合全绿
+4. push → 等 CI 6 个组合全绿
 5. `npm publish --provenance` → 打 tag → GitHub Release
 6. 在一个**全新**的隔离 profile 里从 registry 装一次并跑 `/testkit list`
    （第 9 条清单项：这一步是唯一能证明"发出去的东西真的能用"的动作）

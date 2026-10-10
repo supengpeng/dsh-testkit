@@ -1,0 +1,367 @@
+{
+  "generated_at": "2026-10-10T16:32:15.595Z",
+  "purpose": "B1 的实质读数：只统计 spec 条目声明覆盖的文件",
+  "spec_snapshot": {
+    "dir": "spec/behaviors",
+    "files": 18,
+    "atom_entries": 48,
+    "unique_ids": 48,
+    "files_snapshot": [
+      {
+        "path": "spec/behaviors/engine/assert.md",
+        "bytes": 24304,
+        "mtime": "2026-10-10T16:01:56.361Z"
+      },
+      {
+        "path": "spec/behaviors/engine/fixture.md",
+        "bytes": 9553,
+        "mtime": "2026-10-10T16:04:29.522Z"
+      },
+      {
+        "path": "spec/behaviors/engine/isolation.md",
+        "bytes": 28897,
+        "mtime": "2026-10-10T16:05:22.002Z"
+      },
+      {
+        "path": "spec/behaviors/engine/policy.md",
+        "bytes": 26964,
+        "mtime": "2026-10-10T16:07:07.576Z"
+      },
+      {
+        "path": "spec/behaviors/engine/report.md",
+        "bytes": 33918,
+        "mtime": "2026-10-10T16:08:19.916Z"
+      },
+      {
+        "path": "spec/behaviors/engine/runner.md",
+        "bytes": 31867,
+        "mtime": "2026-10-10T16:08:18.893Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/agent.md",
+        "bytes": 16158,
+        "mtime": "2026-10-10T16:05:47.875Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/compaction.md",
+        "bytes": 22944,
+        "mtime": "2026-10-10T16:09:33.089Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/file.md",
+        "bytes": 15691,
+        "mtime": "2026-10-10T16:03:57.982Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/fs.md",
+        "bytes": 19561,
+        "mtime": "2026-10-10T16:04:41.836Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/interaction.md",
+        "bytes": 11149,
+        "mtime": "2026-10-10T16:02:14.954Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/llm.md",
+        "bytes": 9316,
+        "mtime": "2026-10-10T16:02:00.276Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/prompt.md",
+        "bytes": 8722,
+        "mtime": "2026-10-10T16:01:59.976Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/resource.md",
+        "bytes": 9242,
+        "mtime": "2026-10-10T16:02:59.800Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/session.md",
+        "bytes": 22104,
+        "mtime": "2026-10-10T16:06:59.262Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/shell.md",
+        "bytes": 10284,
+        "mtime": "2026-10-10T16:03:32.978Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/tool.md",
+        "bytes": 14582,
+        "mtime": "2026-10-10T16:01:42.393Z"
+      },
+      {
+        "path": "spec/behaviors/kinds/ui.md",
+        "bytes": 8285,
+        "mtime": "2026-10-10T16:03:32.953Z"
+      }
+    ],
+    "guard_reading": "node spec/schema/validate-spec.mjs --json（阶段 0 进行中，spec 树仍在生长，本快照有时间戳）"
+  },
+  "spec_declared_src_files": [
+    "src/executor/policy.ts",
+    "src/isolation/cleanup.ts",
+    "src/isolation/context.ts",
+    "src/isolation/pool.ts",
+    "src/isolation/probes.ts",
+    "src/kinds/agent.ts",
+    "src/kinds/compaction.ts",
+    "src/kinds/file.ts",
+    "src/kinds/fs.ts",
+    "src/kinds/interaction.ts",
+    "src/kinds/llm.ts",
+    "src/kinds/prompt.ts",
+    "src/kinds/resource.ts",
+    "src/kinds/session.ts",
+    "src/kinds/shell.ts",
+    "src/kinds/tool.ts",
+    "src/kinds/ui.ts",
+    "src/report/json.ts",
+    "src/report/junit.ts",
+    "src/report/markdown.ts",
+    "src/report/present.ts",
+    "src/report/redact.ts",
+    "src/runtime/assert.ts",
+    "src/runtime/fixture.ts",
+    "src/runtime/refs.ts",
+    "src/runtime/runner.ts"
+  ],
+  "spec_declared_file_count": 26,
+  "lib_kept": [
+    "src/executor/policy.ts",
+    "src/isolation/cleanup.ts",
+    "src/isolation/context.ts",
+    "src/isolation/pool.ts",
+    "src/isolation/probes.ts",
+    "src/kinds/agent.ts",
+    "src/kinds/compaction.ts",
+    "src/kinds/file.ts",
+    "src/kinds/fs.ts",
+    "src/kinds/interaction.ts",
+    "src/kinds/llm.ts",
+    "src/kinds/prompt.ts",
+    "src/kinds/resource.ts",
+    "src/kinds/session.ts",
+    "src/kinds/shell.ts",
+    "src/kinds/tool.ts",
+    "src/kinds/ui.ts",
+    "src/report/json.ts",
+    "src/report/junit.ts",
+    "src/report/markdown.ts",
+    "src/report/present.ts",
+    "src/report/redact.ts",
+    "src/runtime/assert.ts",
+    "src/runtime/fixture.ts",
+    "src/runtime/refs.ts",
+    "src/runtime/runner.ts"
+  ],
+  "lib_excluded_count": 83,
+  "command": "node --test --experimental-test-coverage --enable-source-maps --test-coverage-exclude=**/node_modules/** --test-coverage-exclude=**/tests/** --test-coverage-exclude=**/scripts/** --test-coverage-exclude=**/bin/** --test-coverage-exclude=**/export/scenarios.test.mjs --test-coverage-exclude=**/lib/client.js --test-coverage-exclude=**/lib/adapters/dsh/tools.js --test-coverage-exclude=**/lib/analysis/causes.js --test-coverage-exclude=**/lib/analysis/classify.js --test-coverage-exclude=**/lib/analysis/repro.js --test-coverage-exclude=**/lib/cases/index-file.js --test-coverage-exclude=**/lib/cases/loader.js --test-coverage-exclude=**/lib/cases/registry.js --test-coverage-exclude=**/lib/cases/schema.js --test-coverage-exclude=**/lib/cases/types.js --test-coverage-exclude=**/lib/cli/args.js --test-coverage-exclude=**/lib/cli/commands/insight.js --test-coverage-exclude=**/lib/cli/commands/inspect.js --test-coverage-exclude=**/lib/cli/commands/integrate.js --test-coverage-exclude=**/lib/cli/commands/run.js --test-coverage-exclude=**/lib/cli/commands/transfer.js --test-coverage-exclude=**/lib/cli/context.js --test-coverage-exclude=**/lib/cli/exit.js --test-coverage-exclude=**/lib/cli/index.js --test-coverage-exclude=**/lib/cli/io.js --test-coverage-exclude=**/lib/commands.js --test-coverage-exclude=**/lib/config.js --test-coverage-exclude=**/lib/contracts/run.js --test-coverage-exclude=**/lib/contracts/types.js --test-coverage-exclude=**/lib/doctor/index.js --test-coverage-exclude=**/lib/doctor/render.js --test-coverage-exclude=**/lib/doctor/residue.js --test-coverage-exclude=**/lib/doctor/run.js --test-coverage-exclude=**/lib/doctor/runs.js --test-coverage-exclude=**/lib/doctor/types.js --test-coverage-exclude=**/lib/dx/index.js --test-coverage-exclude=**/lib/dx/select.js --test-coverage-exclude=**/lib/dx/watch.js --test-coverage-exclude=**/lib/export/node-test.js --test-coverage-exclude=**/lib/export/write.js --test-coverage-exclude=**/lib/fixtures/apply.js --test-coverage-exclude=**/lib/fixtures/compat.js --test-coverage-exclude=**/lib/fixtures/load.js --test-coverage-exclude=**/lib/fixtures/schema.js --test-coverage-exclude=**/lib/fixtures/sensitive.js --test-coverage-exclude=**/lib/headless/index.js --test-coverage-exclude=**/lib/headless/services.js --test-coverage-exclude=**/lib/host-facade.js --test-coverage-exclude=**/lib/http.js --test-coverage-exclude=**/lib/index.js --test-coverage-exclude=**/lib/insight/coverage.js --test-coverage-exclude=**/lib/insight/search.js --test-coverage-exclude=**/lib/insight/trend.js --test-coverage-exclude=**/lib/isolation/leaks.js --test-coverage-exclude=**/lib/kinds/index.js --test-coverage-exclude=**/lib/kinds/types.js --test-coverage-exclude=**/lib/pipeline/index.js --test-coverage-exclude=**/lib/pipeline/ledger.js --test-coverage-exclude=**/lib/pipeline/quality.js --test-coverage-exclude=**/lib/pipeline/store.js --test-coverage-exclude=**/lib/pipeline/types.js --test-coverage-exclude=**/lib/registry/expand.js --test-coverage-exclude=**/lib/registry/index.js --test-coverage-exclude=**/lib/registry/loader.js --test-coverage-exclude=**/lib/registry/templates.js --test-coverage-exclude=**/lib/runtime/runlog.js --test-coverage-exclude=**/lib/selection/bench.js --test-coverage-exclude=**/lib/selection/by-version.js --test-coverage-exclude=**/lib/selection/git.js --test-coverage-exclude=**/lib/selection/index.js --test-coverage-exclude=**/lib/selection/mapping.js --test-coverage-exclude=**/lib/surface/runs.js --test-coverage-exclude=**/lib/surface/selection-args.js --test-coverage-exclude=**/lib/tools.js --test-coverage-exclude=**/lib/touchstone/export.js --test-coverage-exclude=**/lib/touchstone/import.js --test-coverage-exclude=**/lib/touchstone/index.js --test-coverage-exclude=**/lib/touchstone/webhook.js --test-coverage-exclude=**/lib/trace/chrome.js --test-coverage-exclude=**/lib/trace/index.js --test-coverage-exclude=**/lib/trace/json.js --test-coverage-exclude=**/lib/trace/otel.js --test-coverage-exclude=**/lib/trace/spans.js --test-coverage-exclude=**/lib/trace/timeline.js --test-coverage-exclude=**/lib/triage/artifacts.js --test-coverage-exclude=**/lib/triage/comment.js --test-coverage-exclude=**/lib/triage/index.js --test-coverage-exclude=**/lib/triage/issue.js --test-coverage-exclude=**/lib/triage/route.js tests/contracts/*.test.mjs tests/*.test.mjs export/scenarios.test.mjs",
+  "test_exit_code": 0,
+  "wall_ms": 46632,
+  "run_valid": true,
+  "totals": {
+    "tests": 824,
+    "suites": 0,
+    "pass": 816,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 8,
+    "todo": 0,
+    "duration_ms": 44491.2082
+  },
+  "aggregate": {
+    "line": 96.36,
+    "branch": 83.26,
+    "funcs": 93.39
+  },
+  "file_rows": 26,
+  "aggregate_reported_by_node_if_invalid": null,
+  "files": [
+    {
+      "path": "src/executor/policy.ts",
+      "line": 100,
+      "branch": 92.45,
+      "funcs": 100,
+      "uncovered": ""
+    },
+    {
+      "path": "src/isolation/cleanup.ts",
+      "line": 96.67,
+      "branch": 91.18,
+      "funcs": 88.89,
+      "uncovered": "66-67 149-151 162"
+    },
+    {
+      "path": "src/isolation/context.ts",
+      "line": 98.32,
+      "branch": 80,
+      "funcs": 100,
+      "uncovered": "108-109"
+    },
+    {
+      "path": "src/isolation/pool.ts",
+      "line": 100,
+      "branch": 100,
+      "funcs": 100,
+      "uncovered": ""
+    },
+    {
+      "path": "src/isolation/probes.ts",
+      "line": 91.82,
+      "branch": 73.68,
+      "funcs": 85,
+      "uncovered": "140 156-162 197-203 230-245"
+    },
+    {
+      "path": "src/kinds/agent.ts",
+      "line": 95.87,
+      "branch": 83.33,
+      "funcs": 91.18,
+      "uncovered": "277-279 304-305 376-378 380-382 466-467 493-494 535-536 549-552 554-555 559-562 677"
+    },
+    {
+      "path": "src/kinds/compaction.ts",
+      "line": 96.73,
+      "branch": 74.79,
+      "funcs": 100,
+      "uncovered": "169-170 182-183 186-187 229-230 276-277 311-312 329-330 341"
+    },
+    {
+      "path": "src/kinds/file.ts",
+      "line": 96.41,
+      "branch": 84.62,
+      "funcs": 100,
+      "uncovered": "120-121 130-131 181-184 320-322 333"
+    },
+    {
+      "path": "src/kinds/fs.ts",
+      "line": 95.1,
+      "branch": 81.4,
+      "funcs": 95,
+      "uncovered": "222-223 245-246 260-261 276 312 346-359 464-465"
+    },
+    {
+      "path": "src/kinds/interaction.ts",
+      "line": 97.94,
+      "branch": 85.11,
+      "funcs": 77.78,
+      "uncovered": "202 232-233 240-241"
+    },
+    {
+      "path": "src/kinds/llm.ts",
+      "line": 91.87,
+      "branch": 90.91,
+      "funcs": 91.67,
+      "uncovered": "235-236 245-262 268-270"
+    },
+    {
+      "path": "src/kinds/prompt.ts",
+      "line": 100,
+      "branch": 88.37,
+      "funcs": 100,
+      "uncovered": ""
+    },
+    {
+      "path": "src/kinds/resource.ts",
+      "line": 97.34,
+      "branch": 77.97,
+      "funcs": 100,
+      "uncovered": "158-159 243-244 252-253 262"
+    },
+    {
+      "path": "src/kinds/session.ts",
+      "line": 94.69,
+      "branch": 80.24,
+      "funcs": 96.15,
+      "uncovered": "313-315 370-371 375-376 388-389 462-466 469-479 510 547-548 550 594-596"
+    },
+    {
+      "path": "src/kinds/shell.ts",
+      "line": 96.62,
+      "branch": 83.33,
+      "funcs": 100,
+      "uncovered": "110-116 118-119 295"
+    },
+    {
+      "path": "src/kinds/tool.ts",
+      "line": 99.2,
+      "branch": 88.96,
+      "funcs": 95.45,
+      "uncovered": "272 303 616-618"
+    },
+    {
+      "path": "src/kinds/ui.ts",
+      "line": 98.28,
+      "branch": 88.71,
+      "funcs": 87.5,
+      "uncovered": "287-291 347"
+    },
+    {
+      "path": "src/report/json.ts",
+      "line": 98.43,
+      "branch": 86.21,
+      "funcs": 100,
+      "uncovered": "90-91"
+    },
+    {
+      "path": "src/report/junit.ts",
+      "line": 98.88,
+      "branch": 94.12,
+      "funcs": 100,
+      "uncovered": "146-147"
+    },
+    {
+      "path": "src/report/markdown.ts",
+      "line": 98.34,
+      "branch": 90.7,
+      "funcs": 100,
+      "uncovered": "156-158"
+    },
+    {
+      "path": "src/report/present.ts",
+      "line": 98.13,
+      "branch": 72.41,
+      "funcs": 100,
+      "uncovered": "100-101"
+    },
+    {
+      "path": "src/report/redact.ts",
+      "line": 97.8,
+      "branch": 62.07,
+      "funcs": 86.96,
+      "uncovered": "120 174-175 190-191"
+    },
+    {
+      "path": "src/runtime/assert.ts",
+      "line": 98.34,
+      "branch": 88.51,
+      "funcs": 100,
+      "uncovered": "66 87-88 202"
+    },
+    {
+      "path": "src/runtime/fixture.ts",
+      "line": 96.59,
+      "branch": 95.65,
+      "funcs": 80,
+      "uncovered": "52-53 87"
+    },
+    {
+      "path": "src/runtime/refs.ts",
+      "line": 94.55,
+      "branch": 33.33,
+      "funcs": 100,
+      "uncovered": "49 51 53"
+    },
+    {
+      "path": "src/runtime/runner.ts",
+      "line": 92.39,
+      "branch": 81.37,
+      "funcs": 87.5,
+      "uncovered": "173-174 293-294 356-362 370-371 468-469 508-509 556-559 617-620 775-777 807-809 815-822 825-826 828-829 831-832 874 895-899 911-912 916-933"
+    }
+  ],
+  "guard": "file_rows === 0 ⇒ 退出码 1（空集合上的 100% 不是覆盖率）"
+}

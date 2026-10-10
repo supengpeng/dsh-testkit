@@ -1,0 +1,312 @@
+# spec/contracts/surfaces.yaml
+#
+# 「注册面真源」：工具 / CLI 子命令 / kind / HTTP 路由的**逐个名字清单**与计数。
+# 为什么必须列名字而不是只列计数：计数相等而名字不同是最难发现的漂移（改名不减数）。
+#
+# 真源优先级（遇到冲突时**以代码为准**）：
+#   1. 运行时真源：tests/host-apply.test.mjs（真装进 cordis 容器后断言注册面）
+#   2. 源码真源：src/tools.ts / src/cli/index.ts / src/kinds/index.ts / src/http.ts
+#   3. 文档：README.md / docs/FEATURES.md / docs/REWRITE-DESIGN.md §10.8 / docs/ARCHITECTURE.md
+#
+# 本文件的所有读数都由下面的 recompute 命令实际跑出来，不抄文档。
+
+meta:
+  contract: 注册面（对外可观察的注册项集合）
+  design_source: docs/REWRITE-DESIGN.md §10.8（L926-L934）；docs/REWRITE-DESIGN.md §2.2（L120-L139）
+  rfc_source: docs/rfc/0001-rust-core-full-rewrite.md L190
+  runtime:
+    node: C:\Users\19059\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe
+    note: 本机无全局 node/pnpm；$REPO = 仓库根，$NODE 同上。
+  recompute:
+    - 'cd $REPO && $NODE --test tests/host-apply.test.mjs   # 运行时真源：13 个工具 + 4 条路由 + 1 个命令（断言在 L93-L125）'
+    - '$NODE $REPO/bin/dsh-testkit.mjs help --json          # 16 个子命令逐个列名 + available 标记 + 退出码表'
+    - '$NODE $REPO/bin/dsh-testkit.mjs version --json       # 12 个 kind 逐个列名（scenarioKinds）'
+    - '$NODE $REPO/scripts/verify-docs.mjs                  # 守卫读数：CLI 子命令 16 / 守卫 12 / 场景 39（**不含工具数**）'
+    - 'Select-String -Path $REPO/src/tools.ts -Pattern "name: ''testkit_"   # 工具名逐个列出'
+  readouts:
+    tool_count: 13
+    cli_subcommand_count: 16
+    kind_count: 12
+    http_route_count: 4
+    bridge_prefix: /api/dsh-testkit
+    plugin_command_count: 1
+    matches_design_target: false
+    design_target: { tools: 15, cli: 18, kinds: 12, http_routes: 4 }
+
+# ---------------------------------------------------------------- 1. 模型工具 --
+tools:
+  count: 13
+  capacity: 13
+  source: src/tools.ts
+  runtime_truth: tests/host-apply.test.mjs:93-114（断言 13 个工具名，顺序也断言）
+  recompute:
+    - 'cd $REPO && $NODE --test tests/host-apply.test.mjs'
+    - 'Select-String -Path $REPO/src/tools.ts -Pattern "name: ''testkit_" | ForEach-Object { $_.LineNumber }'
+  names:
+    - { name: testkit_list, source_line: 99, summary: 列出场景（可按 kind / tag / status 过滤，同时回显无法解析的文件） }
+    - { name: testkit_run, source_line: 163, summary: 运行场景并写报告（总是带成本闸门） }
+    - { name: testkit_report, source_line: 363, summary: 读取最近一次或指定 Run ID 的报告 }
+    - { name: testkit_export, source_line: 399, summary: 导出 CI 用例或 bug_report（touchstone） }
+    - { name: testkit_expand, source_line: 496, summary: '把 use: 步骤展开成 flat 步骤' }
+    - { name: testkit_trace, source_line: 536, summary: 步骤级 trace（timeline / json / chrome / otel） }
+    - { name: testkit_trend, source_line: 581, summary: 历史趋势（kind / tag / owner / dshVersion） }
+    - { name: testkit_coverage, source_line: 619, summary: 覆盖矩阵 + 缺口报告 }
+    - { name: testkit_search, source_line: 627, summary: 场景全文搜索 }
+    - { name: testkit_triage, source_line: 660, summary: 生成 PR 评论或 issue 草稿（只出文本） }
+    - { name: testkit_doctor, source_line: 702, summary: 宿主体检：能力矩阵 / skip 预测 / 残留 / 最近读数 }
+    - { name: testkit_propose, source_line: 739, summary: 提交提炼提案（只写 pipeline/proposals/） }
+    - { name: testkit_pipeline, source_line: 793, summary: 只读查看提炼台账 }
+  declared_but_not_registered:
+    - { name: testkit_collect, declared_in: docs/REWRITE-DESIGN.md:930 }
+    - { name: testkit_refine, declared_in: docs/REWRITE-DESIGN.md:931 }
+  docs_consistency:
+    - { doc: README.md, line: 99, claims: '13 个模型工具', agrees: true }
+    - { doc: docs/FEATURES.md, line: 8, claims: '## 1. 模型工具（13 个）', agrees: true }
+    - { doc: docs/FEATURES.md, lines: '14-26', claims: '13 行工具表（逐个列名）', agrees: true }
+    - { doc: docs/REWRITE-DESIGN.md, line: 934, claims: '工具 13 → 15（新增 testkit_collect / testkit_refine）', agrees: false, kind: 目标态 }
+    - { doc: docs/rfc/0001-rust-core-full-rewrite.md, line: 190, claims: '工具 13 → 15', agrees: false, kind: 目标态 }
+
+# ---------------------------------------------------------------- 2. CLI 子命令 --
+cli:
+  count: 16
+  source: src/cli/index.ts
+  guard: scripts/verify-docs.mjs:126-131（真源正则 `\{\s*name:\s*'x',\s*summary:`）；检查项 ⑥ 在 L231-240
+  recompute:
+    - '$NODE $REPO/bin/dsh-testkit.mjs help --json'
+    - '$NODE $REPO/scripts/verify-docs.mjs   # 打印「CLI 子命令 16」'
+  counting_note:
+    detail: >
+      src/cli/index.ts 里 `name: '...'` 共出现 17 次：L76 的 `{ name: 'json', kind: 'boolean', ... }`
+      是 HELP_OPTIONS（选项）而非子命令。守卫用「name + summary 同现」把两者分开——
+      这也是为什么计数必须由正则/运行时给出，不能数 `name:` 出现次数。
+    evidence: [src/cli/index.ts:76, src/cli/index.ts:80-95]
+  names:
+    - { name: run, source_line: 80, available: true, args: '[ids...]' }
+    - { name: list, source_line: 81, available: true }
+    - { name: report, source_line: 82, available: true, args: '[runId]' }
+    - { name: expand, source_line: 83, available: true, args: '<场景 ID>' }
+    - { name: export, source_line: 84, available: true }
+    - { name: import, source_line: 85, available: true, args: '<case.md>' }
+    - { name: trace, source_line: 86, available: false }
+    - { name: trend, source_line: 87, available: false }
+    - { name: coverage, source_line: 88, available: false }
+    - { name: search, source_line: 89, available: false }
+    - { name: triage, source_line: 90, available: true }
+    - { name: doctor, source_line: 91, available: true }
+    - { name: registry, source_line: 92, available: true }
+    - { name: fixtures, source_line: 93, available: true }
+    - { name: version, source_line: 94, available: true }
+    - { name: help, source_line: 95, available: true }
+  available_false_note: >
+    trace / trend / coverage / search 的 `available: false` 不是「未实现」而是「模块形状不满足」
+    （见 src/cli/index.ts 的 available 字段与 src/cli/commands/insight.ts 的候选表）。
+    运行时它们会明确报「未就绪」并给退出码 3（tests/cli.test.mjs:448-471）。
+    这 4 条仍计入 16——注册面是「声明过的子命令」，可用性由 available 单独表达。
+  declared_but_not_registered:
+    - { name: collect, declared_in: docs/REWRITE-DESIGN.md:932 }
+    - { name: refine, declared_in: docs/REWRITE-DESIGN.md:932 }
+  docs_consistency:
+    - { doc: README.md, line: 94, claims: '16 个 CLI 子命令', agrees: true }
+    - { doc: README.md, line: 99, claims: '16 个 CLI 子命令', agrees: true }
+    - { doc: docs/FEATURES.md, line: 42, claims: '独立 CLI（与命令面共用同一套引擎）', agrees: true }
+    - { doc: docs/REWRITE-DESIGN.md, line: 934, claims: 'CLI 子命令 16 → 18', agrees: false, kind: 目标态 }
+    - { doc: docs/rfc/0001-rust-core-full-rewrite.md, line: 190, claims: 'CLI 子命令 16 → 18', agrees: false, kind: 目标态 }
+  separate_surface:
+    name: DSH 命令面（/testkit）
+    registered_commands: 1
+    top_level_subcommands: 17
+    nested_issue_subcommands: 7
+    source: src/commands.ts:126-530（主 switch）、:546-623（issue 子 switch）
+    recompute:
+      - 'Select-String -Path $REPO/src/commands.ts -Pattern "case ''[a-z]+'':" | ForEach-Object { "$($_.LineNumber): $($_.Line.Trim())" }'
+    names_top_level: [list, run, report, expand, registry, fixtures, import, export, trace, trend, coverage, triage, doctor, search, reload, issue, help]
+    names_issue_nested: [status, list, open, show, approve, reject, close]
+    note: >
+      **不是** CLI：它是插件注册进 DSH 的人类命令（`ctx.commands` 面），与 CLI 的 16 个子命令
+      是**两套不同的注册面**，计数不可混用。docs/FEATURES.md:36 明确写「下面是常用集」，
+      列了 14 个名字（缺 registry / fixtures / help）——作为子集一致，但不是完整清单。
+    evidence: [docs/FEATURES.md:33-37, src/commands.ts:129, src/commands.ts:135-530]
+
+# ---------------------------------------------------------------- 3. kind --
+kinds:
+  count: 12
+  source: src/kinds/index.ts:99-110（createDriverRegistry 的 register 调用）
+  type_truth: src/cases/types.ts:9-23（ScenarioKind 联合）+ src/cases/types.ts:391-404（SCENARIO_KINDS）
+  runtime_truth: '$NODE bin/dsh-testkit.mjs version --json 的 scenarioKinds（12 条）'
+  recompute:
+    - '$NODE $REPO/bin/dsh-testkit.mjs version --json'
+    - 'Select-String -Path $REPO/src/kinds/index.ts -Pattern "registry\.register\("'
+    - '$NODE $REPO/bin/dsh-testkit.mjs doctor   # 驱动 × 能力矩阵按 kind 逐行列出 12 行'
+  three_sources_agree: true
+  three_sources: { registry_register: 12, scenario_kind_union: 12, scenario_kinds_const: 12, driver_cost_map: 12 }
+  names:
+    - { name: tool, cost: none, static_requires: ['tools'], registered_at: 'src/kinds/index.ts:99', file: src/kinds/tool.ts }
+    - { name: prompt, cost: none, static_requires: ['systemPrompt'], registered_at: 'src/kinds/index.ts:100', file: src/kinds/prompt.ts }
+    - { name: llm, cost: none, static_requires: ['llm'], registered_at: 'src/kinds/index.ts:101', file: src/kinds/llm.ts }
+    - { name: interaction, cost: none, static_requires: [], registered_at: 'src/kinds/index.ts:102', file: src/kinds/interaction.ts }
+    - { name: session, cost: none, static_requires: ['commands'], registered_at: 'src/kinds/index.ts:103', file: src/kinds/session.ts }
+    - { name: resource, cost: none, static_requires: [], registered_at: 'src/kinds/index.ts:104', file: src/kinds/resource.ts }
+    - { name: agent, cost: high, static_requires: ['subagents'], registered_at: 'src/kinds/index.ts:105', file: src/kinds/agent.ts }
+    - { name: ui, cost: none, static_requires: [], registered_at: 'src/kinds/index.ts:106', file: src/kinds/ui.ts }
+    - { name: shell, cost: low, static_requires: ['subprocess'], registered_at: 'src/kinds/index.ts:107', file: src/kinds/shell.ts }
+    - { name: file, cost: none, static_requires: [], registered_at: 'src/kinds/index.ts:108', file: src/kinds/file.ts }
+    - { name: fs, cost: low, static_requires: ['fs'], registered_at: 'src/kinds/index.ts:109', file: src/kinds/fs.ts }
+    - { name: compaction, cost: high, static_requires: ['compaction'], registered_at: 'src/kinds/index.ts:110', file: src/kinds/compaction.ts }
+  docs_consistency:
+    - { doc: README.md, line: 82, claims: '12 个 driver 覆盖 12 类干预点', agrees: true }
+    - { doc: README.md, line: 100, claims: '12 个 kind', agrees: true }
+    - { doc: docs/FEATURES.md, line: 64, claims: '## 3. 场景类型：12 个 kind', agrees: true }
+    - { doc: docs/FEATURES.md, lines: '69-82', claims: '12 行 kind 表', agrees: true, except: 'requires 列有 3 处过宽，见 drift DRIFT-SURF-4' }
+    - { doc: docs/REWRITE-DESIGN.md, line: 934, claims: 'kind 仍为 12（不新增第 13 类）', agrees: true }
+    - { doc: docs/REWRITE-DESIGN.md, lines: '124-137', claims: '§2.2：12 个 kind 到 BaseTool 的映射表', agrees: true }
+  base_tool_mapping_declared_not_implemented:
+    note: '§2.2 的 BaseTool 原子名是**目标态**（Rust 侧），阶段 0 无实现；登记以备阶段 1 对拍。'
+    declared_in: docs/REWRITE-DESIGN.md:124-137
+    atoms:
+      tool: [register-tool, call-tool]
+      prompt: [assemble-prompt, inject-section]
+      llm: [intercept-llm-stream]
+      interaction: [answer-question, answer-approval]
+      session: [run-command, flush-session, goal-op, observe-events]
+      resource: [fake-provider]
+      agent: [spawn-agent]
+      ui: [load-client-bundle]
+      shell: [run-argv]
+      file: [read-file, glob-file, search-file]
+      fs: [fs-resolve, fs-stat, fs-read, fs-list, fs-write, fs-edit]
+      compaction: [compaction-if-needed, compaction-region, compaction-inspect, compaction-dump]
+
+# ---------------------------------------------------------------- 4. HTTP 路由 --
+http:
+  count: 4
+  prefix: /api/dsh-testkit
+  prefix_source: src/http.ts:38（BRIDGE_PREFIX）
+  client_side_prefix_source: src/client/bridge.ts:18（必须逐字符一致，否则 bridge 全 404）
+  handler_style: '精确匹配（kind: exact），只接受 POST；非 POST → 405 method-not-allowed'
+  body_limit_bytes: 16777216
+  source: src/http.ts:73-219（makeBridgeRoutes）
+  runtime_truth: tests/host-apply.test.mjs:116-125（断言 4 条路由路径）
+  recompute:
+    - 'cd $REPO && $NODE --test tests/host-apply.test.mjs'
+    - 'Select-String -Path $REPO/src/http.ts -Pattern "^\s{4}async \w+\("'
+    - 'Select-String -Path $REPO/src/http.ts -Pattern "BRIDGE_PREFIX\s*="'
+  routes:
+    - { name: list, path: /api/dsh-testkit/list, method: POST, source_line: 75, purpose: 读场景清单 + 计数 + 无效文件 }
+    - { name: run, path: /api/dsh-testkit/run, method: POST, source_line: 98, purpose: 跑场景并落报告（总是带成本闸门） }
+    - { name: report, path: /api/dsh-testkit/report, method: POST, source_line: 152, purpose: 取某次运行的 report.md }
+    - { name: reload, path: /api/dsh-testkit/reload, method: POST, source_line: 171, purpose: 重新加载 cases 目录 }
+  docs_consistency:
+    - { doc: docs/ARCHITECTURE.md, line: 293, claims: '/api/dsh-testkit/{list,run,report,reload}（4 条）', agrees: true }
+    - { doc: docs/ARCHITECTURE.md, line: 415, claims: '端点契约共用 BRIDGE_PREFIX', agrees: true }
+    - { doc: docs/DEVELOPMENT.md, line: 146, claims: 'ctx.webServer.register({ kind: exact, path: /api/dsh-testkit/<m>, ... })', agrees: true }
+    - { doc: docs/PUBLISHING.md, lines: '158-159', claims: 'A7 src/http.ts:38 与 A8 src/client/bridge.ts:18 的 BRIDGE_PREFIX 必须一致', agrees: true }
+    - { doc: README.md, line: 303, claims: 'host 半路由 ctx.webServer.register({kind,path,handler})', agrees: true }
+    - { doc: docs/FEATURES.md, line: 136, claims: '/api/dsh-testkit/<endpoint>', agrees: true, incompleteness: '未列出 4 个 endpoint 名' }
+
+# ---------------------------------------------------------------- 5. 附加面：断言词（判定词汇表） --
+assertion_words:
+  note: >
+    超出 spec/README.md §2 给 surfaces.yaml 划的四个面（工具 / CLI / kind / HTTP 路由），
+    但同属「注册面」——断言词是 DSL 的对外词汇表，计数漂移的后果与工具数同级。
+  runtime_source: src/runtime/assert.ts:22-37（ASSERTION_KEYS）
+  type_source: src/cases/types.ts:107-128（Assertion 接口）
+  count: 14
+  names: [is, isNot, notIs, exists, notExists, contains, notContains, matches, atLeast, atMost, length, lengthAtLeast, lengthAtMost, throws]
+  non_word_fields: [ref, soft]
+  recompute:
+    - '$NODE $REPO/bin/dsh-testkit.mjs list --json   # 不直接给词表；词表真源是 assert.ts'
+    - 'Select-String -Path $REPO/src/runtime/assert.ts -Pattern "^\s+''\w+'',"   # 14 条'
+  docs_consistency:
+    reading_discipline: '读数的原值一律保留；真源修正后用 resolved_in 追加注解，不覆盖历史读数（Lead 2026-10-11 授权口径）。'
+    entries:
+      - { doc: README.md, line: 99, claims: '17 个断言词', agrees: false, resolved_in: 'docs/REWRITE-DESIGN.md §3.3 勘误 2026-10-11（17→16 = 14 求值词 + soft + ref）', clarification: '原「17」是把**字段数**当成了**词数**；16 = Assertion 接口的 16 个字段，而真正的求值词只有 14 个（本文件 count: 14 不变）' }
+      - { doc: docs/FEATURES.md, line: 96, claims: '**17 个断言词**', agrees: false, resolved_in: 'docs/REWRITE-DESIGN.md §3.3 勘误 2026-10-11（17→16 = 14 求值词 + soft + ref）', clarification: '同上' }
+      - { doc: docs/FEATURES.md, lines: '99-101', claims: '代码块里列 13 个词（缺 notIs）', agrees: false, resolved_in: 'docs/REWRITE-DESIGN.md §3.3 勘误 2026-10-11（17→16 = 14 求值词 + soft + ref）', clarification: '13 = 真 14 词漏掉 notIs；勘误后的 16 是字段口径，代词数仍应写 14' }
+    reconcile_note: >
+      勘误把「17」修正为「16 = 14 求值词 + soft + ref」。本节的 `count: 14` 是**求值词**口径
+      （src/runtime/assert.ts:22-37 的 ASSERTION_KEYS），`non_word_fields: [ref, soft]` 是另两个字段口径，
+      两者相加并计入 `ref` 即 16——**两个数字都正确，只是口径不同**，报告中必须写清用的是哪一个。
+
+# ---------------------------------------------------------------- 漂移 --
+drift:
+  - id: DRIFT-SURF-1
+    severity: high
+    kind: 目标态 vs 现状（设计已声明差异，不算冲突，但**必须**在阶段 1 落地）
+    detail: >
+      docs/REWRITE-DESIGN.md:934 与 docs/rfc/0001-rust-core-full-rewrite.md:190 都写
+      「工具 13 → 15、CLI 子命令 16 → 18」，而代码真源是 13 / 16，
+      README.md:99 与 docs/FEATURES.md:8 记的也是 13 / 16。
+      即：**设计文档记的是目标，README/FEATURES 记的是现状**，三处数字并存而不冲突。
+      风险在于阶段 1 落地 collect/refine 时，README.md:94,99,100 与 FEATURES.md:8,42 都必须同步。
+    evidence: [docs/REWRITE-DESIGN.md:930-934, docs/rfc/0001-rust-core-full-rewrite.md:190, README.md:99, docs/FEATURES.md:8]
+    code_readout: { tools: 13, cli: 16 }
+  - id: DRIFT-SURF-2
+    severity: high
+    kind: 守卫能力与声明不符
+    detail: >
+      docs/REWRITE-DESIGN.md:934 声称「计数由 pnpm run verify:docs 的检查项 ⑥ 与真源
+      src/tools.ts / src/cli/index.ts 对齐」。实测：scripts/verify-docs.mjs 的 ⑥（L231-240）
+      **只**校验「N 个 CLI 子命令」这一种表述，既不校验工具数（真源集合里没有 tools），
+      也无法解析 §10.8 自己写的「CLI 子命令 **16 → 18**」（正则要求数字后紧跟「个 CLI 子命令」）。
+      故「对齐」只对**另一种句式的当前值**成立，不是对工具的保证。
+    evidence:
+      - docs/REWRITE-DESIGN.md:934
+      - scripts/verify-docs.mjs:126-131
+      - scripts/verify-docs.mjs:231-240
+      - scripts/verify-docs.mjs:133-139（collectGuardCount，也只有守卫数）
+    recompute: '$NODE $REPO/scripts/verify-docs.mjs  # 输出行只有「CLI 子命令 16」，没有工具数'
+  - id: DRIFT-SURF-3
+    severity: medium
+    kind: 文档词汇表与代码不一致
+    detail: >
+      断言词：代码真源 src/runtime/assert.ts:22-37 是 **14** 个（含 notIs）；
+      README.md:99 与 docs/FEATURES.md:96 都称 **17 个**；而 docs/FEATURES.md:99-101
+      自己列出的只有 **13** 个（漏了 notIs）。三个数字互不相等，且没有任何守卫覆盖断言词计数。
+    evidence: [src/runtime/assert.ts:22-37, src/cases/types.ts:113, README.md:99, docs/FEATURES.md:96-101]
+    code_readout: 14
+    # 原读数保留（14 / 17 / 13 三个数字与各自出处都不改）；真源已在设计侧勘误。
+    resolved_in: 'docs/REWRITE-DESIGN.md §3.3 勘误 2026-10-11（17→16 = 14 求值词 + soft + ref）'
+    original_readings_preserved: { code: 14, README_claimed: 17, FEATURES_listed: 13 }
+    resolution_note: >
+      勘误澄清了"17"是把 Assertion 接口的**字段数**当成了**词数**：16 = 14 求值词 + soft + ref。
+      故本节的 `count: 14` 与勘误的 `16` **不矛盾**（口径不同），但 README/FEATURES 里写"个断言词"的
+      措辞仍需在阶段 1 与代码同步时改成明确口径，否则读者仍会混。
+    remaining_work: 'README.md:99 与 docs/FEATURES.md:96-101 的措辞同步（是否随 collect/refine 那批一起改，由 lead 定）'
+  - id: DRIFT-SURF-4
+    severity: medium
+    kind: 文档 requires 列比代码宽
+    detail: >
+      docs/FEATURES.md:69-82 的 kind 表把部分 kind 的 `requires` 写成**静态声明**的并集，
+      而代码里只有一部分是静态 `requires`，其余在分支里动态检查（或只做 service 形状检查）：
+        · session  文档写 `commands + sessions + goals`；代码 requires: ['commands']，
+          动态 `capabilities.has('sessions')`（session.ts:254），goals 只做 `service('goals')` 形状检查（session.ts:304,423）
+        · agent    文档写 `subagents + agentTeams`；代码 requires: ['subagents']，
+          agentTeams 走动态 `capabilities.has('agentTeams')`（agent.ts:414）
+        · compaction 文档写 `sessions + compaction`；代码 requires: ['compaction']，
+          sessions 只做 `service('sessions')` 形状检查（compaction.ts:172）
+      `doctor` 的「driver 依赖的并集」是**按静态 requires 推导**的（doctor/run.ts:57），
+      所以按文档理解会高估它会预判的跳过范围。
+    evidence:
+      - docs/FEATURES.md:75,77,82
+      - src/kinds/session.ts:225,254,304,423
+      - src/kinds/agent.ts:403,414
+      - src/kinds/compaction.ts:158,172
+      - src/doctor/run.ts:57-59
+    recompute: '$NODE $REPO/bin/dsh-testkit.mjs doctor  # 「driver 依赖的并集」只列 8 个能力，不含 goals / agentTeams'
+    # 原读数保留（文档写"静态并集"、代码是静态+动态混合，这个事实不改）。
+    pending: 阶段 1 落地 collect/refine 时同步 README.md/FEATURES.md
+    pending_detail: >
+      本条**不是**文档笔误，而是"文档用 requires 表达能力需求、代码把一部分需求放在分支里"的口径差。
+      正确修法要在 README.md:99-100 与 docs/FEATURES.md:69-82 之间统一口径（例如加"静态 requires / 分支内检查"两列），
+      不宜只改数字；lead 已定为随 collect/refine 那批一起做。
+    original_readings_preserved: { doc_requires_columns_wider_than_code: true, doctor_driver_union_size: 8 }
+  - id: DRIFT-SURF-5
+    severity: low
+    kind: 活文档里的过期读数
+    detail: >
+      docs/DEVELOPMENT.md:325,327 是一段**给人照着做的活验证流程**（不是历史记录），
+      里面写「期望 200 + **14 条场景**」「点开看到 **14 行**表格」；当前 cases/ 下是 39 条场景。
+      同一份文档 L497 自己还登记了「README 声称的场景数与 cases 实际一致」这条预期守卫，
+      而 README.md:138 已更新为 39。
+    evidence: [docs/DEVELOPMENT.md:325, docs/DEVELOPMENT.md:327, docs/DEVELOPMENT.md:497, README.md:138]
+    recompute: '$NODE $REPO/bin/dsh-testkit.mjs list --json  # countsByKind 合计 39'

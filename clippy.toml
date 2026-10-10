@@ -1,0 +1,21 @@
+# workspace 级 clippy 配置（被 crates/* 通过"向上查找 clippy.toml"继承）。
+#
+# 设计 §6.4 的硬纪律：**判定路径上禁止 std::collections::HashMap / HashSet**。
+# 理由（不是风格偏好）：它们的迭代顺序每次运行都不同（RandomState 随机种子），
+# 会让"同种子 ⇒ 同结果"（指标 C1）当场失效，而且失败形态是**偶发且不可复现**的——
+# 这类缺陷在阶段 2 的对拍里会表现为"归因不明的差异"，代价极高。
+#
+# 一律用 BTreeMap / BTreeSet（有序），或需要插序语义时用 IndexMap / IndexSet
+# （后者需先过 RFC §7 停止线 5 的依赖评审）。
+#
+# 生效方式：crate 侧写 `#![deny(clippy::disallowed_types)]`（`crates/capability` 已有），
+# 然后跑 `cargo clippy -p <crate> --all-targets`。
+# 注意 `#![deny(...)]` 是 lib 单元的内层属性，**不覆盖 tests/**（它们是独立 crate）——
+# 所以每个 crate 还应有一条能在 `cargo test` 里跑的文本守卫（见
+# `crates/capability/tests/no_hash_collections.rs`，它带合成负向证明，已用真实注入验证会红）。
+
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "迭代顺序随随机种子变化，破坏判定的确定性（设计 §6.4）；改用 BTreeMap" },
+    { path = "std::collections::HashSet", reason = "同上；改用 BTreeSet" },
+    { path = "std::collections::hash_map::RandomState", reason = "它是 HashMap 非确定性的来源本身，禁止显式构造" },
+]

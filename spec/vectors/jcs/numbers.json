@@ -1,0 +1,170 @@
+{
+  "domain": "jcs",
+  "covers": [
+    "number"
+  ],
+  "note": "数字规范化：ECMAScript Number::toString（RFC 8785 §3.2.2.3）",
+  "source": "src/attest/tools/make-jcs-vectors.mjs（oracle = JS 的 JSON.stringify + 默认键排序；RFC 8785 §3.2.2.3 把数字形态定义为 ECMAScript Number::toString）",
+  "cases": [
+    {
+      "id": "number-01",
+      "covers": "number",
+      "note": "1.0 规范化成 1（整数不带小数点）",
+      "input_json": "1.0",
+      "expected_hex": "31",
+      "expected_text": "1"
+    },
+    {
+      "id": "number-02",
+      "covers": "number",
+      "note": "整数原样",
+      "input_json": "1",
+      "expected_hex": "31",
+      "expected_text": "1"
+    },
+    {
+      "id": "number-03",
+      "covers": "number",
+      "note": "1e2 → 100（指数在阈值内要展开）",
+      "input_json": "1e2",
+      "expected_hex": "313030",
+      "expected_text": "100"
+    },
+    {
+      "id": "number-04",
+      "covers": "number",
+      "note": "大写 E 同样接受",
+      "input_json": "1E2",
+      "expected_hex": "313030",
+      "expected_text": "100"
+    },
+    {
+      "id": "number-05",
+      "covers": "number",
+      "note": "-0 规范化成 0",
+      "input_json": "-0",
+      "expected_hex": "30",
+      "expected_text": "0"
+    },
+    {
+      "id": "number-06",
+      "covers": "number",
+      "note": "0.0 规范化成 0",
+      "input_json": "0.0",
+      "expected_hex": "30",
+      "expected_text": "0"
+    },
+    {
+      "id": "number-07",
+      "covers": "number",
+      "note": "1e21 → 1e+21（≥1e21 走指数形式）",
+      "input_json": "1e21",
+      "expected_hex": "31652b3231",
+      "expected_text": "1e+21"
+    },
+    {
+      "id": "number-08",
+      "covers": "number",
+      "note": "1e20 → 100000000000000000000（<1e21 展开成 21 位整数）",
+      "input_json": "1e20",
+      "expected_hex": "313030303030303030303030303030303030303030",
+      "expected_text": "100000000000000000000"
+    },
+    {
+      "id": "number-09",
+      "covers": "number",
+      "note": "1e-6 → 0.000001（-6 < n ≤ 0 走小数形式）",
+      "input_json": "1e-6",
+      "expected_hex": "302e303030303031",
+      "expected_text": "0.000001"
+    },
+    {
+      "id": "number-10",
+      "covers": "number",
+      "note": "1e-7 → 1e-7（n = -6 走指数形式）",
+      "input_json": "1e-7",
+      "expected_hex": "31652d37",
+      "expected_text": "1e-7"
+    },
+    {
+      "id": "number-11",
+      "covers": "number",
+      "note": "0.0001",
+      "input_json": "0.0001",
+      "expected_hex": "302e30303031",
+      "expected_text": "0.0001"
+    },
+    {
+      "id": "number-12",
+      "covers": "number",
+      "note": "123.456",
+      "input_json": "123.456",
+      "expected_hex": "3132332e343536",
+      "expected_text": "123.456"
+    },
+    {
+      "id": "number-13",
+      "covers": "number",
+      "note": "负的小指数：-1.5e-7",
+      "input_json": "-1.5e-7",
+      "expected_hex": "2d312e35652d37",
+      "expected_text": "-1.5e-7"
+    },
+    {
+      "id": "number-14",
+      "covers": "number",
+      "note": "1.5e300 → 1.5e+300",
+      "input_json": "1.5e300",
+      "expected_hex": "312e35652b333030",
+      "expected_text": "1.5e+300"
+    },
+    {
+      "id": "number-15",
+      "covers": "number",
+      "note": "2^53+1 超出双精度可精确表示范围：按 IEEE 754 解释为 9007199254740992",
+      "input_json": "9007199254740993",
+      "expected_hex": "39303037313939323534373430393932",
+      "expected_text": "9007199254740992"
+    },
+    {
+      "id": "number-16",
+      "covers": "number",
+      "note": "ECMAScript 最短可回环：1000000000000000128 → 1000000000000000100",
+      "input_json": "1000000000000000128",
+      "expected_hex": "31303030303030303030303030303030313030",
+      "expected_text": "1000000000000000100"
+    },
+    {
+      "id": "number-17",
+      "covers": "number",
+      "note": "0.1（二进制不能精确表示，但最短可回环就是 0.1）",
+      "input_json": "0.1",
+      "expected_hex": "302e31",
+      "expected_text": "0.1"
+    },
+    {
+      "id": "number-18",
+      "covers": "number",
+      "note": "2.5",
+      "input_json": "2.5",
+      "expected_hex": "322e35",
+      "expected_text": "2.5"
+    },
+    {
+      "id": "number-19",
+      "covers": "number",
+      "note": "次正规数下界 1e-323",
+      "input_json": "1e-323",
+      "expected_hex": "31652d333233",
+      "expected_text": "1e-323"
+    },
+    {
+      "id": "number-20",
+      "covers": "number",
+      "note": "嵌套结构里的数字同样规范化",
+      "input_json": "{\"a\":1.0,\"b\":[2.0,3e0]}",
+      "expected_hex": "7b2261223a312c2262223a5b322c335d7d",
+      "expected_text": "{\"a\":1,\"b\":[2,3]}"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "purpose": "判定口径（change_final）的复采记录：REWRITE-METRICS §18 + coverage.md §4.6 的\"落在门槛 ±0.1pp 内必须重采并报两次\"纪律",
+  "variant": "change_final",
+  "files": 31,
+  "readings": [
+    {
+      "measured_at": "2026-10-10T17:11:57.586Z",
+      "file_rows": 31,
+      "aggregate": {
+        "line": 88.63,
+        "branch": 81.14,
+        "funcs": 86.27
+      },
+      "test_exit_code": 0,
+      "wall_ms": 50835
+    },
+    {
+      "measured_at": "2026-10-10T17:12:45.213Z",
+      "file_rows": 31,
+      "aggregate": {
+        "line": 88.69,
+        "branch": 81.4,
+        "funcs": 86.27
+      },
+      "test_exit_code": 0,
+      "wall_ms": 47412
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "domain": "jcs",
+  "covers": [
+    "nested"
+  ],
+  "note": "嵌套结构：任意深度的对象/数组都不加空白，键序与数字规则递归生效",
+  "source": "src/attest/tools/make-jcs-vectors.mjs（oracle = JS 的 JSON.stringify + 默认键排序；RFC 8785 §3.2.2.3 把数字形态定义为 ECMAScript Number::toString）",
+  "cases": [
+    {
+      "id": "nested-01",
+      "covers": "nested",
+      "note": "深嵌套对象含空数组",
+      "input_json": "{\"a\":{\"b\":{\"c\":[1,2,{\"d\":[]}]}}}",
+      "expected_hex": "7b2261223a7b2262223a7b2263223a5b312c322c7b2264223a5b5d7d5d7d7d7d",
+      "expected_text": "{\"a\":{\"b\":{\"c\":[1,2,{\"d\":[]}]}}}"
+    },
+    {
+      "id": "nested-02",
+      "covers": "nested",
+      "note": "数组里嵌对象",
+      "input_json": "{\"a\":[{\"z\":1,\"y\":2}]}",
+      "expected_hex": "7b2261223a5b7b2279223a322c227a223a317d5d7d",
+      "expected_text": "{\"a\":[{\"y\":2,\"z\":1}]}"
+    },
+    {
+      "id": "nested-03",
+      "covers": "nested",
+      "note": "纯嵌套数组",
+      "input_json": "[[1,[2,[3,[]]]]]",
+      "expected_hex": "5b5b312c5b322c5b332c5b5d5d5d5d5d",
+      "expected_text": "[[1,[2,[3,[]]]]]"
+    },
+    {
+      "id": "nested-04",
+      "covers": "nested",
+      "note": "标量数组",
+      "input_json": "{\"a\":[true,false,null]}",
+      "expected_hex": "7b2261223a5b747275652c66616c73652c6e756c6c5d7d",
+      "expected_text": "{\"a\":[true,false,null]}"
+    },
+    {
+      "id": "nested-05",
+      "covers": "nested",
+      "note": "多层键排序",
+      "input_json": "{\"b\":{\"a\":{\"d\":1,\"c\":2},\"z\":3},\"a\":4}",
+      "expected_hex": "7b2261223a342c2262223a7b2261223a7b2263223a322c2264223a317d2c227a223a337d7d",
+      "expected_text": "{\"a\":4,\"b\":{\"a\":{\"c\":2,\"d\":1},\"z\":3}}"
+    }
+  ]
+}

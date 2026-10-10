@@ -72,8 +72,7 @@ Draft ──▶ Discussion ──▶ Accepted ──▶ Implemented
 | 编号 | 标题 | 状态 | 版本 | 备注 |
 |---|---|---|---|---|
 | 0000 | （模板，不是真 RFC） | — | — | [0000-template.md](0000-template.md) |
-
-> 还没有正式的 RFC。第一条会从"新增 kind 的门槛"或"发布形态（包名/CLI）"这类议题开始。
+| 0001 | [把 dsh-testkit 重构为 Rust 核心 + TypeScript DSL 的通用插件宿主契约测试平台](0001-rust-core-full-rewrite.md) | Draft | 未定（目标 1.0.0） | 触及 must-RFC 五条：改形态 / 改冻结退出码 / 新增运行时依赖 / 改默认闸门语义 / 引入组合语言。附设计与指标两份配套文件 |
 
 ## 6. 写 RFC 的纪律
 

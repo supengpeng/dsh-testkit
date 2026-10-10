@@ -1,0 +1,74 @@
+{
+  "domain": "jcs",
+  "covers": [
+    "key_order"
+  ],
+  "note": "键序无关性：对象键按 UTF-16 码元序排列（RFC 8785 §3.2.3）",
+  "source": "src/attest/tools/make-jcs-vectors.mjs（oracle = JS 的 JSON.stringify + 默认键排序；RFC 8785 §3.2.2.3 把数字形态定义为 ECMAScript Number::toString）",
+  "cases": [
+    {
+      "id": "key-order-01",
+      "covers": "key_order",
+      "note": "两个键：排序后 a 在前",
+      "input_json": "{\"b\":1,\"a\":2}",
+      "expected_hex": "7b2261223a322c2262223a317d",
+      "expected_text": "{\"a\":2,\"b\":1}"
+    },
+    {
+      "id": "key-order-02",
+      "covers": "key_order",
+      "note": "三个键全部倒序输入",
+      "input_json": "{\"z\":0,\"m\":0,\"a\":0}",
+      "expected_hex": "7b2261223a302c226d223a302c227a223a307d",
+      "expected_text": "{\"a\":0,\"m\":0,\"z\":0}"
+    },
+    {
+      "id": "key-order-03",
+      "covers": "key_order",
+      "note": "空键排在最前",
+      "input_json": "{\"\":1,\"a\":2}",
+      "expected_hex": "7b22223a312c2261223a327d",
+      "expected_text": "{\"\":1,\"a\":2}"
+    },
+    {
+      "id": "key-order-04",
+      "covers": "key_order",
+      "note": "UTF-16 码元序：大写字母在小写之前",
+      "input_json": "{\"A\":1,\"a\":2,\"B\":3}",
+      "expected_hex": "7b2241223a312c2242223a332c2261223a327d",
+      "expected_text": "{\"A\":1,\"B\":3,\"a\":2}"
+    },
+    {
+      "id": "key-order-05",
+      "covers": "key_order",
+      "note": "嵌套对象同样要排序",
+      "input_json": "{\"b\":{\"d\":1,\"c\":2},\"a\":3}",
+      "expected_hex": "7b2261223a332c2262223a7b2263223a322c2264223a317d7d",
+      "expected_text": "{\"a\":3,\"b\":{\"c\":2,\"d\":1}}"
+    },
+    {
+      "id": "key-order-06",
+      "covers": "key_order",
+      "note": "UTF-16 码元序 ≠ 码点序：U+10000（代理对 D800 DC00）排在 U+E000 之前",
+      "input_json": "{\"\\ue000\":1,\"\\ud800\\udc00\":2}",
+      "expected_hex": "7b22f0908080223a322c22ee8080223a317d",
+      "expected_text": "{\"𐀀\":2,\"\":1}"
+    },
+    {
+      "id": "key-order-07",
+      "covers": "key_order",
+      "note": "同一对键、输入顺序反过来，规范化结果必须逐字节相同",
+      "input_json": "{\"\\ud800\\udc00\":2,\"\\ue000\":1}",
+      "expected_hex": "7b22f0908080223a322c22ee8080223a317d",
+      "expected_text": "{\"𐀀\":2,\"\":1}"
+    },
+    {
+      "id": "key-order-08",
+      "covers": "key_order",
+      "note": "数组里的对象各自排序，数组本身保序",
+      "input_json": "[{\"b\":1,\"a\":2},{\"d\":4,\"c\":3}]",
+      "expected_hex": "5b7b2261223a322c2262223a317d2c7b2263223a332c2264223a347d5d",
+      "expected_text": "[{\"a\":2,\"b\":1},{\"c\":3,\"d\":4}]"
+    }
+  ]
+}

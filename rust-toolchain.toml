@@ -1,0 +1,15 @@
+# 工具链固定（REWRITE-METRICS §11 的 J5「构建可复现性」前置 4 条之一）。
+#
+# 为什么钉到精确版本而不是 `stable`：J5 要求两次构建产物哈希一致，
+# 而浮动 channel 会在上游发布时静默改变编译器，让"同一份源码"产出不同二进制。
+# 升级流程：改这里的版本号 + 记录原因 + 重采 D1–D3 基线（REWRITE-METRICS §5 纪律 2）。
+#
+# 本机实际情况（2026-10-11 实测）：Windows 上没有 MSVC / MinGW / VS Build Tools，
+# 因此使用 `x86_64-pc-windows-gnu` host 组合，并**不需要**外部 C 工具链——
+# rustc 1.99.0 的 windows-gnu 目标默认自带的 mingw-w64 与 lld 足以完成链接
+# （hello world 默认链接通过并成功运行；不需要 `-Clink-self-contained` 覆盖）。
+# 该结论的复现命令与日志见 spec/metrics/toolchain.md。
+[toolchain]
+channel = "1.99.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

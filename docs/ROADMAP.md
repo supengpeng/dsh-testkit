@@ -511,7 +511,7 @@ CLI 侧另观察到 teammate 用 `send_message` 把结果回传给 Lead——说
 | 13.5 | **场景搜索**：全文 + kind/tag/owner/cost/status 过滤；0 条时回显每个条件**单独**命中的数量 | ✅ |
 | 13.6 | **错误消息质量**：`probableCauses` 给"原因 / 可能性 / 依据 / 下一步"，按依据强弱排序、封顶 3 条；**没有依据就返回空数组** | ✅ |
 | 13.7 | **本地 DX**：`--owner` / `--cost`（上限含）/ `--smoke`（静态估算预算）/ `watchCases`（防抖） | ✅ |
-| 13.8 | **独立 CLI**：`bin/dsh-testkit.mjs` + `src/cli/**`（14 个子命令 + 全部选择/闸门开关 + 冻结退出码 0/1/2/3） | ✅ |
+| 13.8 | **独立 CLI**：`bin/dsh-testkit.mjs` + `src/cli/**`（**当时** 14 个子命令 + 全部选择/闸门开关 + 冻结退出码 0/1/2/3；现已增至 16，真源 `src/cli/index.ts`） | ✅ |
 | 13.9 | **形态翻转的连带同步**：`package.json` 的 `bin` + `files`、`tests/self-bootstrap.test.mjs` 的断言、README/CHANGELOG 的"刻意没有 bin"表述 | ✅ |
 
 ### 验收

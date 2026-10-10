@@ -1,0 +1,282 @@
+# spec/contracts/environments.yaml
+#
+# 环境组合覆盖的**声明集合** —— 指标 B4 的分母。
+#   B4 环境覆盖 = spec 覆盖的环境组合数 / 声明的环境组合总数（门槛 100%）
+#   定义见 docs/REWRITE-METRICS.md §3 L84。
+#
+# 声明的环境组合真源是 .github/workflows/ci.yml 的 matrix（**不是**文档里的说法）。
+# 实测：matrix = node['22.x','24.x'] × os[ubuntu-latest, windows-latest, macos-latest] = **6 组**。
+# 但仓库里有 **3 处文档**写「9 个组合」——见 drift DRIFT-ENV-1。
+
+meta:
+  contract: 环境组合（os × node）覆盖声明
+  metric: 'B4 环境覆盖 = spec 覆盖的环境组合数 / 声明的环境组合总数（门槛 100%）'
+  metric_source: docs/REWRITE-METRICS.md §3 L84
+  declaration_source: .github/workflows/ci.yml:50-59（matrix 真源）
+  runner_source: .github/workflows/ci.yml:97-99（唯一质量门 `pnpm run gate`）
+  node_floor_source: package.json:47-49（engines.node >=22.19）
+  runtime:
+    node: C:\Users\19059\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe
+  recompute:
+    - 'Select-String -Path $REPO/.github/workflows/ci.yml -Pattern "^\s{8}(node|os):"   # matrix 两行'
+    - '$NODE -e "const {parse}=require(''$REPO/node_modules/yaml'');const fs=require(''fs'');const d=parse(fs.readFileSync(''$REPO/.github/workflows/ci.yml'',''utf8''));console.log(JSON.stringify(d.jobs.gate.strategy.matrix))"   # 用仓库的 yaml 依赖真解析 CI（与 ROADMAP.md:430 同一手法）'
+    - '$NODE $REPO/bin/dsh-testkit.mjs version --json   # 本机环境指纹（node / platform / arch / track）'
+    - '$NODE $REPO/bin/dsh-testkit.mjs doctor           # 宿主读数：headless · Node v24.21.0 · win32'
+  readouts:
+    declared_combinations: 6
+    matrix: { node: ['22.x', '24.x'], os: [ubuntu-latest, windows-latest, macos-latest], fail_fast: false }
+    axes: 2
+    combinations_formula: '2 node × 3 os = 6'
+    gate_entrypoints: 1
+    needs_secret: false
+    node_floor: '>=22.19'
+    local_fingerprint: { node: v24.21.0, platform: win32, arch: x64, track: headless }
+    baseline_env_json_exists: false
+
+# ---------------------------------------------------------------- 声明的组合（B4 分母） --
+combinations:
+  source: .github/workflows/ci.yml:57-59
+  dimensions:
+    - { axis: node, values: ['22.x', '24.x'], source_line: 58, rationale: 'package.json engines 要求 >=22.19；本机开发用 24.x。两档都跑才能发现"只在某一档 Node 上成立"的假设' }
+    - { axis: os, values: [ubuntu-latest, windows-latest, macos-latest], source_line: 59, rationale: '本仓大量 driver 做路径与外部进程取证（shell / file / fs、临时目录、大小写、换行符、PATHEXT），单平台绿不代表可移植' }
+  enumerated:
+    - { id: ENV-01, node: '22.x', os: ubuntu-latest }
+    - { id: ENV-02, node: '22.x', os: windows-latest }
+    - { id: ENV-03, node: '22.x', os: macos-latest }
+    - { id: ENV-04, node: '24.x', os: ubuntu-latest }
+    - { id: ENV-05, node: '24.x', os: windows-latest }
+    - { id: ENV-06, node: '24.x', os: macos-latest }
+  job:
+    name: 'gate · node ${{ matrix.node }} · ${{ matrix.os }}'
+    source_line: .github/workflows/ci.yml:51-53
+    fail_fast: false
+    fail_fast_rationale: '一个平台红不该掩盖其它平台的结果（ci.yml:55-56 的**意图**与该处写的「9 个组合」不符，见 drift）'
+
+# ---------------------------------------------------------------- 执行入口 --
+entrypoints:
+  ci:
+    - { step: '检出代码', uses: 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262', line: 74 }
+    - { step: '安装 pnpm', version: 11.7.0, line: 82-84, pinned_because: '必须与 package.json 的 packageManager 完全相同（scripts/check-lockfile.mjs 跨文件守卫）' }
+    - { step: '安装 Node', uses: 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020', line: 87 }
+    - { step: '安装依赖', run: 'pnpm install --frozen-lockfile', line: 94-95 }
+    - { step: '质量门', run: 'pnpm run gate', line: 98-99, is_the_only_gate: true }
+    - { step: '依赖审计', run: 'pnpm audit --prod --audit-level=high', line: 111-112, outside_gate: true, needs_network: true }
+  local_gate_chain:
+    source: package.json:129
+    stages: [tsc, build-client, verify:cases, verify:docs, verify:encoding, verify:adapter, verify:pack, verify:git-install, verify:fixtures, verify:registry, verify:bundle, verify:secrets, verify:lock, verify:ci, 'contract tests', 'main tests', export-scenarios, 'exported scenarios test', 'client typecheck']
+    note: 'CI 不另拼一套步骤——为了避免"CI 绿但本地红"的双标准（ci.yml:12-17）'
+  ci_hardening_rules:
+    source: scripts/check-ci-hardening.mjs（由 ci.yml:26-31 与 gate 链共同声明）
+    rules:
+      - '顶层 permissions 不许含 write'
+      - '每个 uses: 必须钉 40 位 commit SHA'
+      - '禁 pull_request_target'
+      - '禁 secrets 取值表达式'
+      - '禁 continue-on-error: true'
+      - '安装必须带 --frozen-lockfile'
+    declared_in: .github/workflows/ci.yml:28-30
+
+# ---------------------------------------------------------------- 环境组合的**类型**（B4 的口径风险） --
+environment_kinds:
+  note: >
+    matrix 只覆盖「os × node」两个轴。但本仓真正会影响结论的环境变量还有两个**不在 CI 里**的：
+      ① 宿主形态：CI 与本地 gate 跑的 run 都用 createHeadlessHost()（**不连接真实 DSH profile**）；
+         真实 profile（desktop / web）的验证是人工的（README.md:102、docs/DEVELOPMENT.md:312-352）。
+      ② 外部夹具：7 条场景依赖下载来的外部 fixture（$FIXTURES/dsh-memory-0.8.1，gitignore），
+         全新检出时不存在——这正是 OPTIMIZATION-REVIEW-2026-10.md:83 记录的 CI 全红事故。
+    B4 若只按 matrix 计数，会得出 100% 而完全不含这两类环境差异。口径需在阶段 1 冻结。
+  headless_only_evidence:
+    - '$NODE $REPO/bin/dsh-testkit.mjs version --json → track: "headless"，note 明写"run 自带 headless 最小宿主"'
+    - src/cli/index.ts 的 run 子命令走 createHeadlessHost
+    - docs/FEATURES.md:84-85「ui 与 file 不依赖任何宿主服务；fs 测的正是宿主服务语义，CI 轨里会跳过」
+  external_fixture_evidence:
+    - .fixtures/dsh-memory-0.8.1/（本机存在，gitignore）
+    - docs/OPTIMIZATION-REVIEW-2026-10.md:83
+
+# ---------------------------------------------------------------- B4 覆盖读数（机器轴 100%，全轴不宣称 100%） --
+b4_coverage:
+  metric: 'B4 环境覆盖 = spec 覆盖的环境组合数 / 声明的环境组合总数（docs/REWRITE-METRICS.md §3 L84；阶段 0 门槛 100%，§15 L316）'
+  # 声明项 = 6 个 CI 组合（机器可验）+ 2 个**必须可见**的环境轴（当前无机器通道）
+  declared_items_total: 8
+  covered_items: 6
+  uncovered_items: 2
+  display_machine_axis: 'B4（机器轴）= 6/6 = 100%'
+  display_all_axes: >
+    **B4（含全部已登记环境轴）= 6/8 = 75%**，缺口 2 项为 `manual` / `unsupported`。
+    报告里必须写成两行（机器轴 + 全轴），**不允许**只报 6/6 = 100% 而不提那两条轴
+    ——那正是"把不可覆盖项排除掉让 B4 显示 100%"（Lead 2026-10-11 口径）。
+  machine_axis:
+    count: 6
+    covered: 6
+    ratio: 1.0
+    spec_association:
+      granularity: coarse（全量）
+      how: >
+        每个组合都跑**同一条**入口 `pnpm run gate`（ci.yml:97-99），而 gate 链里含全部 spec 侧检查：
+        `verify:cases`（12 个 kind 的场景与行为一致性）、`tests/contracts/*`、`tests/*`（含导出的
+        `export/scenarios.test.mjs`）。所以每个组合都与**全部** spec 相关联——这是件好事（无死角），
+        代价是**组合之间没有区分度**：某个组合变红只会告诉你"平台有问题"，不会告诉你"哪条 spec 有问题"。
+      per_combo:
+        - { id: ENV-01, node: '22.x', os: ubuntu-latest, spec_scope: 全量, role: 'Linux 基线' }
+        - { id: ENV-02, node: '22.x', os: windows-latest, spec_scope: 全量, role: '路径分隔符 / PATHEXT / 大小写 / CRLF' }
+        - { id: ENV-03, node: '22.x', os: macos-latest, spec_scope: 全量, role: '类 Unix 但大小写不敏感文件系统' }
+        - { id: ENV-04, node: '24.x', os: ubuntu-latest, spec_scope: 全量, role: '新版 Node 行为（glob / node --test / fs 新 API）' }
+        - { id: ENV-05, node: '24.x', os: windows-latest, spec_scope: 全量, role: '本机开发档的远端复现' }
+        - { id: ENV-06, node: '24.x', os: macos-latest, spec_scope: 全量, role: '同上' }
+      platform_sensitive_scope:
+        why: '三平台都跑的理由（ci.yml:8-10）：本仓大量 driver 做路径与外部进程取证（shell / file / fs、临时目录、大小写、换行符、PATHEXT），单平台绿不代表可移植。'
+        spec_files: ['spec/behaviors/kinds/shell.md', 'spec/behaviors/kinds/file.md', 'spec/behaviors/kinds/fs.md', 'spec/behaviors/engine/isolation.md']
+        note: '这四份是"必须三平台各跑一遍才算覆盖"的 spec 面——其余 spec 与平台无关。'
+    recompute:
+      - 'node C:/Users/19059/AppData/Local/Temp/tk-enum/enumerate.mjs $REPO  # 输出 ci combinations=6（matrix 真解析）'
+      - '$NODE -e "…parse ci.yml…"   # {"node":["22.x","24.x"],"os":["ubuntu-latest","windows-latest","macos-latest"]}'
+      - 'Select-String -Path $REPO/.github/workflows/ci.yml -Pattern "pnpm run gate"   # 唯一入口'
+  uncovered_axes:
+    - id: ENV-AXIS-HOST
+      axis: 宿主形态（headless / desktop / web profile）
+      status: manual+partial
+      counted: false
+      why_not_counted: 'CI 与本地 gate 的 run 全部走 createHeadlessHost()（track: headless）；desktop / web 真实 profile 的验证是**人工流程**（docs/DEVELOPMENT.md:312-352），没有机器通道。'
+      what_is_covered:
+        - '`ui` kind 在隔离 node:vm 里加载真实 client bundle（纯离线，任何宿主都能跑）。'
+        - 'bridge 的 4 条路由有**装配层**测试（tests/host-apply.test.mjs:116-125），并与 spec/contracts/surfaces.yaml 的 http: 节点逐项对齐。'
+        - '【task-10 新增（来自 spec-engine 的 engine/surfaces.md）】**能力受限宿主**下的注册面降级有机器覆盖：宿主只具备 `tools` 时，13 个工具照常注册、命令与路由**都不注册且 apply 不抛错**——证据 tests/host-apply.test.mjs::能力探测：宿主只有 tools 时，命令与路由都不注册（且 apply 不抛错）；行为条目 BEH-ENGINE-SURFACES-001 的 observable #10（surfaces.md:87-92）把它写成了可判定条目。'
+      what_is_not_covered: >
+        真实 profile 里的**装载**、client 半**渲染**、`ctx.get(webServer)` 的真实**时序**、desktop 会话恢复等
+        （README.md:102 与 docs/PUBLISHING.md:230 记的都是人工实测读数）。
+        注意区分：新增的那条只覆盖"**受限能力下注册面怎么降级**"，不覆盖"真实 profile 下插件能不能装上"——
+        所以本轴状态仍是 `manual+partial`，**不因新增覆盖点而升级为可机器计数**。
+      coverage_kind_by_point:
+        - { point: 'ui kind 的 bundle 装载（node:vm）', kind: machine, evidence: 'spec/behaviors/kinds/ui.md' }
+        - { point: 'bridge 4 条路由的装配', kind: machine, evidence: 'tests/host-apply.test.mjs:116-125' }
+        - { point: '能力受限宿主的注册面降级', kind: machine, added_at: 'task-10（来自 engine/surfaces.md）', evidence: 'tests/host-apply.test.mjs::能力探测 + surfaces.md:87-92' }
+        - { point: '真实 profile 装载 / client 渲染 / 会话恢复', kind: manual, evidence: 'docs/DEVELOPMENT.md:312-352, docs/PUBLISHING.md:230' }
+      evidence: ['$NODE $REPO/bin/dsh-testkit.mjs version --json → track: headless', 'docs/DEVELOPMENT.md:312-352', 'docs/PUBLISHING.md:230', 'spec/behaviors/engine/surfaces.md:87-92,286']
+      stage1_suggestion: '要么给真实 profile 一条可复跑的 CI 通道（需要宿主二进制），要么在 B4 里长期标 manual；两者都必须让 6/8 这个读数可见。'
+      refresh_2026_10_11: 'task-10 复核：新增了 1 个机器覆盖点（能力受限宿主的注册面降级），但**不改变**本轴 `manual+partial` 的定性与"不计入分子"的处置；两条读数（6/6 与 6/8=75%）因此不变。'
+    - id: ENV-AXIS-FIXTURES
+      axis: 外部夹具可用性（$FIXTURES/dsh-memory-0.8.1，gitignore）
+      status: unsupported
+      counted: false
+      why_not_counted: '7 条场景依赖下载来的外部夹具，全新检出时不存在——CI 上它们必然 skip 或被排除，所以"CI 绿"从来没覆盖过这条轴。'
+      known_incident: 'docs/OPTIMIZATION-REVIEW-2026-10.md:83（第 13 条）：CI 6 个矩阵任务首次全红，根因就是这条轴（act 阶段 SkipCase 被当失败 + file driver root 校验在 act 而非 setup）。'
+      evidence: ['.fixtures/dsh-memory-0.8.1/（本机存在，gitignore）', 'docs/OPTIMIZATION-REVIEW-2026-10.md:83', 'README.md:97（gate 默认排除 7 条 fixture 场景）']
+      stage1_suggestion: '把"有夹具 / 无夹具"变成显式的环境声明，而不是靠 gitignore 的偶然状态。'
+      refresh_2026_10_11: 'task-10 复核：spec-engine 新增的 engine/surfaces.md 与 engine/analysis.md **未**给这条轴带来任何机器覆盖点（两份都只读 src/ 内数据，不依赖外部夹具）⇒ 状态与读数不变。'
+  refresh_2026_10_11:
+    triggered_by: 'task-6（spec-kinds 修订 interaction.md）与 spec-engine 新增 engine/surfaces.md、engine/analysis.md'
+    checks:
+      - '两条读数（机器轴 6/6、全轴 6/8 = 75%）是否仍成立 → 成立，未变'
+      - '新增的 surfaces.md 是否给宿主形态轴带来可覆盖点 → 是，1 个（能力受限宿主的注册面降级），已并入 ENV-AXIS-HOST.what_is_covered'
+      - '是否因此可以宣称 100% → **不可以**：真实 profile 装载仍无机器通道，两个轴仍不计入分子'
+      - 'engine/analysis.md 是否影响 A3 口径 → 不影响：它的 equivalence 声明（failureCategory: exact、minimalRepro: normalize-path，唯一变量是 caseId）与本文件所引 reconcile-fields.yaml 的处置一致（已在 meta.recompute 里记一次交叉核对）'
+    conclusion: 'B4 读数保持不变，两行照旧写死：**机器轴 6/6 = 100%** / **全轴 6/8 = 75%**（缺口 2 项 manual / unsupported）。'
+  recompute:
+    - 'node C:/Users/19059/AppData/Local/Temp/tk-enum/enumerate.mjs $REPO   # ci combinations=6'
+    - 'Get-ChildItem $REPO/.fixtures -Force   # 外部夹具的本机存在性（CI 上没有）'
+    - '$NODE $REPO/bin/dsh-testkit.mjs version --json   # 宿主形态读数（track: headless）'
+    - '$NODE --test $REPO/tests/host-apply.test.mjs   # 能力受限宿主的注册面降级（8 pass）'
+
+# ---------------------------------------------------------------- 基线指纹（D1–D3 的输入） --
+baseline_fingerprint:
+  required_by: spec/README.md:32（contracts 目录外的 metrics/ 与 baseline/）、spec/README.md:124、spec/README.md:132
+  expected_files:
+    - { path: baseline/env.json, exists: false, required_by: 'spec/README.md:132「baseline/env.json 记录环境指纹」' }
+    - { path: baseline/perf-baseline.json, exists: false, required_by: 'spec/README.md:124' }
+    - { path: spec/metrics/baseline.md, exists: false, required_by: 'spec/README.md:37' }
+  observed_baseline_dir:
+    exists: true
+    contents_kind: '仅历史日志与测量脚本'
+    sample: [README.md, measure-d1.mjs, run-gate-stages.mjs, sample-rss.ps1, gate-*.log, git-status-before.txt, exit-before.txt]
+  recompute: 'Get-ChildItem $REPO/baseline -Force | Select-Object Name'
+  note: '本条目属 D1–D3（另一条线）而非 B4；登记在此是因为"环境指纹"是本文件唯一能复算的东西。'
+
+# ---------------------------------------------------------------- 文档一致性 --
+docs_consistency:
+  reading_discipline: >
+    读数纪律（Lead 2026-10-11 授权口径）：`agrees` 是**当时**的判定，原样保留为 `agrees_was`；
+    真源修正后先加 `superseded_by` 注解、**不立刻翻转**，等实际复核修正后的文本再翻 `agrees: true`
+    并注明**翻转时间与依据**（这是"新事实"，不是"旧读数错了"）。
+    ——— 2026-10-11 阶段0-J（task-10）更新：三条的复核已完成、Lead 已授权，故三条已翻为 `agrees: true`
+    并各自带 `agrees_was` / `agrees_flipped_at` / `flip_basis` / `flip_verified_reading`；
+    翻转**不代表**原判定写错了，只是"当时的判定 → 现在的判定"这条链被完整留痕。
+  original_reading_discipline: >
+    （原文保留）`agrees` 是当时的判定，原样保留。真源修正后用 `superseded_by` 追加注解，**不翻转 agrees**
+    ——等实际复核修正后的文本，再翻 `agrees: true` 并注明翻转时间。
+  entries:
+    - { doc: README.md, line: 97, claims: 'GitHub Actions 三平台 6 组矩阵', agrees: true }
+    - { doc: docs/rfc/0001-rust-core-full-rewrite.md, line: 208, claims: 'CI 矩阵 6 组', agrees: true }
+    - { doc: docs/ROADMAP.md, line: 430, claims: '断言矩阵 2×3', agrees: true }
+    - { doc: docs/DSH-INTEGRATION.md, line: 79, claims: '首次 push 后看 9 组矩阵读数', agrees: true, agrees_flipped_at: '2026-10-11（task-10，Lead 授权）', flip_basis: '已复核修复：该行现为「首次 push 后看 6 组矩阵读数（node 22/24 × ubuntu/windows/macos，见 .github/workflows/ci.yml:57-59）」', agrees_was: false, superseded_by: '修复中 2026-10-11（ci.yml:55 / DSH-INTEGRATION.md:79 / PUBLISHING.md:262 三处 9→6）', status: 'closed（flip 完成）', flip_verified_reading: '首次 push 后看 6 组矩阵读数（node 22/24 × ubuntu/windows/macos，见 .github/workflows/ci.yml:57-59）' }
+    - { doc: docs/PUBLISHING.md, line: 262, claims: '等 CI 9 个组合全绿', agrees: true, agrees_flipped_at: '2026-10-11（task-10，Lead 授权）', flip_basis: '已复核修复：该行现为「4. push → 等 CI 6 个组合全绿」', agrees_was: false, superseded_by: '修复中 2026-10-11（ci.yml:55 / DSH-INTEGRATION.md:79 / PUBLISHING.md:262 三处 9→6）', status: 'closed（flip 完成）', flip_verified_reading: '4. push → 等 CI 6 个组合全绿' }
+    - { doc: .github/workflows/ci.yml, line: 55, claims: '9 个组合的结果都要能看到', agrees: true, agrees_flipped_at: '2026-10-11（task-10，Lead 授权）', flip_basis: '已复核修复：该行现为「一个平台红不该掩盖其它平台的结果——6 个组合（node 22/24 × ubuntu/windows/macos）的结果都要能看到。」', agrees_was: false, superseded_by: '修复中 2026-10-11（ci.yml:55 / DSH-INTEGRATION.md:79 / PUBLISHING.md:262 三处 9→6）', status: 'closed（flip 完成）', flip_verified_reading: '一个平台红不该掩盖其它平台的结果——6 个组合（node 22/24 × ubuntu/windows/macos）的结果都要能看到。' }
+    - { doc: docs/OPTIMIZATION-REVIEW-2026-10.md, line: 143, claims: 'run #5：6/6 全绿', agrees: true, exempt: true }
+  flip_record:
+    authorized_by: 'lead 2026-10-11（task-10）'
+    flipped_at: '2026-10-11'
+    basis: '已复核修复（Select-String 零命中）'
+    how_to_recheck: 'Select-String -Path $REPO/.github/workflows/ci.yml,$REPO/docs/DSH-INTEGRATION.md,$REPO/docs/PUBLISHING.md -Pattern "9 个组合|9 组矩阵"'
+    recheck_observed_2026_10_11: '无命中（三处都已改为 6）'
+    discipline: >
+      每条保留 `agrees_was: false` 与 `flip_verified_reading`（翻转后的实际文本），
+      使"翻转前判定 / 翻转时间 / 翻转依据"三样都可追溯——**不删中间态**。
+      注：`claims` 字段保留的是**翻转前的原始声称**（9 个组合 / 9 组矩阵），因为那才是当时读到的文本；
+      修复后的文本记在 `flip_verified_reading`。
+  fix_verification_recompute:
+    command: 'Select-String -Path $REPO/.github/workflows/ci.yml,$REPO/docs/DSH-INTEGRATION.md,$REPO/docs/PUBLISHING.md -Pattern "9 个组合|9 组矩阵"'
+    observed_2026_10_11: '无命中（三处都已改为 6）'
+    note: >
+      `agrees` 曾按 Lead 指示**未翻**（原文："我改的是文档不是现实，翻 true 要等复核"），
+      复核证据当时记在每条的 `fix_verified_reading` 里并标 `flip_ready: true`。
+      **2026-10-11 阶段0-J（task-10）**：Lead 已授权，三条已翻为 `agrees: true`，
+      翻转记录见上面的 `flip_record`（含 `agrees_was: false` 与 `agrees_flipped_at`）——
+      中间态 "未翻 → flip_ready → 已翻" 三段全部保留。
+
+# ---------------------------------------------------------------- 漂移 --
+drift:
+  - id: DRIFT-ENV-1
+    severity: high
+    kind: 文档读数与 CI 真源不一致（3 处同源错误）
+    claim: '「9 个组合」'
+    reality: '.github/workflows/ci.yml:57-59 的 matrix 是 2（node）× 3（os）= **6**；RFC 0001:208 与 README.md:97 都写 6。'
+    superseded_by: '修复中 2026-10-11（ci.yml:55 / DSH-INTEGRATION.md:79 / PUBLISHING.md:262 三处 9→6）'
+    status: '已闭合（closed 2026-10-11 阶段0-J：三处已修 + agrees 已翻 true）'
+    fix_verified_at: '2026-10-11'
+    fix_verification: 'Select-String -Path $REPO/.github/workflows/ci.yml,$REPO/docs/DSH-INTEGRATION.md,$REPO/docs/PUBLISHING.md -Pattern "9 个组合|9 组矩阵" → 无命中（三处都已改为 6）'
+    agrees_flipped_at: '2026-10-11（task-10，Lead 授权）'
+    flip_basis: '已复核修复'
+    original_reading_preserved: '冲突文本三条原样保留在下面的 conflicting_claims 里，不因为真源被修而删除'
+    close_condition: '已于 2026-10-11 满足：docs_consistency.entries 里对应三条的 agrees 已翻为 true（各带 agrees_was / agrees_flipped_at / flip_basis）'
+    conflicting_claims:
+      - { doc: .github/workflows/ci.yml, line: 55, text: '一个平台红不该掩盖其它平台的结果——9 个组合的结果都要能看到。' }
+      - { doc: docs/DSH-INTEGRATION.md, line: 79, text: '首次 push 后看 9 组矩阵读数' }
+      - { doc: docs/PUBLISHING.md, line: 262, text: 'push → 等 CI 9 个组合全绿' }
+    agrees_with_reality:
+      - { doc: docs/rfc/0001-rust-core-full-rewrite.md, line: 208, text: 'CI 矩阵 6 组' }
+      - { doc: README.md, line: 97, text: '三平台 6 组矩阵' }
+      - { doc: docs/ROADMAP.md, line: 430, text: '断言矩阵 2×3' }
+    likely_cause: '9 = 3 平台 × 3 Node 档的早期设想遗留；Node 档定为 2 档后没回填三处文档。'
+    recompute: '$NODE -e "…parse ci.yml…"  # 输出 {"node":["22.x","24.x"],"os":[3 个]}'
+    impact: >
+      ci.yml:55 是**注释**，不影响执行；但 DSH-INTEGRATION / PUBLISHING 是给外部读者的操作指引，
+      按"等 9 个组合"核对状态会一直以为 CI 没跑完。
+  - id: DRIFT-ENV-2
+    severity: medium
+    kind: 覆盖口径不完整
+    claim: docs/REWRITE-METRICS.md:84「B4 环境覆盖 = spec 覆盖的环境组合数 / 声明的环境组合总数」
+    reality: >
+      "声明的环境组合"只有 matrix 一处定义（6 组）。但影响结论的环境轴至少还有两个不在 CI 里：
+      宿主形态（headless vs 真实 desktop/web profile）与外部夹具可用性（$FIXTURES/dsh-memory-0.8.1）。
+    evidence:
+      - docs/REWRITE-METRICS.md:84
+      - .github/workflows/ci.yml:97-99
+      - docs/DEVELOPMENT.md:312-352
+      - docs/OPTIMIZATION-REVIEW-2026-10.md:83
+    impact: '按现状 B4 = 6/6 = 100%，但真实 profile 与外部夹具这两类环境差异一个都没被覆盖。'
+  - id: DRIFT-ENV-3
+    severity: medium
+    kind: 阶段 0 产物缺失（属 D1–D3 线，但直接卡住 B4 的"环境指纹"）
+    claim: spec/README.md:32,124,132 要求 baseline/env.json（环境指纹）与 baseline/perf-baseline.json
+    reality: '两个文件都不存在；baseline/ 里只有历史日志与测量脚本。'
+    evidence: ['spec/README.md:32', 'spec/README.md:124', 'spec/README.md:132', 'baseline/ 目录实测']
+    recompute: 'Get-ChildItem $REPO/baseline -Force | Select-Object Name'

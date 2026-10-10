@@ -5,11 +5,6 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22.19-339933.svg)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **包名已改为 `@supengpeng/dsh-testkit`**（npm 上的 `dsh-testkit` 已被 `iiwish/dsh-testkit`
-> 占据，latest `0.4.4`，所以旧名字既不能用也不能发布）。改名依据、模块 id 耦合点与
-> **仍需在活宿主验证的最后一步**见 [docs/PUBLISHING.md](docs/PUBLISHING.md)。
-> 插件身份（profile roster 里的 id、client 半模块名、locale 命名空间）仍是产品名 `dsh-testkit`。
-
 > DSH（DeepSeek Harness）测试插件。**把 issue 提炼成可复现的测试场景，再让插件去造出那些场景。**
 > 提炼是**逐批、由人决定**的：人开批 → 模型只能提交提案 → 人批准才进 `cases/`（见[提炼闸门](docs/ISSUE-PIPELINE.md)）。
 
@@ -20,6 +15,81 @@ issue ──提炼──▶ cases/TK-XXXX.yaml ──驱动──▶ src/kinds/*
 ```
 
 插件的测试对象不锁定：DSH 宿主能力、第三方插件、端到端行为，都由「场景 kind」决定。
+
+> **包名已改为 `@supengpeng/dsh-testkit`**（npm 上的 `dsh-testkit` 已被 `iiwish/dsh-testkit`
+> 占据，latest `0.4.4`，所以旧名字既不能用也不能发布）。改名依据、模块 id 耦合点与
+> **仍需在活宿主验证的最后一步**见 [docs/PUBLISHING.md](docs/PUBLISHING.md)。
+> 插件身份（profile roster 里的 id、client 半模块名、locale 命名空间）仍是产品名 `dsh-testkit`。
+
+---
+
+## 重构：从纯 TypeScript 到「TS 接口层 + Rust 核心」
+
+本仓正在按 [RFC 0001](docs/rfc/0001-rust-core-full-rewrite.md)（[设计](docs/REWRITE-DESIGN.md) /
+[指标](docs/REWRITE-METRICS.md)）做一次**完全重构**。**旧实现原地保留**——
+下面的能力清单描述的仍是它，而重构是**在它旁边**长出来的。
+
+**为什么重构**：判定逻辑、调度、对拍、签名链这些"必须确定、必须可复算"的部分，
+留在 TS 里靠约定守不住（`HashMap` 的迭代顺序、浮点、时钟、异常都是不确定源）。
+把它们移进 Rust 之后，**判定路径的不确定性变成编译期问题**。
+
+```mermaid
+flowchart LR
+  subgraph TS["TS 接口层（人在这一侧）"]
+    DSL["src/dsl<br/>7 个组合器"]
+    COMP["src/compiler<br/>normalize→compose→validate→plan"]
+    RPC["src/rpc<br/>NDJSON 客户端"]
+    VER["src/attest<br/>零依赖验证器"]
+  end
+  subgraph CORE["Rust 核心（crates/，判定在这一侧）"]
+    P["protocol<br/>帧/握手/方法表"]
+    C["capability<br/>能力探测与门控"]
+    A["assertion<br/>16 断言词 + 四态"]
+    S["scheduler<br/>显式事件队列"]
+    E["executor<br/>plan 校验 + 执行"]
+    R["reconciler<br/>表驱动对拍"]
+    AT["attest<br/>JCS + Ed25519 + Merkle"]
+  end
+  COMP -->|"ExecutionPlan"| RPC
+  RPC <-->|"JSON-RPC 2.0 / stdio"| P
+  P --- C
+  P --- S
+  S --- E
+  E --- A
+  E --- R
+  AT --- R
+  VER -.->|"独立复算"| AT
+```
+
+**四层防御**（设计 §5.3）：① TS 类型系统 → ② 编译器 `validate` → ③ plan 校验 + 执行器 →
+④ 报告对拍。**判定永不返回 `Err`**：断言失败是**结论**（`Failed`），不是异常。
+
+### 阶段 0 / 阶段 1 的读数（**都能复跑**）
+
+阶段 0（行为提取与基线冻结）与阶段 1（架构地基）已完成。读数、门槛与**复算命令**集中在
+[`spec/metrics/stage1-readings.md`](spec/metrics/stage1-readings.md)（一页看全；**未测的写"未测"**）。
+要点：
+
+| 指标 | 门槛 | 读数 |
+|---|---|---|
+| **F1** 编译期拦截率 | ≥95% | **21/21 = 100%** |
+| **F2** plan 校验拦截率 | ≥95% | **100%（11/11）** |
+| **K1** 层级可信度正确率 | 100% | **7/7 = 100%**（边界见下） |
+| **J1** Rust 覆盖率 | 行 ≥85% / 分支 ≥80% | **行 89.84% / 分支 82.12%** |
+| **J2** TS 覆盖率 | 行 ≥80% / 分支 ≥75% | **行 87.05% / 分支 77.74%** |
+| **A2** 对拍字段覆盖 | 100% | **78/78 = 100%** |
+| **A3** "没比"必须可见 | 100% | **80/80 = 100%** |
+| **E2** 篡改检出率 | 100% | **77/77**（+ 两侧逐字段一致） |
+| **D4a** 签名次数上界 | 成立 | `ceil(N/B)+1 ≤ ceil(N/B)+2` |
+
+**门槛的读法**：`cargo +nightly llvm-cov` 与 stable 的读数**不可比**
+（`Lines` 分母 8732 vs 10019），且**必须用独立 `CARGO_TARGET_DIR`**
+（默认目录会复用陈旧 profile，我因此报错过一次）。这些坑连同 13 条已知缺陷都记在
+[`spec/metrics/known-defects.md`](spec/metrics/known-defects.md)。
+
+> **如实标注**：**K1 的 7/7 是阶段 1 能给出的最强形式**——"实际执行"那一半走的是
+> `NodeRunner` **注入替身**，不是端到端真跑的 Rust 服务端（该可执行文件在阶段 1 不存在）；
+> **"真实宿主端到端"留待阶段 2**。这条边界写在测试文件的**文件头**里，不只在这里。
 
 ---
 
@@ -37,9 +107,7 @@ $DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 # 或从 git 装（注意：本包没有 bin，装的是插件本体）
 & $DSH plugin --profile desktop add git+ssh://git@github.com/supengpeng/dsh-testkit.git
 
-# ② 作为库 / CI 用例的依赖（0.2.0 起从 @supengpeng/dsh-testkit 发布）
-#    包名已改成 scoped（@supengpeng/dsh-testkit），但**还没有 publish**；
-#    在那之前请用 ① 的本地路径或 git 形式。
+# ② 作为库 / CI 用例的依赖
 npm install -D @supengpeng/dsh-testkit
 ```
 
@@ -57,7 +125,10 @@ npm install -D @supengpeng/dsh-testkit
 > ```
 >
 > **退出码**：`0` 全部通过（含 skipped）· `1` 有 failed/errored · `2` 用法错误或选中 0 条 ·
-> `3` 基础设施错误。CLI 走 **headless 宿主**，因此需要 `subprocess` / `fs` / `sessions`
+> `3` 基础设施错误 · **`6` 协议不兼容（握手失败）· `7` 必需能力缺失**（6/7 是 1.0.0 新增，
+> 见[设计 §4.5](docs/REWRITE-DESIGN.md)；**`4`/`5` 刻意保留不使用**——它们是同名第三方包的
+> 发布语义，**同名不同义是最贵的坑**；`8` 没有映射来源，**不定义**）。
+> CLI 走 **headless 宿主**，因此需要 `subprocess` / `fs` / `sessions`
 > 能力的场景会**如实 skip**（它不假装自己跑过）。
 
 ---
@@ -80,26 +151,26 @@ npm install -D @supengpeng/dsh-testkit
 | **`shell` driver** | ✅ 跑外部命令（`argv` 数组）并取证退出码 / stdout / stderr（**由真实 issue 数据驱动**） |
 | **`file` driver** | ✅ 读文件 / 列目录 / **搜内容（`search`，对应 grep）**；纯离线，任何宿主都能跑（**由能力缺口分析驱动**） |
 | **Phase 1 / 2 / 4 / 5 / 6 / 7 / 8 / 9 / 10** | ✅ 全部收口——**12 个 driver** 覆盖 12 类干预点，双轨执行可用 |
-| **场景可跑通** | ✅ `cases/TK-0001..0026` 在真实 DSH 里 **25 通过 / 1 失败（预期）/ 0 跳过**；`TK-0028`…`TK-0034`（两条 waterfall / `ctx.fs` / session 三件套 / compaction 边界）在独立 headless 新进程 **7/7 通过**；`TK-0035`（真压缩）单跑通过。`TK-0027` / `TK-0033` / `TK-0035` 是 `draft`（留痕或花 token） |
+| **场景可跑通** | ✅ `cases/` 下 **39 条场景**；`TK-0001..0026` 在真实 DSH 里 **25 通过 / 1 失败（预期）/ 0 跳过**；`TK-0028`…`TK-0034`（两条 waterfall / `ctx.fs` / session 三件套 / compaction 边界）在独立 headless 新进程 **7/7 通过**；`TK-0035`（真压缩）单跑通过。`TK-0027` / `TK-0033` / `TK-0035` / `TK-0037`–`TK-0039` 是 `draft`（留痕或花 token） |
 | **组合场景（跨 kind）** | ✅ `setup` 可含多个 kind，`act` 按动作形状分派；实测证明 root 的假 provider 会穿透到子 agent |
 | **issue 提炼闸门** | ✅ **要不要提炼、要不要落地都由人定**：人开批次 → 模型只提交提案（质量预检不过不落盘）→ 人批准才进 `cases/`；未结案不允许开下一批（三个闸门都有回归测试，见 `tests/pipeline-gate.test.mjs`） |
-| **成本闸门（0.2.0 第一批）** | ✅ 场景可声明 `cost`（`none`/`low`/`high`）与 `budget`；`high`（**真调模型**）默认拒绝，被拒记为 **skipped + 理由**；预算超限判 failed 并归因 `env`。默认档位表在 `src/kinds/index.ts` 的 `DRIVER_COST` |
+| **成本闸门** | ✅ 场景可声明 `cost`（`none`/`low`/`high`）与 `budget`；`high`（**真调模型**）默认拒绝，被拒记为 **skipped + 理由**；预算超限判 failed 并归因 `env`。默认档位表在 `src/kinds/index.ts` 的 `DRIVER_COST` |
 | **报告标准化** | ✅ `runs/<RUN-ID>/junit.xml`（CI 消费）＋ `schemas/run-report.schema.json`（结构契约）＋ 失败归因与最小复现（`src/analysis/`）；md / json / junit 三种格式**同源** |
-| **CI 与自举契约** | ✅ `.github/workflows/ci.yml`：Node 22/24 × ubuntu/windows/macos **共 6 组，实测全绿**，唯一入口 `pnpm run gate`（不另拼一套，避免假绿） |
+| **CI 与自举契约** | ✅ `.github/workflows/ci.yml`：Node 22/24 × ubuntu/windows/macos **共 6 组**，唯一入口 `pnpm run gate`（不另拼一套，避免假绿）；**另有 `rust` job**（Rust 测试 / clippy / fmt / H3 守卫）与 **`fixtures` job**（"有外部夹具"这个环境，B4 的第 7 个组合） |
 | **适配层守卫** | ✅ `src/adapters/dsh/` 是全仓**唯一**允许依赖 `@deepseek-ai/dsh-*` 的目录，由 `scripts/check-adapter-boundary.mjs` 机器守卫（注释里的包名不算） |
-| **增量选择 / 夹具 / 契约 / 并发（0.2.0 第二批）** | ✅ `--changed`/`--since`/`--affected-by`（git 不可用则**退回全量**）· `fixtures/` 声明式夹具（CI 轨与插件面**同一条链**）· `tests/contracts/**` 65 条契约（含反安慰剂）· `parallel: safe` 并发隔离 + 残留检测 |
+| **增量选择 / 夹具 / 契约 / 并发** | ✅ `--changed`/`--since`/`--affected-by`（git 不可用则**退回全量**）· `fixtures/` 声明式夹具（CI 轨与插件面**同一条链**）· `tests/contracts/**` 65 条契约（含反安慰剂）· `parallel: safe` 并发隔离 + 残留检测 |
 | **组合系统** | ✅ `registry/steps/**` 片段 + `use:`/`with:` 展开 + `templates/**` 参数化（一键展平成 flat 步骤，禁控制流与场景级 include） |
 | **沙箱与隐私** | ✅ **shell 默认只读**（写命令与解释器默认拒）+ 禁止任意网络 + `--redact` 脱敏（findings 只记位置不记原文）+ `check-secrets` 门禁 |
-| **可观测性（0.2.0 第三批）** | ✅ 步骤级 **trace**（真实偏移；`trace.json` + 时间线 / Chrome Trace / OTLP 三种导出）· 结果**趋势**（kind/tag/owner/DSH 版本）· **覆盖矩阵**与可行动缺口 · 全文**搜索**（0 条时解释为什么）· 失败**原因分级**（有据才说） |
-| **独立 CLI** | ✅ `dsh-testkit <子命令>`（`bin/`）：15 个子命令 + 全部选择/闸门开关；退出码冻结 `0/1/2/3`；与 `/testkit`、`testkit_*` **共用同一套引擎** |
-| **供应链与治理（0.2.0 第四批）** | ✅ CI 硬化守卫（最小权限 / 禁止 `pull_request_target` / Action **钉 SHA**）+ 锁文件守卫 + secret 扫描 + `pnpm audit` 独立步骤 + **带 provenance 的发布工作流**；`CODEOWNERS` / 贡献指南 / 行为准则 / PR 与 issue 模板 / RFC 模板 / 迁移指南 |
+| **可观测性** | ✅ 步骤级 **trace**（真实偏移；`trace.json` + 时间线 / Chrome Trace / OTLP 三种导出）· 结果**趋势**（kind/tag/owner/DSH 版本）· **覆盖矩阵**与可行动缺口 · 全文**搜索**（0 条时解释为什么）· 失败**原因分级**（有据才说） |
+| **独立 CLI** | ✅ `dsh-testkit <子命令>`（`bin/`）：**16 个 CLI 子命令** + 全部选择/闸门开关；与 `/testkit`、`testkit_*` **共用同一套引擎** |
+| **供应链与治理** | ✅ CI 硬化守卫（最小权限 / 禁止 `pull_request_target` / Action **钉 SHA**）+ 锁文件守卫 + secret 扫描 + `pnpm audit` 独立步骤 + **带 provenance 的发布工作流**；`CODEOWNERS` / 贡献指南 / 行为准则 / PR 与 issue 模板 / RFC 模板 / 迁移指南 |
 | **自动 triage 与体检** | ✅ 生成 issue 草稿与 PR 评论（归因标签 + owner 路由，**只出文本不发请求、不含取证原文**）；`dsh-testkit doctor` 报告能力矩阵 / 哪些场景会 skip / 残留（临时目录、端口、进程） |
-| 验证 | ✅ `pnpm run gate`：**705 测试**（含契约轨 65）＋ **10 个守卫** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象）；同一入口在 **GitHub Actions 三平台 6 组矩阵**上全绿 |
-
-> 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（13 个模型工具 / 15 个 CLI 子命令 /
-> 12 个 kind / 17 个断言词 / 约 241 个取证字段 / 10 个质量守卫），只列**已实现并实测**的能力。
+| **验证（唯一入口）** | ✅ `pnpm run gate`：**主套件 809 项 + 契约轨 65 项**（两个**独立**集合，后者不在前者里）＋ **13 个守卫** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象）。Rust 侧另有 `cargo test --workspace`（**439 通过**）与 `cargo clippy --workspace --all-targets -- -D warnings` |
 | **真实 DSH 验证（host 半）** | ✅ **14 通过 / 0 失败 / 2 跳过 / 0 错误**——独立 headless profile 实测，未改动 desktop profile |
 | **真实 DSH 验证（client 半 + HTTP bridge）** | ✅ 独立 web profile 实测：「测试」标签渲染、控制台显示 16 条场景 |
+
+> 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（13 个模型工具 / 16 个 CLI 子命令 /
+> 12 个 kind / 17 个断言词 / 约 241 个取证字段 / **13 个质量守卫**），只列**已实现并实测**的能力。
 
 风险台账：**R1–R10 全部结案（0 项未决）**，含两次源码推导与四次真实宿主实测，见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §9。
 
@@ -135,7 +206,7 @@ node --test export/scenarios.test.mjs
 
 ### 已能跑通的场景
 
-[`cases/`](cases) 下 **39 条场景**（其中 7 条带 `source.issue` 溯源；`TK-0027` / `TK-0033` / `TK-0035` / `TK-0037`–`TK-0039` 为 `draft`）：
+[`cases/`](cases) 下 **39 条场景**（其中 7 条带 `source.issue` 溯源）：
 
 | ID | kind | 测什么 |
 |---|---|---|
@@ -197,6 +268,10 @@ $DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 
 # 自检
 & $NODE $PNPM run gate
+
+# Rust 核心（阶段 1 起）
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
 ```
 
 > **装完即刻可用（本机实测）**：`dsh plugin add` 会触发 profile 热重载，
@@ -219,6 +294,13 @@ $DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 ```
 dsh-testkit/
 ├── docs/            ① 架构 / 开发 / 场景规范 / issue 流程 / 迭代计划 / 发布 / 安全
+│   └── rfc/         ①′ RFC 0001（Rust 核心全量重构）+ 设计 / 指标
+├── crates/          ⑲ **Rust 核心**（阶段 1）：protocol / capability / assertion /
+│                    scheduler / executor / reconciler / attest
+├── spec/            ⑳ **行为规格**（阶段 0，重构期唯一历史）：behaviors/（12 kind +
+│                    engine）· contracts/（能力 / 版本 / 注册面 / 对拍字段）· vectors/
+│                    （JCS + 篡改语料）· metrics/（读数 / 工具链 / 已知缺陷台账）
+├── baseline/        ㉑ **冻结的对拍基线**（D1–D3 的性能与环境读数）
 ├── src/
 │   ├── cases/       ② 数据层：YAML 类型、校验、装载、注册表
 │   ├── kinds/       ③ 驱动层：kind → driver（每类干预点一个）
@@ -227,6 +309,15 @@ dsh-testkit/
 │   ├── headless/    ⑥ headless 宿主：契约一致的最小服务集（CI 轨的载体）
 │   ├── export/      ⑦ 导出层：生成自包含的 node:test 文件
 │   ├── client/      ⑧ client 半：浏览器侧控制台
+│   ├── dsl/         ⑳′ **TS 侧 DSL**：7 个组合器（seq/parallel/when/retry/matrix/
+│                    setup/dependsOn）+ 场景构造与构造期校验
+│   ├── compiler/    ⑳″ **场景编译器**：normalize → compose → validate → plan
+│   │                    （产 `ExecutionPlan`；六项校验含依赖环 / 资源冲突 / 嵌套深度 /
+│   │                     层级-可信度自洽）
+│   ├── rpc/         ⑳‴ **JSON-RPC 客户端**：NDJSON 帧 / 握手 / 九方法 / 按 id 配对
+│   ├── attest/      ⑳⁗ **零依赖验证器**（免构建直接跑：独立验证的前提）
+│   ├── contracts/   ⑳⁵ **跨语言类型**：`generated/` 由 `crates/protocol` 的 ts-rs 导出
+│   │                    （**禁止手改**；`scripts/check-generated-types.mjs` 守它）
 │   ├── adapters/dsh/  ⑨ 适配层：**全仓唯一允许依赖 `@deepseek-ai/dsh-*` 的目录**（机器守卫）
 │   ├── host-facade.ts ⑩ 窄接口 `HostFacade` 的装配（只经适配层取 DSH 原语）
 │   ├── http.ts      ⑪ client 通道（webServer 路由）
@@ -234,10 +325,11 @@ dsh-testkit/
 │   └── commands.ts  ⑬ 人类命令面
 ├── cases/           ⑭ 场景数据：一案一 YAML（真源）
 ├── pipeline/        ⑮ 提炼闸门：批次台账 `ledger.json` + 提案 `proposals/`（批准后才进 cases/）
-├── scripts/         ⑯ 构建 client 半 / 校验场景 / 校验文档 / 适配层守卫 / 导出 CI 用例
-│                    ⑯′ 另含**通用检查器**（见下）、串行化编译闸门与 fixture 准备 / 提炼工具
-├── tests/           ⑰ 插件自身的单元测试（含 headless 宿主与自举契约）
-├── .github/         ⑱ CI 工作流：2 档 Node × 3 个平台的 `pnpm run gate`
+├── schemas/         ⑯ 报告结构契约（`run-report.schema.json`）
+├── scripts/         ⑰ 构建 client 半 / 校验场景 / 校验文档 / 适配层守卫 / 导出 CI 用例
+│                     另含**通用检查器**（见下）、gate 并发守卫、H3 类型守卫
+├── tests/           ⑱ 插件自身的单元测试（含 headless 宿主与自举契约）
+├── .github/         ⑲ CI 工作流：`gate`（2 档 Node × 3 平台）+ `rust` + `fixtures`
 ├── runs/            运行产物（git 忽略）
 ├── export/          导出的 CI 用例（git 忽略，gate 会重新生成并跑）
 ├── .fixtures/       外部被测对象（git 忽略；`scripts/fetch-fixtures.mjs` 准备）
@@ -246,7 +338,7 @@ dsh-testkit/
 
 ### 可复用的检查器
 
-下面三个脚本是**从真实 issue 形态提炼出来的通用判据**，任何 npm 包都能用；
+下面几个脚本是**从真实 issue 形态提炼出来的通用判据**，任何 npm 包都能用；
 第四个是**本仓自己的结构守卫**（它守的是"适配层是唯一入口"这条架构承诺）：
 
 | 脚本 | 抓什么 | 源自 |
@@ -255,8 +347,9 @@ dsh-testkit/
 | `check-python-topimports.mjs` | 包内非相对顶层导入是否被打进包（"装机后才炸"） | `dsh-memory#12/#48` |
 | `check-git-installable.mjs` | 从 git 安装会不会得到没有入口文件的空壳 | `dsh-memory#2` |
 | `check-adapter-boundary.mjs` | `@deepseek-ai/dsh-*` 的 import / `import()` / `require()` 是否只出现在 `src/adapters/dsh/` 下（**注释里的包名不算**） | 本仓架构承诺 |
+| `check-generated-types.mjs` | `src/contracts/generated/` 是否被手改（重新生成后与仓库内容逐字节比对） | 重构（H3） |
 
-用法：`node scripts/<name>.mjs <包目录>`，退出码 0/1。
+用法：`node scripts/<name>.mjs <包目录>`，退出码 0/1（`check-generated-types.mjs` 无需参数、必须从仓库根跑）。
 适配层守卫也接进了 gate 链（`pnpm run verify:adapter`），所以它不会只躺在脚本目录里。
 
 ---
@@ -269,26 +362,35 @@ dsh-testkit/
 
 **3. 双半分离、单点适配。** driver 不直接依赖 cordis `Context`，而是依赖窄接口 `HostFacade`；对 DSH 的真实调用收敛在 `src/host-facade.ts`，而 `@deepseek-ai/dsh-*` 这个包级别的依赖进一步收敛在 `src/adapters/dsh/`。好处是核心逻辑（断言、夹具、校验、执行）可以脱离宿主单测，DSH 升级时改动集中在一层——而且这层边界由 `scripts/check-adapter-boundary.mjs` **机器守住**，不靠 review 记忆。
 
+**4. （重构新增）判定移出 TS，不进 TS 的判定路径。** 断言、调度、对拍、签名链都在
+`crates/` 里；TS 侧只做**类型、组合与展示**。判定路径**禁用 `HashMap`/`HashSet`**
+（Rust 的默认哈希种子会让迭代顺序每次运行都变），由 clippy `disallowed_types` +
+每个 crate 的**文本守卫**（带负向证明）双保险。**"没比必须可见"**：对拍器不比任何字段时，
+那个字段必须出现在 `uncompared_fields` 里——否则对拍器的盲区就是重构的盲区。
+
 ---
 
 ## 文档
 
 | 文档 | 内容 |
 |---|---|
+| [重构设计](docs/REWRITE-DESIGN.md) | Rust 核心 + TS 接口层的完整设计（协议 / 编译器 / 层级 / 签名链） |
+| [重构指标](docs/REWRITE-METRICS.md) | 阶段 0–3 的退出条件、每个指标的门槛与测量方式 |
+| [RFC 0001](docs/rfc/0001-rust-core-full-rewrite.md) | 重构提案：12 个决定、未决项的裁决、替代方案 |
+| [阶段读数](spec/metrics/stage1-readings.md) | 阶段 0/1 的全部读数（含**未测**与不可达项的如实标注） |
+| [已知缺陷台账](spec/metrics/known-defects.md) | 重构期间发现的 13 条缺陷（含复现、根因、修法、归属） |
+| [行为规格](spec/README.md) | 阶段 0 的产出格式：一个模块一个文件、逐条 atomic 可判定条目 |
 | [架构设计](docs/ARCHITECTURE.md) | 双半架构、概念模型、kind 分类学、设计决策、风险清单 |
 | [开发文档](docs/DEVELOPMENT.md) | 环境、构建、安装、调试、HMR、真实验证流程、排障、代码约定 |
-| [场景数据规范](docs/SCENARIO-SPEC.md) | `cases/*.yaml` 的完整字段规范（含组合场景、`cost` / `budget` 两个成本字段） |
-| [issue 提炼流程](docs/ISSUE-PIPELINE.md) | 从一个 issue 到一条可复现场景的五步法 ＋ **提炼闸门**（要不要提炼 / 要不要落地，由人按批决定） |
-| [迭代计划](docs/ROADMAP.md) | Phase 0–14 的目标、交付物与验收标准（含剩下的三件"必须由真实环境给证据"的事） |
-| [发布与改名清单](docs/PUBLISHING.md) | 0.2.0 发布清单、npm scoped rename 的全量引用与耦合点、活宿主验证步骤 |
-| [迁移指南](docs/MIGRATION.md) | 0.1.0 → 0.2.0：默认值变化、新增字段、`enum`/`const` 保真的恢复路径、包名与形态变化 |
-| [DSH 官方工具链集成](docs/DSH-INTEGRATION.md) | 与 DSH 的声明式契约、对外四类产物、与 doctor / composition / 单元测试框架的分工 |
-| [供应链与合规](docs/SUPPLY-CHAIN.md) | 依赖锁定与审计、场景禁网、secret 扫描、发布 provenance、Actions 硬化，以及**我们做不到的** |
-| [治理与 RFC](docs/GOVERNANCE.md) | 版本与弃用策略、RFC 流程、release cadence、**good first issues 候选**（[RFC 模板](docs/rfc/0000-template.md)） |
+| [场景数据规范](docs/SCENARIO-SPEC.md) | `cases/*.yaml` 的完整字段规范（含组合场景、`cost` / `budget`） |
+| [issue 提炼流程](docs/ISSUE-PIPELINE.md) | 从一个 issue 到一条可复现场景的五步法 ＋ **提炼闸门** |
+| [发布与改名清单](docs/PUBLISHING.md) | 发布清单、scoped rename 的全量引用与耦合点、活宿主验证步骤 |
+| [迁移指南](docs/MIGRATION.md) | 0.1.0 → 0.2.0：默认值变化、新增字段、包名与形态变化 |
+| [供应链与合规](docs/SUPPLY-CHAIN.md) | 依赖锁定与审计、场景禁网、secret 扫描、发布 provenance，以及**我们做不到的** |
+| [治理与 RFC](docs/GOVERNANCE.md) | 版本与弃用策略、RFC 流程、release cadence |
 | [安全策略与数据隐私](SECURITY.md) | 漏洞报告渠道与范围、响应承诺；report / fixture 的数据边界与保留策略 |
 | [变更日志](CHANGELOG.md) | 每个版本改了什么、怎么迁移、明确推迟了什么以及为什么 |
-| [贡献指南](CONTRIBUTING.md) | 环境、怎么加一条场景 / 一个 driver（12 kind 的纪律）、质量门与不要做的事 |
-| [行为准则](CODE_OF_CONDUCT.md) | 参与本项目的社区约定 |
+| [贡献指南](CONTRIBUTING.md) | 环境、怎么加一条场景 / 一个 driver、质量门与不要做的事 |
 
 ---
 
@@ -325,6 +427,19 @@ dsh-testkit/
   观察到 `running → inactive` 回落、child 会话产出 `TESTKIT_OK`，且该 teammate 会用
   `send_message` 把结果回传给 Lead（实测于 2026-10-10，独立 headless 新进程）
 - 当前 DSH 版本 `0.2.0-rc.2`，profile `desktop`
+
+**重构期新增的实测结论**（详见[读数](spec/metrics/stage1-readings.md)与[台账](spec/metrics/known-defects.md)）：
+
+- **跨语言契约里不能出现 `u64`**：ts-rs 会把它映射成 `bigint`，而 `JSON.stringify(1n)`
+  **抛 `TypeError`** —— 一个 `u64` 字段足以让整条协议链在运行期失效。已全部改 `u32`。
+- **`cargo llvm-cov` 的读数必须绑定"一跑完整产生的 profile 集"**：默认 target 目录会复用
+  陈旧 profraw（实测分母虚高到 10019，真实值 8732）；且 **stable 与 nightly 的读数不可比**
+  （分支覆盖率只有 nightly 能测）。
+- **`pnpm run gate` 不是并发安全的**：两个 gate 会互删 `lib/`，导致半个测试树报
+  `ERR_MODULE_NOT_FOUND`，而**错误会指向别人的测试文件**。已加并发守卫（检测到并发就
+  `fail loud`，而不是排队——排队会把"两人同时在验收"这件事藏起来）。
+- **"分开跑都绿"≠"一起跑绿"**，而且这一条有**两层**：跨 crate（`-p` vs `--workspace`）
+  与同一 crate 内的编译单元（lib / lib test / 每个集成目标——clippy 按单元 fail-fast）。
 
 风险台账（R1–R10 全部结案）见 [ARCHITECTURE.md §9](docs/ARCHITECTURE.md)。
 

@@ -1,0 +1,2318 @@
+{
+  "generated_at": "2026-10-10T16:33:59.420Z",
+  "note": "数字来自 Node 内置 V8 覆盖率报告，经 baseline/parse-coverage.mjs 解析",
+  "empty_set_guard": "files 为空的 run 一律 valid:false，且本脚本退出码 1（不允许把空集合的 100% 当读数）",
+  "runs": [
+    {
+      "log": "coverage-stage0-combined.log",
+      "totals": {
+        "tests": 824,
+        "suites": 0,
+        "pass": 816,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 8,
+        "todo": 0,
+        "duration_ms": 65124.4973
+      },
+      "aggregate": {
+        "line": 90.11,
+        "branch": 78.02,
+        "funcs": 87.69
+      },
+      "files": [
+        {
+          "path": "lib/client.js",
+          "line": 52.94,
+          "branch": 72.73,
+          "funcs": 65,
+          "uncovered": "50-53 55-82 112-117 142-247"
+        },
+        {
+          "path": "src/adapters/dsh/tools.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/causes.ts",
+          "line": 99.2,
+          "branch": 93.59,
+          "funcs": 100,
+          "uncovered": "356 365-366"
+        },
+        {
+          "path": "src/analysis/classify.ts",
+          "line": 100,
+          "branch": 97.5,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/repro.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cases/index-file.ts",
+          "line": 98.67,
+          "branch": 58.33,
+          "funcs": 100,
+          "uncovered": "47"
+        },
+        {
+          "path": "src/cases/loader.ts",
+          "line": 90.68,
+          "branch": 66.67,
+          "funcs": 100,
+          "uncovered": "58-59 65-66 69-70 88-90 122-123 131-132 157-158"
+        },
+        {
+          "path": "src/cases/registry.ts",
+          "line": 88.03,
+          "branch": 83.78,
+          "funcs": 87.5,
+          "uncovered": "85-87 101-105 110-115"
+        },
+        {
+          "path": "src/cases/schema.ts",
+          "line": 81.27,
+          "branch": 80.43,
+          "funcs": 90,
+          "uncovered": "110 126-127 129-130 137-138 140-141 152-153 171-172 174-185 216-218 220-221 223-224 237-238 240-241 250-251 255-269 296-298 300 313-314"
+        },
+        {
+          "path": "src/cases/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cli/args.ts",
+          "line": 95.58,
+          "branch": 88.24,
+          "funcs": 88.89,
+          "uncovered": "63-68 180-181"
+        },
+        {
+          "path": "src/cli/commands/insight.ts",
+          "line": 69.04,
+          "branch": 22.22,
+          "funcs": 60,
+          "uncovered": "39-42 103-140 149-153 157-158 164-165 176-177 184-185 199-200 212-221 229-230 234-238 243-244 270-278 287-291 296-297 319-327 335-336 341-342 345-346 351-352 387-395 400-407"
+        },
+        {
+          "path": "src/cli/commands/inspect.ts",
+          "line": 89.51,
+          "branch": 47.89,
+          "funcs": 83.33,
+          "uncovered": "88-92 113-114 154-155 175-182 184-189 208-209 225-226 264-265 278-285 352-355 374-375 396-399"
+        },
+        {
+          "path": "src/cli/commands/integrate.ts",
+          "line": 34.19,
+          "branch": 100,
+          "funcs": 0,
+          "uncovered": "40-50 53-102 111-113 116-120 123-155"
+        },
+        {
+          "path": "src/cli/commands/run.ts",
+          "line": 87.73,
+          "branch": 34.94,
+          "funcs": 77.78,
+          "uncovered": "125-130 279-281 343-354 368 372-373 392-393 442-447 449-450 466-467 474-476 482-483 488-508 512-513 523-524"
+        },
+        {
+          "path": "src/cli/commands/transfer.ts",
+          "line": 59.53,
+          "branch": 19.05,
+          "funcs": 42.86,
+          "uncovered": "55-56 65-66 77 84-109 114-115 138-143 158-159 163-170 186-189 193-196 201-242 253-257"
+        },
+        {
+          "path": "src/cli/context.ts",
+          "line": 85.02,
+          "branch": 65.38,
+          "funcs": 72.73,
+          "uncovered": "116-119 121-124 147-151 157-161 164-170 175-182 233-234 245-246"
+        },
+        {
+          "path": "src/cli/exit.ts",
+          "line": 100,
+          "branch": 66.67,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cli/index.ts",
+          "line": 93.79,
+          "branch": 76,
+          "funcs": 100,
+          "uncovered": "121-122 226-229 231-233 266-273 305 307 331-332"
+        },
+        {
+          "path": "src/cli/io.ts",
+          "line": 100,
+          "branch": 85.71,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/commands.ts",
+          "line": 38.68,
+          "branch": 54.55,
+          "funcs": 23.53,
+          "uncovered": "136 139-219 222-240 243-262 265-277 280-292 295-342 345-405 408-433 436-450 453 456-489 492-512 515-522 525 532 606-610 637-641 676-707 722-831 838-847 850 852-856 859-861 864-868"
+        },
+        {
+          "path": "src/config.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/contracts/run.ts",
+          "line": 98.62,
+          "branch": 94.23,
+          "funcs": 100,
+          "uncovered": "107-109"
+        },
+        {
+          "path": "src/doctor/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/doctor/render.ts",
+          "line": 96.05,
+          "branch": 63.64,
+          "funcs": 100,
+          "uncovered": "89-90 98 100 116 135"
+        },
+        {
+          "path": "src/doctor/residue.ts",
+          "line": 77.55,
+          "branch": 42.11,
+          "funcs": 60,
+          "uncovered": "63-68 70-71 78-79 82-86 92-104 128-130 146-147"
+        },
+        {
+          "path": "src/doctor/run.ts",
+          "line": 93.58,
+          "branch": 84.29,
+          "funcs": 100,
+          "uncovered": "224-230 233-238 240-246 326"
+        },
+        {
+          "path": "src/doctor/runs.ts",
+          "line": 91.41,
+          "branch": 76.92,
+          "funcs": 87.5,
+          "uncovered": "35-41 116-119"
+        },
+        {
+          "path": "src/dx/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/dx/select.ts",
+          "line": 99.7,
+          "branch": 84.72,
+          "funcs": 100,
+          "uncovered": "250"
+        },
+        {
+          "path": "src/dx/watch.ts",
+          "line": 85.9,
+          "branch": 69.23,
+          "funcs": 83.33,
+          "uncovered": "92-93 116-119 123-133 145-147 152-153"
+        },
+        {
+          "path": "src/executor/policy.ts",
+          "line": 100,
+          "branch": 92.45,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/fixtures/apply.ts",
+          "line": 96.34,
+          "branch": 87.76,
+          "funcs": 100,
+          "uncovered": "174-180"
+        },
+        {
+          "path": "src/fixtures/compat.ts",
+          "line": 93.86,
+          "branch": 80.58,
+          "funcs": 100,
+          "uncovered": "89-90 92-93 172 178 180 202-210 258 266"
+        },
+        {
+          "path": "src/fixtures/load.ts",
+          "line": 96.13,
+          "branch": 62.16,
+          "funcs": 100,
+          "uncovered": "62-63 112-113 151-152"
+        },
+        {
+          "path": "src/fixtures/schema.ts",
+          "line": 97.83,
+          "branch": 91.18,
+          "funcs": 100,
+          "uncovered": "95-96 120 143"
+        },
+        {
+          "path": "src/fixtures/sensitive.ts",
+          "line": 95.28,
+          "branch": 85,
+          "funcs": 85.71,
+          "uncovered": "81-83 98-100"
+        },
+        {
+          "path": "src/headless/index.ts",
+          "line": 95.16,
+          "branch": 70.59,
+          "funcs": 66.67,
+          "uncovered": "116-120 176-177 182-183"
+        },
+        {
+          "path": "src/headless/services.ts",
+          "line": 98.08,
+          "branch": 91.34,
+          "funcs": 95.08,
+          "uncovered": "71-74 242-246"
+        },
+        {
+          "path": "src/host-facade.ts",
+          "line": 98.71,
+          "branch": 90.91,
+          "funcs": 93.55,
+          "uncovered": "83-85 264-265"
+        },
+        {
+          "path": "src/http.ts",
+          "line": 97.22,
+          "branch": 76.6,
+          "funcs": 83.33,
+          "uncovered": "159-165"
+        },
+        {
+          "path": "src/index.ts",
+          "line": 73.7,
+          "branch": 73.17,
+          "funcs": 44.44,
+          "uncovered": "60-61 64-78 84-86 102-111 133 213-216 264-289 316-349 362-363 365-366 381-382"
+        },
+        {
+          "path": "src/insight/coverage.ts",
+          "line": 96.02,
+          "branch": 93.22,
+          "funcs": 97.14,
+          "uncovered": "134-136 301-309 378-381"
+        },
+        {
+          "path": "src/insight/search.ts",
+          "line": 98.51,
+          "branch": 90.71,
+          "funcs": 96.88,
+          "uncovered": "127-129 183"
+        },
+        {
+          "path": "src/insight/trend.ts",
+          "line": 99.02,
+          "branch": 83.18,
+          "funcs": 100,
+          "uncovered": "125-126 384-385"
+        },
+        {
+          "path": "src/isolation/cleanup.ts",
+          "line": 96.67,
+          "branch": 91.18,
+          "funcs": 88.89,
+          "uncovered": "66-67 149-151 162"
+        },
+        {
+          "path": "src/isolation/context.ts",
+          "line": 98.32,
+          "branch": 80,
+          "funcs": 100,
+          "uncovered": "108-109"
+        },
+        {
+          "path": "src/isolation/leaks.ts",
+          "line": 98.61,
+          "branch": 93.33,
+          "funcs": 100,
+          "uncovered": "68-69"
+        },
+        {
+          "path": "src/isolation/pool.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/isolation/probes.ts",
+          "line": 91.82,
+          "branch": 73.68,
+          "funcs": 85,
+          "uncovered": "140 156-162 197-203 230-245"
+        },
+        {
+          "path": "src/kinds/agent.ts",
+          "line": 95.87,
+          "branch": 83.33,
+          "funcs": 91.18,
+          "uncovered": "277-279 304-305 376-378 380-382 466-467 493-494 535-536 549-552 554-555 559-562 677"
+        },
+        {
+          "path": "src/kinds/compaction.ts",
+          "line": 96.73,
+          "branch": 74.79,
+          "funcs": 100,
+          "uncovered": "169-170 182-183 186-187 229-230 276-277 311-312 329-330 341"
+        },
+        {
+          "path": "src/kinds/file.ts",
+          "line": 96.41,
+          "branch": 84.62,
+          "funcs": 100,
+          "uncovered": "120-121 130-131 181-184 320-322 333"
+        },
+        {
+          "path": "src/kinds/fs.ts",
+          "line": 95.1,
+          "branch": 81.4,
+          "funcs": 95,
+          "uncovered": "222-223 245-246 260-261 276 312 346-359 464-465"
+        },
+        {
+          "path": "src/kinds/index.ts",
+          "line": 100,
+          "branch": 90.91,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/interaction.ts",
+          "line": 97.94,
+          "branch": 85.11,
+          "funcs": 77.78,
+          "uncovered": "202 232-233 240-241"
+        },
+        {
+          "path": "src/kinds/llm.ts",
+          "line": 91.87,
+          "branch": 90.91,
+          "funcs": 91.67,
+          "uncovered": "235-236 245-262 268-270"
+        },
+        {
+          "path": "src/kinds/prompt.ts",
+          "line": 98.92,
+          "branch": 86.36,
+          "funcs": 100,
+          "uncovered": "132-133"
+        },
+        {
+          "path": "src/kinds/resource.ts",
+          "line": 97.34,
+          "branch": 77.97,
+          "funcs": 100,
+          "uncovered": "158-159 243-244 252-253 262"
+        },
+        {
+          "path": "src/kinds/session.ts",
+          "line": 94.69,
+          "branch": 80.24,
+          "funcs": 96.15,
+          "uncovered": "313-315 370-371 375-376 388-389 462-466 469-479 510 547-548 550 594-596"
+        },
+        {
+          "path": "src/kinds/shell.ts",
+          "line": 96.62,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "110-116 118-119 295"
+        },
+        {
+          "path": "src/kinds/tool.ts",
+          "line": 99.2,
+          "branch": 88.96,
+          "funcs": 95.45,
+          "uncovered": "272 303 616-618"
+        },
+        {
+          "path": "src/kinds/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/ui.ts",
+          "line": 98.28,
+          "branch": 88.71,
+          "funcs": 87.5,
+          "uncovered": "287-291 347"
+        },
+        {
+          "path": "src/pipeline/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/pipeline/ledger.ts",
+          "line": 97.96,
+          "branch": 83.87,
+          "funcs": 100,
+          "uncovered": "38 60-61"
+        },
+        {
+          "path": "src/pipeline/quality.ts",
+          "line": 87.8,
+          "branch": 82.76,
+          "funcs": 87.5,
+          "uncovered": "44-45 52-54 56-58 83-84 109-113"
+        },
+        {
+          "path": "src/pipeline/store.ts",
+          "line": 88.42,
+          "branch": 63.64,
+          "funcs": 81.4,
+          "uncovered": "191-203 244-245 329-330 344-346 377-378 393-409 416-432 466-467 519-520 539-542 550-551"
+        },
+        {
+          "path": "src/pipeline/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/registry/expand.ts",
+          "line": 93.86,
+          "branch": 84.76,
+          "funcs": 100,
+          "uncovered": "91-101 185 189 195 301-303 327-328 335-336"
+        },
+        {
+          "path": "src/registry/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/registry/loader.ts",
+          "line": 89.68,
+          "branch": 74.15,
+          "funcs": 100,
+          "uncovered": "207-208 213 218 220 225-226 241-243 245-247 268-270 276-277 279-280 286-287 289-290 294-296 298-299 302 304-305 313 321-322 325 330-331 377-379 383-385 393-394 397-398 405"
+        },
+        {
+          "path": "src/registry/templates.ts",
+          "line": 89.64,
+          "branch": 69.57,
+          "funcs": 93.33,
+          "uncovered": "129-131 133-135 149-151 153-155 165-166 170-171 176 180-182 194-195 266-270 282-284 297-298 306-308 343 368-370 406-409"
+        },
+        {
+          "path": "src/report/json.ts",
+          "line": 98.43,
+          "branch": 86.21,
+          "funcs": 100,
+          "uncovered": "90-91"
+        },
+        {
+          "path": "src/report/junit.ts",
+          "line": 98.88,
+          "branch": 94.12,
+          "funcs": 100,
+          "uncovered": "146-147"
+        },
+        {
+          "path": "src/report/markdown.ts",
+          "line": 98.34,
+          "branch": 90.7,
+          "funcs": 100,
+          "uncovered": "156-158"
+        },
+        {
+          "path": "src/report/present.ts",
+          "line": 98.13,
+          "branch": 72.41,
+          "funcs": 100,
+          "uncovered": "100-101"
+        },
+        {
+          "path": "src/report/redact.ts",
+          "line": 97.8,
+          "branch": 62.07,
+          "funcs": 86.96,
+          "uncovered": "120 174-175 190-191"
+        },
+        {
+          "path": "src/runtime/assert.ts",
+          "line": 98.34,
+          "branch": 88.51,
+          "funcs": 100,
+          "uncovered": "66 87-88 202"
+        },
+        {
+          "path": "src/runtime/fixture.ts",
+          "line": 96.59,
+          "branch": 95.65,
+          "funcs": 80,
+          "uncovered": "52-53 87"
+        },
+        {
+          "path": "src/runtime/refs.ts",
+          "line": 94.55,
+          "branch": 33.33,
+          "funcs": 100,
+          "uncovered": "49 51 53"
+        },
+        {
+          "path": "src/runtime/runlog.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/runtime/runner.ts",
+          "line": 92.39,
+          "branch": 81.37,
+          "funcs": 87.5,
+          "uncovered": "173-174 293-294 356-362 370-371 468-469 508-509 556-559 617-620 775-777 807-809 815-822 825-826 828-829 831-832 874 895-899 911-912 916-933"
+        },
+        {
+          "path": "src/selection/bench.ts",
+          "line": 95.04,
+          "branch": 72.22,
+          "funcs": 100,
+          "uncovered": "104-110"
+        },
+        {
+          "path": "src/selection/by-version.ts",
+          "line": 94.17,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "74-76 79-81"
+        },
+        {
+          "path": "src/selection/git.ts",
+          "line": 96.67,
+          "branch": 63.64,
+          "funcs": 100,
+          "uncovered": "79-81"
+        },
+        {
+          "path": "src/selection/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/selection/mapping.ts",
+          "line": 96.15,
+          "branch": 87.38,
+          "funcs": 100,
+          "uncovered": "147-148 150-151 156-158 172-173"
+        },
+        {
+          "path": "src/surface/runs.ts",
+          "line": 92.16,
+          "branch": 50,
+          "funcs": 100,
+          "uncovered": "40-41 44-45"
+        },
+        {
+          "path": "src/surface/selection-args.ts",
+          "line": 55.43,
+          "branch": 20,
+          "funcs": 60,
+          "uncovered": "52-53 58-129 169-172"
+        },
+        {
+          "path": "src/tools.ts",
+          "line": 62.92,
+          "branch": 38.46,
+          "funcs": 57.14,
+          "uncovered": "40-42 45-49 113-158 266-267 307-308 310-311 315-318 320-321 339-340 342-343 347-351 356 374-394 418-491 508-531 550-576 593-614 643-655 672-697 713-734 769-774 782-783 787-788 807-809 812-813 842-844"
+        },
+        {
+          "path": "src/touchstone/export.ts",
+          "line": 96.92,
+          "branch": 52.73,
+          "funcs": 96.3,
+          "uncovered": "263-264 391-392 394-395 406 463 485-486 488-489 491-492 511-512 537 595-596"
+        },
+        {
+          "path": "src/touchstone/import.ts",
+          "line": 90.28,
+          "branch": 74.02,
+          "funcs": 77.78,
+          "uncovered": "135-140 187 197-198 210-211 236-240 305-306 311 315-316 321-322 352-360 390-391 465-467 475-476 478-482 491-494"
+        },
+        {
+          "path": "src/touchstone/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/touchstone/webhook.ts",
+          "line": 90.06,
+          "branch": 62.37,
+          "funcs": 82.35,
+          "uncovered": "169-179 195-196 198-201 207-213 229-233 239-240 349-350 373-387 407-408 429-431 450-451 507-508 510 520-522 529-530 535-540 601 711 755-756 801-802 804-805 833 866-867 877-878 894-901"
+        },
+        {
+          "path": "src/trace/chrome.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/json.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/otel.ts",
+          "line": 100,
+          "branch": 73.68,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/spans.ts",
+          "line": 97.95,
+          "branch": 87.5,
+          "funcs": 87.5,
+          "uncovered": "192-195"
+        },
+        {
+          "path": "src/trace/timeline.ts",
+          "line": 93.5,
+          "branch": 79.17,
+          "funcs": 100,
+          "uncovered": "63-66 83-86"
+        },
+        {
+          "path": "src/triage/artifacts.ts",
+          "line": 96.67,
+          "branch": 90.91,
+          "funcs": 93.75,
+          "uncovered": "125-126 150 207-211"
+        },
+        {
+          "path": "src/triage/comment.ts",
+          "line": 96.81,
+          "branch": 89.19,
+          "funcs": 100,
+          "uncovered": "77-79 98-100"
+        },
+        {
+          "path": "src/triage/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/triage/issue.ts",
+          "line": 96.77,
+          "branch": 85,
+          "funcs": 100,
+          "uncovered": "134-136 153-154"
+        },
+        {
+          "path": "src/triage/route.ts",
+          "line": 100,
+          "branch": 86.67,
+          "funcs": 100,
+          "uncovered": ""
+        }
+      ],
+      "valid": true
+    },
+    {
+      "log": "coverage-stage0-src-only.log",
+      "totals": {
+        "tests": 824,
+        "suites": 0,
+        "pass": 816,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 8,
+        "todo": 0,
+        "duration_ms": 90462.6808
+      },
+      "aggregate": null,
+      "files": [],
+      "valid": false,
+      "aggregate_reported_by_node": {
+        "line": 100,
+        "branch": 100,
+        "funcs": 100
+      },
+      "invalid_reason": "过滤后文件集合为空（files: []）：Node 仍会打印 all files = 100.00/100.00/100.00，但空集合上的合计不是覆盖率读数。禁止当作覆盖率上报。常见原因：--test-coverage-exclude 把所有文件都排掉了（本次就是 **/lib/** 匹配到了 source map 回映前的 lib 路径）。"
+    },
+    {
+      "log": "coverage-stage0-src-ts-only.log",
+      "totals": {
+        "tests": 824,
+        "suites": 0,
+        "pass": 816,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 8,
+        "todo": 0,
+        "duration_ms": 56793.2914
+      },
+      "aggregate": {
+        "line": 90.53,
+        "branch": 77.96,
+        "funcs": 88.01
+      },
+      "files": [
+        {
+          "path": "src/adapters/dsh/tools.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/causes.ts",
+          "line": 99.2,
+          "branch": 92.41,
+          "funcs": 100,
+          "uncovered": "356 365-366"
+        },
+        {
+          "path": "src/analysis/classify.ts",
+          "line": 100,
+          "branch": 97.5,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/repro.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cases/index-file.ts",
+          "line": 98.67,
+          "branch": 58.33,
+          "funcs": 100,
+          "uncovered": "47"
+        },
+        {
+          "path": "src/cases/loader.ts",
+          "line": 90.68,
+          "branch": 66.67,
+          "funcs": 100,
+          "uncovered": "58-59 65-66 69-70 88-90 122-123 131-132 157-158"
+        },
+        {
+          "path": "src/cases/registry.ts",
+          "line": 88.03,
+          "branch": 83.78,
+          "funcs": 87.5,
+          "uncovered": "85-87 101-105 110-115"
+        },
+        {
+          "path": "src/cases/schema.ts",
+          "line": 81.27,
+          "branch": 80.43,
+          "funcs": 90,
+          "uncovered": "110 126-127 129-130 137-138 140-141 152-153 171-172 174-185 216-218 220-221 223-224 237-238 240-241 250-251 255-269 296-298 300 313-314"
+        },
+        {
+          "path": "src/cases/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cli/args.ts",
+          "line": 95.58,
+          "branch": 88.24,
+          "funcs": 88.89,
+          "uncovered": "63-68 180-181"
+        },
+        {
+          "path": "src/cli/commands/insight.ts",
+          "line": 69.04,
+          "branch": 22.22,
+          "funcs": 60,
+          "uncovered": "39-42 103-140 149-153 157-158 164-165 176-177 184-185 199-200 212-221 229-230 234-238 243-244 270-278 287-291 296-297 319-327 335-336 341-342 345-346 351-352 387-395 400-407"
+        },
+        {
+          "path": "src/cli/commands/inspect.ts",
+          "line": 89.51,
+          "branch": 47.89,
+          "funcs": 83.33,
+          "uncovered": "88-92 113-114 154-155 175-182 184-189 208-209 225-226 264-265 278-285 352-355 374-375 396-399"
+        },
+        {
+          "path": "src/cli/commands/integrate.ts",
+          "line": 34.19,
+          "branch": 100,
+          "funcs": 0,
+          "uncovered": "40-50 53-102 111-113 116-120 123-155"
+        },
+        {
+          "path": "src/cli/commands/run.ts",
+          "line": 87.73,
+          "branch": 34.94,
+          "funcs": 77.78,
+          "uncovered": "125-130 279-281 343-354 368 372-373 392-393 442-447 449-450 466-467 474-476 482-483 488-508 512-513 523-524"
+        },
+        {
+          "path": "src/cli/commands/transfer.ts",
+          "line": 59.53,
+          "branch": 19.05,
+          "funcs": 42.86,
+          "uncovered": "55-56 65-66 77 84-109 114-115 138-143 158-159 163-170 186-189 193-196 201-242 253-257"
+        },
+        {
+          "path": "src/cli/context.ts",
+          "line": 85.02,
+          "branch": 65.38,
+          "funcs": 72.73,
+          "uncovered": "116-119 121-124 147-151 157-161 164-170 175-182 233-234 245-246"
+        },
+        {
+          "path": "src/cli/exit.ts",
+          "line": 100,
+          "branch": 66.67,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cli/index.ts",
+          "line": 93.79,
+          "branch": 76,
+          "funcs": 100,
+          "uncovered": "121-122 226-229 231-233 266-273 305 307 331-332"
+        },
+        {
+          "path": "src/cli/io.ts",
+          "line": 100,
+          "branch": 85.71,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/commands.ts",
+          "line": 38.68,
+          "branch": 54.55,
+          "funcs": 23.53,
+          "uncovered": "136 139-219 222-240 243-262 265-277 280-292 295-342 345-405 408-433 436-450 453 456-489 492-512 515-522 525 532 606-610 637-641 676-707 722-831 838-847 850 852-856 859-861 864-868"
+        },
+        {
+          "path": "src/config.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/contracts/run.ts",
+          "line": 98.62,
+          "branch": 94.23,
+          "funcs": 100,
+          "uncovered": "107-109"
+        },
+        {
+          "path": "src/doctor/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/doctor/render.ts",
+          "line": 96.05,
+          "branch": 63.64,
+          "funcs": 100,
+          "uncovered": "89-90 98 100 116 135"
+        },
+        {
+          "path": "src/doctor/residue.ts",
+          "line": 77.55,
+          "branch": 42.11,
+          "funcs": 60,
+          "uncovered": "63-68 70-71 78-79 82-86 92-104 128-130 146-147"
+        },
+        {
+          "path": "src/doctor/run.ts",
+          "line": 93.58,
+          "branch": 84.29,
+          "funcs": 100,
+          "uncovered": "224-230 233-238 240-246 326"
+        },
+        {
+          "path": "src/doctor/runs.ts",
+          "line": 91.41,
+          "branch": 76.92,
+          "funcs": 87.5,
+          "uncovered": "35-41 116-119"
+        },
+        {
+          "path": "src/dx/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/dx/select.ts",
+          "line": 99.7,
+          "branch": 84.72,
+          "funcs": 100,
+          "uncovered": "250"
+        },
+        {
+          "path": "src/dx/watch.ts",
+          "line": 85.9,
+          "branch": 69.23,
+          "funcs": 83.33,
+          "uncovered": "92-93 116-119 123-133 145-147 152-153"
+        },
+        {
+          "path": "src/executor/policy.ts",
+          "line": 100,
+          "branch": 92.45,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/fixtures/apply.ts",
+          "line": 96.34,
+          "branch": 87.76,
+          "funcs": 100,
+          "uncovered": "174-180"
+        },
+        {
+          "path": "src/fixtures/compat.ts",
+          "line": 93.86,
+          "branch": 80.58,
+          "funcs": 100,
+          "uncovered": "89-90 92-93 172 178 180 202-210 258 266"
+        },
+        {
+          "path": "src/fixtures/load.ts",
+          "line": 96.13,
+          "branch": 62.16,
+          "funcs": 100,
+          "uncovered": "62-63 112-113 151-152"
+        },
+        {
+          "path": "src/fixtures/schema.ts",
+          "line": 97.83,
+          "branch": 91.18,
+          "funcs": 100,
+          "uncovered": "95-96 120 143"
+        },
+        {
+          "path": "src/fixtures/sensitive.ts",
+          "line": 95.28,
+          "branch": 85,
+          "funcs": 85.71,
+          "uncovered": "81-83 98-100"
+        },
+        {
+          "path": "src/headless/index.ts",
+          "line": 95.16,
+          "branch": 70.59,
+          "funcs": 66.67,
+          "uncovered": "116-120 176-177 182-183"
+        },
+        {
+          "path": "src/headless/services.ts",
+          "line": 98.08,
+          "branch": 91.34,
+          "funcs": 95.08,
+          "uncovered": "71-74 242-246"
+        },
+        {
+          "path": "src/host-facade.ts",
+          "line": 98.71,
+          "branch": 90.91,
+          "funcs": 93.55,
+          "uncovered": "83-85 264-265"
+        },
+        {
+          "path": "src/http.ts",
+          "line": 97.22,
+          "branch": 76.6,
+          "funcs": 83.33,
+          "uncovered": "159-165"
+        },
+        {
+          "path": "src/index.ts",
+          "line": 73.7,
+          "branch": 73.17,
+          "funcs": 44.44,
+          "uncovered": "60-61 64-78 84-86 102-111 133 213-216 264-289 316-349 362-363 365-366 381-382"
+        },
+        {
+          "path": "src/insight/coverage.ts",
+          "line": 96.02,
+          "branch": 93.22,
+          "funcs": 97.14,
+          "uncovered": "134-136 301-309 378-381"
+        },
+        {
+          "path": "src/insight/search.ts",
+          "line": 98.51,
+          "branch": 90.71,
+          "funcs": 96.88,
+          "uncovered": "127-129 183"
+        },
+        {
+          "path": "src/insight/trend.ts",
+          "line": 99.02,
+          "branch": 83.18,
+          "funcs": 100,
+          "uncovered": "125-126 384-385"
+        },
+        {
+          "path": "src/isolation/cleanup.ts",
+          "line": 96.67,
+          "branch": 91.18,
+          "funcs": 88.89,
+          "uncovered": "66-67 149-151 162"
+        },
+        {
+          "path": "src/isolation/context.ts",
+          "line": 98.32,
+          "branch": 80,
+          "funcs": 100,
+          "uncovered": "108-109"
+        },
+        {
+          "path": "src/isolation/leaks.ts",
+          "line": 98.61,
+          "branch": 93.33,
+          "funcs": 100,
+          "uncovered": "68-69"
+        },
+        {
+          "path": "src/isolation/pool.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/isolation/probes.ts",
+          "line": 91.82,
+          "branch": 73.68,
+          "funcs": 85,
+          "uncovered": "140 156-162 197-203 230-245"
+        },
+        {
+          "path": "src/kinds/agent.ts",
+          "line": 95.87,
+          "branch": 83.33,
+          "funcs": 91.18,
+          "uncovered": "277-279 304-305 376-378 380-382 466-467 493-494 535-536 549-552 554-555 559-562 677"
+        },
+        {
+          "path": "src/kinds/compaction.ts",
+          "line": 96.73,
+          "branch": 74.79,
+          "funcs": 100,
+          "uncovered": "169-170 182-183 186-187 229-230 276-277 311-312 329-330 341"
+        },
+        {
+          "path": "src/kinds/file.ts",
+          "line": 96.41,
+          "branch": 84.62,
+          "funcs": 100,
+          "uncovered": "120-121 130-131 181-184 320-322 333"
+        },
+        {
+          "path": "src/kinds/fs.ts",
+          "line": 95.1,
+          "branch": 81.4,
+          "funcs": 95,
+          "uncovered": "222-223 245-246 260-261 276 312 346-359 464-465"
+        },
+        {
+          "path": "src/kinds/index.ts",
+          "line": 100,
+          "branch": 90.91,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/interaction.ts",
+          "line": 97.12,
+          "branch": 78.43,
+          "funcs": 77.78,
+          "uncovered": "176-177 202 232-233 240-241"
+        },
+        {
+          "path": "src/kinds/llm.ts",
+          "line": 91.87,
+          "branch": 90.91,
+          "funcs": 91.67,
+          "uncovered": "235-236 245-262 268-270"
+        },
+        {
+          "path": "src/kinds/prompt.ts",
+          "line": 98.92,
+          "branch": 86.36,
+          "funcs": 100,
+          "uncovered": "132-133"
+        },
+        {
+          "path": "src/kinds/resource.ts",
+          "line": 97.34,
+          "branch": 77.97,
+          "funcs": 100,
+          "uncovered": "158-159 243-244 252-253 262"
+        },
+        {
+          "path": "src/kinds/session.ts",
+          "line": 94.69,
+          "branch": 80.24,
+          "funcs": 96.15,
+          "uncovered": "313-315 370-371 375-376 388-389 462-466 469-479 510 547-548 550 594-596"
+        },
+        {
+          "path": "src/kinds/shell.ts",
+          "line": 96.62,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "110-116 118-119 295"
+        },
+        {
+          "path": "src/kinds/tool.ts",
+          "line": 99.2,
+          "branch": 88.96,
+          "funcs": 95.45,
+          "uncovered": "272 303 616-618"
+        },
+        {
+          "path": "src/kinds/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/ui.ts",
+          "line": 98.28,
+          "branch": 88.71,
+          "funcs": 87.5,
+          "uncovered": "287-291 347"
+        },
+        {
+          "path": "src/pipeline/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/pipeline/ledger.ts",
+          "line": 97.96,
+          "branch": 83.87,
+          "funcs": 100,
+          "uncovered": "38 60-61"
+        },
+        {
+          "path": "src/pipeline/quality.ts",
+          "line": 87.8,
+          "branch": 82.76,
+          "funcs": 87.5,
+          "uncovered": "44-45 52-54 56-58 83-84 109-113"
+        },
+        {
+          "path": "src/pipeline/store.ts",
+          "line": 88.42,
+          "branch": 63.64,
+          "funcs": 81.4,
+          "uncovered": "191-203 244-245 329-330 344-346 377-378 393-409 416-432 466-467 519-520 539-542 550-551"
+        },
+        {
+          "path": "src/pipeline/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/registry/expand.ts",
+          "line": 93.86,
+          "branch": 84.76,
+          "funcs": 100,
+          "uncovered": "91-101 185 189 195 301-303 327-328 335-336"
+        },
+        {
+          "path": "src/registry/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/registry/loader.ts",
+          "line": 89.68,
+          "branch": 74.15,
+          "funcs": 100,
+          "uncovered": "207-208 213 218 220 225-226 241-243 245-247 268-270 276-277 279-280 286-287 289-290 294-296 298-299 302 304-305 313 321-322 325 330-331 377-379 383-385 393-394 397-398 405"
+        },
+        {
+          "path": "src/registry/templates.ts",
+          "line": 89.64,
+          "branch": 69.57,
+          "funcs": 93.33,
+          "uncovered": "129-131 133-135 149-151 153-155 165-166 170-171 176 180-182 194-195 266-270 282-284 297-298 306-308 343 368-370 406-409"
+        },
+        {
+          "path": "src/report/json.ts",
+          "line": 98.43,
+          "branch": 86.21,
+          "funcs": 100,
+          "uncovered": "90-91"
+        },
+        {
+          "path": "src/report/junit.ts",
+          "line": 98.88,
+          "branch": 91.43,
+          "funcs": 100,
+          "uncovered": "146-147"
+        },
+        {
+          "path": "src/report/markdown.ts",
+          "line": 98.34,
+          "branch": 90.7,
+          "funcs": 100,
+          "uncovered": "156-158"
+        },
+        {
+          "path": "src/report/present.ts",
+          "line": 98.13,
+          "branch": 72.41,
+          "funcs": 100,
+          "uncovered": "100-101"
+        },
+        {
+          "path": "src/report/redact.ts",
+          "line": 97.8,
+          "branch": 62.07,
+          "funcs": 86.96,
+          "uncovered": "120 174-175 190-191"
+        },
+        {
+          "path": "src/runtime/assert.ts",
+          "line": 98.34,
+          "branch": 88.51,
+          "funcs": 100,
+          "uncovered": "66 87-88 202"
+        },
+        {
+          "path": "src/runtime/fixture.ts",
+          "line": 96.59,
+          "branch": 95.65,
+          "funcs": 80,
+          "uncovered": "52-53 87"
+        },
+        {
+          "path": "src/runtime/refs.ts",
+          "line": 94.55,
+          "branch": 33.33,
+          "funcs": 100,
+          "uncovered": "49 51 53"
+        },
+        {
+          "path": "src/runtime/runlog.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/runtime/runner.ts",
+          "line": 92.39,
+          "branch": 81.37,
+          "funcs": 87.5,
+          "uncovered": "173-174 293-294 356-362 370-371 468-469 508-509 556-559 617-620 775-777 807-809 815-822 825-826 828-829 831-832 874 895-899 911-912 916-933"
+        },
+        {
+          "path": "src/selection/bench.ts",
+          "line": 95.04,
+          "branch": 72.22,
+          "funcs": 100,
+          "uncovered": "104-110"
+        },
+        {
+          "path": "src/selection/by-version.ts",
+          "line": 94.17,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "74-76 79-81"
+        },
+        {
+          "path": "src/selection/git.ts",
+          "line": 96.67,
+          "branch": 63.64,
+          "funcs": 100,
+          "uncovered": "79-81"
+        },
+        {
+          "path": "src/selection/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/selection/mapping.ts",
+          "line": 96.15,
+          "branch": 87.38,
+          "funcs": 100,
+          "uncovered": "147-148 150-151 156-158 172-173"
+        },
+        {
+          "path": "src/surface/runs.ts",
+          "line": 92.16,
+          "branch": 50,
+          "funcs": 100,
+          "uncovered": "40-41 44-45"
+        },
+        {
+          "path": "src/surface/selection-args.ts",
+          "line": 55.43,
+          "branch": 20,
+          "funcs": 60,
+          "uncovered": "52-53 58-129 169-172"
+        },
+        {
+          "path": "src/tools.ts",
+          "line": 62.92,
+          "branch": 38.46,
+          "funcs": 57.14,
+          "uncovered": "40-42 45-49 113-158 266-267 307-308 310-311 315-318 320-321 339-340 342-343 347-351 356 374-394 418-491 508-531 550-576 593-614 643-655 672-697 713-734 769-774 782-783 787-788 807-809 812-813 842-844"
+        },
+        {
+          "path": "src/touchstone/export.ts",
+          "line": 96.92,
+          "branch": 52.73,
+          "funcs": 96.3,
+          "uncovered": "263-264 391-392 394-395 406 463 485-486 488-489 491-492 511-512 537 595-596"
+        },
+        {
+          "path": "src/touchstone/import.ts",
+          "line": 90.28,
+          "branch": 74.02,
+          "funcs": 77.78,
+          "uncovered": "135-140 187 197-198 210-211 236-240 305-306 311 315-316 321-322 352-360 390-391 465-467 475-476 478-482 491-494"
+        },
+        {
+          "path": "src/touchstone/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/touchstone/webhook.ts",
+          "line": 90.06,
+          "branch": 62.37,
+          "funcs": 82.35,
+          "uncovered": "169-179 195-196 198-201 207-213 229-233 239-240 349-350 373-387 407-408 429-431 450-451 507-508 510 520-522 529-530 535-540 601 711 755-756 801-802 804-805 833 866-867 877-878 894-901"
+        },
+        {
+          "path": "src/trace/chrome.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/json.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/otel.ts",
+          "line": 100,
+          "branch": 73.68,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/spans.ts",
+          "line": 97.95,
+          "branch": 87.5,
+          "funcs": 87.5,
+          "uncovered": "192-195"
+        },
+        {
+          "path": "src/trace/timeline.ts",
+          "line": 93.5,
+          "branch": 79.17,
+          "funcs": 100,
+          "uncovered": "63-66 83-86"
+        },
+        {
+          "path": "src/triage/artifacts.ts",
+          "line": 96.67,
+          "branch": 90.91,
+          "funcs": 93.75,
+          "uncovered": "125-126 150 207-211"
+        },
+        {
+          "path": "src/triage/comment.ts",
+          "line": 96.81,
+          "branch": 89.19,
+          "funcs": 100,
+          "uncovered": "77-79 98-100"
+        },
+        {
+          "path": "src/triage/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/triage/issue.ts",
+          "line": 96.77,
+          "branch": 85,
+          "funcs": 100,
+          "uncovered": "134-136 153-154"
+        },
+        {
+          "path": "src/triage/route.ts",
+          "line": 100,
+          "branch": 86.67,
+          "funcs": 100,
+          "uncovered": ""
+        }
+      ],
+      "valid": true
+    },
+    {
+      "log": "coverage-stage0-all-src-fixed.log",
+      "totals": {
+        "tests": 824,
+        "suites": 0,
+        "pass": 816,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 8,
+        "todo": 0,
+        "duration_ms": 46761.7247
+      },
+      "aggregate": {
+        "line": 90.62,
+        "branch": 78.1,
+        "funcs": 88.09
+      },
+      "files": [
+        {
+          "path": "src/adapters/dsh/tools.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/causes.ts",
+          "line": 99.2,
+          "branch": 93.59,
+          "funcs": 100,
+          "uncovered": "356 365-366"
+        },
+        {
+          "path": "src/analysis/classify.ts",
+          "line": 100,
+          "branch": 97.5,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/analysis/repro.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cases/index-file.ts",
+          "line": 98.67,
+          "branch": 58.33,
+          "funcs": 100,
+          "uncovered": "47"
+        },
+        {
+          "path": "src/cases/loader.ts",
+          "line": 90.68,
+          "branch": 66.67,
+          "funcs": 100,
+          "uncovered": "58-59 65-66 69-70 88-90 122-123 131-132 157-158"
+        },
+        {
+          "path": "src/cases/registry.ts",
+          "line": 88.03,
+          "branch": 83.78,
+          "funcs": 87.5,
+          "uncovered": "85-87 101-105 110-115"
+        },
+        {
+          "path": "src/cases/schema.ts",
+          "line": 81.27,
+          "branch": 80.43,
+          "funcs": 90,
+          "uncovered": "110 126-127 129-130 137-138 140-141 152-153 171-172 174-185 216-218 220-221 223-224 237-238 240-241 250-251 255-269 296-298 300 313-314"
+        },
+        {
+          "path": "src/cases/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cli/args.ts",
+          "line": 95.58,
+          "branch": 88.24,
+          "funcs": 88.89,
+          "uncovered": "63-68 180-181"
+        },
+        {
+          "path": "src/cli/commands/insight.ts",
+          "line": 69.04,
+          "branch": 22.22,
+          "funcs": 60,
+          "uncovered": "39-42 103-140 149-153 157-158 164-165 176-177 184-185 199-200 212-221 229-230 234-238 243-244 270-278 287-291 296-297 319-327 335-336 341-342 345-346 351-352 387-395 400-407"
+        },
+        {
+          "path": "src/cli/commands/inspect.ts",
+          "line": 89.51,
+          "branch": 47.89,
+          "funcs": 83.33,
+          "uncovered": "88-92 113-114 154-155 175-182 184-189 208-209 225-226 264-265 278-285 352-355 374-375 396-399"
+        },
+        {
+          "path": "src/cli/commands/integrate.ts",
+          "line": 34.19,
+          "branch": 100,
+          "funcs": 0,
+          "uncovered": "40-50 53-102 111-113 116-120 123-155"
+        },
+        {
+          "path": "src/cli/commands/run.ts",
+          "line": 87.73,
+          "branch": 34.94,
+          "funcs": 77.78,
+          "uncovered": "125-130 279-281 343-354 368 372-373 392-393 442-447 449-450 466-467 474-476 482-483 488-508 512-513 523-524"
+        },
+        {
+          "path": "src/cli/commands/transfer.ts",
+          "line": 59.53,
+          "branch": 19.05,
+          "funcs": 42.86,
+          "uncovered": "55-56 65-66 77 84-109 114-115 138-143 158-159 163-170 186-189 193-196 201-242 253-257"
+        },
+        {
+          "path": "src/cli/context.ts",
+          "line": 85.02,
+          "branch": 65.38,
+          "funcs": 72.73,
+          "uncovered": "116-119 121-124 147-151 157-161 164-170 175-182 233-234 245-246"
+        },
+        {
+          "path": "src/cli/exit.ts",
+          "line": 100,
+          "branch": 66.67,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/cli/index.ts",
+          "line": 93.79,
+          "branch": 76,
+          "funcs": 100,
+          "uncovered": "121-122 226-229 231-233 266-273 305 307 331-332"
+        },
+        {
+          "path": "src/cli/io.ts",
+          "line": 100,
+          "branch": 85.71,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/commands.ts",
+          "line": 38.68,
+          "branch": 54.55,
+          "funcs": 23.53,
+          "uncovered": "136 139-219 222-240 243-262 265-277 280-292 295-342 345-405 408-433 436-450 453 456-489 492-512 515-522 525 532 606-610 637-641 676-707 722-831 838-847 850 852-856 859-861 864-868"
+        },
+        {
+          "path": "src/config.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/contracts/run.ts",
+          "line": 98.62,
+          "branch": 94.23,
+          "funcs": 100,
+          "uncovered": "107-109"
+        },
+        {
+          "path": "src/doctor/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/doctor/render.ts",
+          "line": 96.05,
+          "branch": 63.64,
+          "funcs": 100,
+          "uncovered": "89-90 98 100 116 135"
+        },
+        {
+          "path": "src/doctor/residue.ts",
+          "line": 77.55,
+          "branch": 42.11,
+          "funcs": 60,
+          "uncovered": "63-68 70-71 78-79 82-86 92-104 128-130 146-147"
+        },
+        {
+          "path": "src/doctor/run.ts",
+          "line": 93.58,
+          "branch": 84.29,
+          "funcs": 100,
+          "uncovered": "224-230 233-238 240-246 326"
+        },
+        {
+          "path": "src/doctor/runs.ts",
+          "line": 91.41,
+          "branch": 76.92,
+          "funcs": 87.5,
+          "uncovered": "35-41 116-119"
+        },
+        {
+          "path": "src/dx/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/dx/select.ts",
+          "line": 99.7,
+          "branch": 84.72,
+          "funcs": 100,
+          "uncovered": "250"
+        },
+        {
+          "path": "src/dx/watch.ts",
+          "line": 85.9,
+          "branch": 69.23,
+          "funcs": 83.33,
+          "uncovered": "92-93 116-119 123-133 145-147 152-153"
+        },
+        {
+          "path": "src/executor/policy.ts",
+          "line": 100,
+          "branch": 92.45,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/export/node-test.ts",
+          "line": 100,
+          "branch": 89.29,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/export/write.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/fixtures/apply.ts",
+          "line": 96.34,
+          "branch": 87.76,
+          "funcs": 100,
+          "uncovered": "174-180"
+        },
+        {
+          "path": "src/fixtures/compat.ts",
+          "line": 93.86,
+          "branch": 80.58,
+          "funcs": 100,
+          "uncovered": "89-90 92-93 172 178 180 202-210 258 266"
+        },
+        {
+          "path": "src/fixtures/load.ts",
+          "line": 96.13,
+          "branch": 62.16,
+          "funcs": 100,
+          "uncovered": "62-63 112-113 151-152"
+        },
+        {
+          "path": "src/fixtures/schema.ts",
+          "line": 97.83,
+          "branch": 91.18,
+          "funcs": 100,
+          "uncovered": "95-96 120 143"
+        },
+        {
+          "path": "src/fixtures/sensitive.ts",
+          "line": 95.28,
+          "branch": 85,
+          "funcs": 85.71,
+          "uncovered": "81-83 98-100"
+        },
+        {
+          "path": "src/headless/index.ts",
+          "line": 95.16,
+          "branch": 70.59,
+          "funcs": 66.67,
+          "uncovered": "116-120 176-177 182-183"
+        },
+        {
+          "path": "src/headless/services.ts",
+          "line": 98.08,
+          "branch": 91.34,
+          "funcs": 95.08,
+          "uncovered": "71-74 242-246"
+        },
+        {
+          "path": "src/host-facade.ts",
+          "line": 98.71,
+          "branch": 90.91,
+          "funcs": 93.55,
+          "uncovered": "83-85 264-265"
+        },
+        {
+          "path": "src/http.ts",
+          "line": 97.22,
+          "branch": 76.6,
+          "funcs": 83.33,
+          "uncovered": "159-165"
+        },
+        {
+          "path": "src/index.ts",
+          "line": 72.4,
+          "branch": 71.43,
+          "funcs": 44.44,
+          "uncovered": "60-61 64-78 84-86 102-111 121-125 133 213-216 264-289 316-349 362-363 365-366 381-382"
+        },
+        {
+          "path": "src/insight/coverage.ts",
+          "line": 96.02,
+          "branch": 93.22,
+          "funcs": 97.14,
+          "uncovered": "134-136 301-309 378-381"
+        },
+        {
+          "path": "src/insight/search.ts",
+          "line": 98.51,
+          "branch": 90.71,
+          "funcs": 96.88,
+          "uncovered": "127-129 183"
+        },
+        {
+          "path": "src/insight/trend.ts",
+          "line": 99.02,
+          "branch": 83.18,
+          "funcs": 100,
+          "uncovered": "125-126 384-385"
+        },
+        {
+          "path": "src/isolation/cleanup.ts",
+          "line": 96.67,
+          "branch": 91.18,
+          "funcs": 88.89,
+          "uncovered": "66-67 149-151 162"
+        },
+        {
+          "path": "src/isolation/context.ts",
+          "line": 98.32,
+          "branch": 80,
+          "funcs": 100,
+          "uncovered": "108-109"
+        },
+        {
+          "path": "src/isolation/leaks.ts",
+          "line": 98.61,
+          "branch": 93.33,
+          "funcs": 100,
+          "uncovered": "68-69"
+        },
+        {
+          "path": "src/isolation/pool.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/isolation/probes.ts",
+          "line": 91.82,
+          "branch": 73.68,
+          "funcs": 85,
+          "uncovered": "140 156-162 197-203 230-245"
+        },
+        {
+          "path": "src/kinds/agent.ts",
+          "line": 95.87,
+          "branch": 83.33,
+          "funcs": 91.18,
+          "uncovered": "277-279 304-305 376-378 380-382 466-467 493-494 535-536 549-552 554-555 559-562 677"
+        },
+        {
+          "path": "src/kinds/compaction.ts",
+          "line": 96.73,
+          "branch": 74.79,
+          "funcs": 100,
+          "uncovered": "169-170 182-183 186-187 229-230 276-277 311-312 329-330 341"
+        },
+        {
+          "path": "src/kinds/file.ts",
+          "line": 96.41,
+          "branch": 84.62,
+          "funcs": 100,
+          "uncovered": "120-121 130-131 181-184 320-322 333"
+        },
+        {
+          "path": "src/kinds/fs.ts",
+          "line": 95.1,
+          "branch": 81.4,
+          "funcs": 95,
+          "uncovered": "222-223 245-246 260-261 276 312 346-359 464-465"
+        },
+        {
+          "path": "src/kinds/index.ts",
+          "line": 100,
+          "branch": 90.91,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/interaction.ts",
+          "line": 97.94,
+          "branch": 85.11,
+          "funcs": 77.78,
+          "uncovered": "202 232-233 240-241"
+        },
+        {
+          "path": "src/kinds/llm.ts",
+          "line": 91.87,
+          "branch": 90.91,
+          "funcs": 91.67,
+          "uncovered": "235-236 245-262 268-270"
+        },
+        {
+          "path": "src/kinds/prompt.ts",
+          "line": 98.92,
+          "branch": 86.36,
+          "funcs": 100,
+          "uncovered": "132-133"
+        },
+        {
+          "path": "src/kinds/resource.ts",
+          "line": 97.34,
+          "branch": 77.97,
+          "funcs": 100,
+          "uncovered": "158-159 243-244 252-253 262"
+        },
+        {
+          "path": "src/kinds/session.ts",
+          "line": 94.69,
+          "branch": 80.24,
+          "funcs": 96.15,
+          "uncovered": "313-315 370-371 375-376 388-389 462-466 469-479 510 547-548 550 594-596"
+        },
+        {
+          "path": "src/kinds/shell.ts",
+          "line": 96.62,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "110-116 118-119 295"
+        },
+        {
+          "path": "src/kinds/tool.ts",
+          "line": 99.2,
+          "branch": 88.96,
+          "funcs": 95.45,
+          "uncovered": "272 303 616-618"
+        },
+        {
+          "path": "src/kinds/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/kinds/ui.ts",
+          "line": 98.28,
+          "branch": 88.71,
+          "funcs": 87.5,
+          "uncovered": "287-291 347"
+        },
+        {
+          "path": "src/pipeline/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/pipeline/ledger.ts",
+          "line": 97.96,
+          "branch": 83.87,
+          "funcs": 100,
+          "uncovered": "38 60-61"
+        },
+        {
+          "path": "src/pipeline/quality.ts",
+          "line": 87.8,
+          "branch": 82.76,
+          "funcs": 87.5,
+          "uncovered": "44-45 52-54 56-58 83-84 109-113"
+        },
+        {
+          "path": "src/pipeline/store.ts",
+          "line": 88.42,
+          "branch": 63.64,
+          "funcs": 81.4,
+          "uncovered": "191-203 244-245 329-330 344-346 377-378 393-409 416-432 466-467 519-520 539-542 550-551"
+        },
+        {
+          "path": "src/pipeline/types.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/registry/expand.ts",
+          "line": 93.86,
+          "branch": 84.76,
+          "funcs": 100,
+          "uncovered": "91-101 185 189 195 301-303 327-328 335-336"
+        },
+        {
+          "path": "src/registry/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/registry/loader.ts",
+          "line": 89.68,
+          "branch": 74.15,
+          "funcs": 100,
+          "uncovered": "207-208 213 218 220 225-226 241-243 245-247 268-270 276-277 279-280 286-287 289-290 294-296 298-299 302 304-305 313 321-322 325 330-331 377-379 383-385 393-394 397-398 405"
+        },
+        {
+          "path": "src/registry/templates.ts",
+          "line": 89.64,
+          "branch": 69.57,
+          "funcs": 93.33,
+          "uncovered": "129-131 133-135 149-151 153-155 165-166 170-171 176 180-182 194-195 266-270 282-284 297-298 306-308 343 368-370 406-409"
+        },
+        {
+          "path": "src/report/json.ts",
+          "line": 98.43,
+          "branch": 86.21,
+          "funcs": 100,
+          "uncovered": "90-91"
+        },
+        {
+          "path": "src/report/junit.ts",
+          "line": 98.88,
+          "branch": 94.12,
+          "funcs": 100,
+          "uncovered": "146-147"
+        },
+        {
+          "path": "src/report/markdown.ts",
+          "line": 98.34,
+          "branch": 90.7,
+          "funcs": 100,
+          "uncovered": "156-158"
+        },
+        {
+          "path": "src/report/present.ts",
+          "line": 98.13,
+          "branch": 72.41,
+          "funcs": 100,
+          "uncovered": "100-101"
+        },
+        {
+          "path": "src/report/redact.ts",
+          "line": 97.8,
+          "branch": 62.07,
+          "funcs": 86.96,
+          "uncovered": "120 174-175 190-191"
+        },
+        {
+          "path": "src/runtime/assert.ts",
+          "line": 98.34,
+          "branch": 88.51,
+          "funcs": 100,
+          "uncovered": "66 87-88 202"
+        },
+        {
+          "path": "src/runtime/fixture.ts",
+          "line": 96.59,
+          "branch": 95.65,
+          "funcs": 80,
+          "uncovered": "52-53 87"
+        },
+        {
+          "path": "src/runtime/refs.ts",
+          "line": 94.55,
+          "branch": 33.33,
+          "funcs": 100,
+          "uncovered": "49 51 53"
+        },
+        {
+          "path": "src/runtime/runlog.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/runtime/runner.ts",
+          "line": 92.39,
+          "branch": 81.37,
+          "funcs": 87.5,
+          "uncovered": "173-174 293-294 356-362 370-371 468-469 508-509 556-559 617-620 775-777 807-809 815-822 825-826 828-829 831-832 874 895-899 911-912 916-933"
+        },
+        {
+          "path": "src/selection/bench.ts",
+          "line": 95.04,
+          "branch": 72.22,
+          "funcs": 100,
+          "uncovered": "104-110"
+        },
+        {
+          "path": "src/selection/by-version.ts",
+          "line": 94.17,
+          "branch": 83.33,
+          "funcs": 100,
+          "uncovered": "74-76 79-81"
+        },
+        {
+          "path": "src/selection/git.ts",
+          "line": 96.67,
+          "branch": 63.64,
+          "funcs": 100,
+          "uncovered": "79-81"
+        },
+        {
+          "path": "src/selection/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/selection/mapping.ts",
+          "line": 96.15,
+          "branch": 87.38,
+          "funcs": 100,
+          "uncovered": "147-148 150-151 156-158 172-173"
+        },
+        {
+          "path": "src/surface/runs.ts",
+          "line": 92.16,
+          "branch": 50,
+          "funcs": 100,
+          "uncovered": "40-41 44-45"
+        },
+        {
+          "path": "src/surface/selection-args.ts",
+          "line": 55.43,
+          "branch": 20,
+          "funcs": 60,
+          "uncovered": "52-53 58-129 169-172"
+        },
+        {
+          "path": "src/tools.ts",
+          "line": 62.92,
+          "branch": 38.46,
+          "funcs": 57.14,
+          "uncovered": "40-42 45-49 113-158 266-267 307-308 310-311 315-318 320-321 339-340 342-343 347-351 356 374-394 418-491 508-531 550-576 593-614 643-655 672-697 713-734 769-774 782-783 787-788 807-809 812-813 842-844"
+        },
+        {
+          "path": "src/touchstone/export.ts",
+          "line": 96.92,
+          "branch": 52.73,
+          "funcs": 96.3,
+          "uncovered": "263-264 391-392 394-395 406 463 485-486 488-489 491-492 511-512 537 595-596"
+        },
+        {
+          "path": "src/touchstone/import.ts",
+          "line": 90.28,
+          "branch": 74.02,
+          "funcs": 77.78,
+          "uncovered": "135-140 187 197-198 210-211 236-240 305-306 311 315-316 321-322 352-360 390-391 465-467 475-476 478-482 491-494"
+        },
+        {
+          "path": "src/touchstone/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/touchstone/webhook.ts",
+          "line": 90.06,
+          "branch": 62.37,
+          "funcs": 82.35,
+          "uncovered": "169-179 195-196 198-201 207-213 229-233 239-240 349-350 373-387 407-408 429-431 450-451 507-508 510 520-522 529-530 535-540 601 711 755-756 801-802 804-805 833 866-867 877-878 894-901"
+        },
+        {
+          "path": "src/trace/chrome.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/json.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/otel.ts",
+          "line": 100,
+          "branch": 73.68,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/trace/spans.ts",
+          "line": 97.95,
+          "branch": 87.5,
+          "funcs": 87.5,
+          "uncovered": "192-195"
+        },
+        {
+          "path": "src/trace/timeline.ts",
+          "line": 93.5,
+          "branch": 79.17,
+          "funcs": 100,
+          "uncovered": "63-66 83-86"
+        },
+        {
+          "path": "src/triage/artifacts.ts",
+          "line": 96.67,
+          "branch": 90.91,
+          "funcs": 93.75,
+          "uncovered": "125-126 150 207-211"
+        },
+        {
+          "path": "src/triage/comment.ts",
+          "line": 96.81,
+          "branch": 89.19,
+          "funcs": 100,
+          "uncovered": "77-79 98-100"
+        },
+        {
+          "path": "src/triage/index.ts",
+          "line": 100,
+          "branch": 100,
+          "funcs": 100,
+          "uncovered": ""
+        },
+        {
+          "path": "src/triage/issue.ts",
+          "line": 96.77,
+          "branch": 85,
+          "funcs": 100,
+          "uncovered": "134-136 153-154"
+        },
+        {
+          "path": "src/triage/route.ts",
+          "line": 100,
+          "branch": 86.67,
+          "funcs": 100,
+          "uncovered": ""
+        }
+      ],
+      "valid": true
+    }
+  ]
+}

@@ -77,6 +77,10 @@
         },
         "errored": {
           "type": "integer"
+        },
+        "inconclusive": {
+          "type": "integer",
+          "description": "阶段 1 新增（RFC §5「只新增、不删既有字段」）：**含至少一条 `Inconclusive` 断言的 case 数**。口径与同表另五个计数**同计量单位**（`total = cases.length`）——若改记断言数，`total = 五项之和` 这条不变量会对不上（一个 case 里 3 条 inconclusive 断言 ⇒ 总和 > total）。它既不计入 passed 也不计入 failed（设计 §3.3 四态）；既有实现没有该计数，故不进 required，缺省即视为 0。断言级明细在 `cases[].steps[].assertions[].outcome`，不在本表。"
         }
       }
     },
@@ -169,6 +173,11 @@
         },
         "cleanup": {
           "$ref": "#/$defs/cleanupRecord"
+        },
+        "trace": {
+          "description": "步骤级 trace。阶段 1 新增：阶段 0 实测确认它被运行期真的写进 run.json，而旧 schema 里没有这个字段（违反 §9.3 纪律 1「没比必须可见」）。**可选**，且**内部结构不声明**（items 是空 schema = 自由形状）：trace 是诊断数据（阶段 / 相对偏移 / 步骤轨迹），内容本质过程性且非确定，把内部结构写进 schema 会给阶段 2 引入大量假阳性差异，而它对「新旧行为是否等价」没有信息量。等价关系由 spec 侧声明为 not-compared（进 uncompared_fields，可见）。",
+          "type": "array",
+          "items": {}
         }
       }
     },
@@ -232,6 +241,10 @@
         },
         "soft": {
           "type": "boolean"
+        },
+        "outcome": {
+          "description": "断言级四态（设计 §3.3：passed / failed / skipped / inconclusive）。阶段 1 新增——既有实现只有 ok:boolean 两态、RunTotals 也没有对应计数（阶段 0 实测确认），不落 schema 则阶段 2 无法对拍四态。**可选、不进 required**；**字段缺失时用既有的 ok 推导**（缺省 = ok ? \"passed\" : \"failed\"），因此既有报告与旧实现产出的 run.json 仍然合法。它既不计入 passed 也不计入 failed（inconclusive 只进 totals.inconclusive 的 case 级计数）。",
+          "enum": ["passed", "failed", "skipped", "inconclusive"]
         }
       }
     },

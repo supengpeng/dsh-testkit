@@ -1,0 +1,150 @@
+{
+  "generated_at": "2026-10-10T16:03:37.072Z",
+  "source": "package.json#scripts.gate（按 \" && \" 切段，忠实复刻 && 短路语义）",
+  "node": "v24.21.0",
+  "platform": "win32",
+  "total_wall_ms": 72807,
+  "first_failing_index": null,
+  "stages": [
+    {
+      "index": 0,
+      "command": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\"",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 213
+    },
+    {
+      "index": 1,
+      "command": "tsc -p tsconfig.json",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 5913
+    },
+    {
+      "index": 2,
+      "command": "node scripts/build-client.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 149
+    },
+    {
+      "index": 3,
+      "command": "node scripts/verify-cases.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 467
+    },
+    {
+      "index": 4,
+      "command": "node scripts/verify-docs.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 235
+    },
+    {
+      "index": 5,
+      "command": "node scripts/check-encoding.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 197
+    },
+    {
+      "index": 6,
+      "command": "node scripts/check-adapter-boundary.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 217
+    },
+    {
+      "index": 7,
+      "command": "node scripts/check-pack-files.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 94
+    },
+    {
+      "index": 8,
+      "command": "node scripts/check-git-installable.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 96
+    },
+    {
+      "index": 9,
+      "command": "node scripts/verify-fixtures.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 345
+    },
+    {
+      "index": 10,
+      "command": "node scripts/verify-registry.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 561
+    },
+    {
+      "index": 11,
+      "command": "node scripts/check-bundle-patch.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 236
+    },
+    {
+      "index": 12,
+      "command": "node scripts/check-secrets.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 695
+    },
+    {
+      "index": 13,
+      "command": "node scripts/check-lockfile.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 241
+    },
+    {
+      "index": 14,
+      "command": "node scripts/check-ci-hardening.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 181
+    },
+    {
+      "index": 15,
+      "command": "node --test \"tests/contracts/*.test.mjs\"",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 1212
+    },
+    {
+      "index": 16,
+      "command": "node --test \"tests/*.test.mjs\"",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 58568
+    },
+    {
+      "index": 17,
+      "command": "node scripts/export-scenarios.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 324
+    },
+    {
+      "index": 18,
+      "command": "node --test export/scenarios.test.mjs",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 901
+    },
+    {
+      "index": 19,
+      "command": "tsc -p tsconfig.client.json --noEmit",
+      "status": "pass",
+      "exit_code": 0,
+      "wall_ms": 1940
+    }
+  ]
+}

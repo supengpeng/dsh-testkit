@@ -1,0 +1,658 @@
+# spec/contracts/approval-paths.yaml
+#
+# 交互 / 审批路径清单 —— 指标 B5 的分母。
+#   B5 审批路径覆盖 = spec 覆盖的交互/审批路径数 / 声明的路径总数（门槛 100%）
+#   定义见 docs/REWRITE-METRICS.md §3 L85：「路径清单（interaction driver 的分支）与 spec 关联」。
+#
+# 真源：src/kinds/interaction.ts（唯一 interaction driver）。
+# 声明形态真源：src/cases/types.ts:131-141（InteractionAction 联合类型）+ :40-63（Setup 形状）。
+# 词汇真源：src/kinds/interaction.ts:37（APPROVAL_OUTCOMES，4 个值）。
+
+meta:
+  contract: 交互 / 审批路径（B5 的分母）
+  metric: 'B5 审批路径覆盖 = spec 覆盖的交互/审批路径数 / 声明的路径总数（门槛 100%）'
+  metric_source: docs/REWRITE-METRICS.md §3 L85
+  driver_source: src/kinds/interaction.ts
+  action_type_source: src/cases/types.ts:131-141（InteractionAction）
+  setup_type_source: src/kinds/interaction.ts:40-63（InteractionQuestionSpec / InteractionApprovalSpec / InteractionSetup）
+  waterfall_events:
+    - { event: user-questions/request, next_shape: '() => Promise<AskUserQuestionAnswer>', source: src/kinds/interaction.ts:7-8 }
+    - { event: approval/request, next_shape: '() => Promise<ApprovalOutcome>', source: src/kinds/interaction.ts:9-10 }
+  critical_shape_note: >
+    ⚠️ 这两个 waterfall 的 `next` 是 **`() => Promise<...>`**，而 `llm/stream` 的 `next` 是**同步**返回 AsyncIterable。
+    照抄隔壁 driver 会得到 undefined 或未 await 的 Promise，且两种都是静默失效（interaction.ts:13-15）。
+  runtime:
+    node: C:\Users\19059\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe
+  recompute:
+    - '$NODE $REPO/bin/dsh-testkit.mjs doctor   # 驱动 × 能力矩阵：interaction 行显示「需要 —」且不跳过（3/3 active）'
+    - 'cd $REPO && $NODE --test tests/interaction-driver.test.mjs   # 18 条用例，逐条对应下面的路径 id'
+    - 'Select-String -Path $REPO/src/kinds/interaction.ts -Pattern "APPROVAL_OUTCOMES|TESTKIT_"   # 词汇与标记错误枚举'
+    - 'Select-String -Path $REPO/docs/SCENARIO-SPEC.md -Pattern "interaction:" -Context 0,20   # 面向作者的声明文档'
+  readouts:
+    paths_total: 20
+    paths_with_unit_test: 16
+    paths_without_unit_test: 4
+    approval_outcome_vocabulary_size: 4
+    grants: 1
+    question_answer_modes: 4
+    degradation_paths: 7
+    driver_static_requires: []
+    runtime_interaction_scenarios: { total: 3, active: 3, will_skip: false }
+
+# ---------------------------------------------------------------- A. 审批结果词汇（DSH 词汇表） --
+approval_outcomes:
+  source: src/kinds/interaction.ts:37-38
+  vocabulary: [allowed-once, rejected, cancelled, unavailable]
+  vocabulary_doc: 'docs/SCENARIO-SPEC.md:652（allowed-once | rejected | cancelled | unavailable，缺省 rejected）'
+  only_grant: allowed-once
+  paths:
+    - id: AP-01
+      name: allowed-once（唯一授予）
+      trigger: 'setup.interaction.approval.decision: allowed-once'
+      code_ref: src/kinds/interaction.ts:151-159（注册答者）+ :93-101（normalizeDecision）
+      observable: 'approvalOutcome === ''allowed-once''；fixture note plannedDecision 记同一值'
+      tested_by: tests/interaction-driver.test.mjs:116-122（plannedDecision）、:203-213（释放后兜底）
+      unit_tested: true
+    - id: AP-02
+      name: rejected（缺省值）
+      trigger: 'decision: rejected，或**完全不写 decision**'
+      code_ref: src/kinds/interaction.ts:94（`spec.decision ?? ''rejected''`）
+      observable: 'approvalOutcome === ''rejected'''
+      tested_by: tests/interaction-driver.test.mjs:62-66（normalizeDecision 缺省）、:169-183（act 端到端）
+      unit_tested: true
+    - id: AP-03
+      name: cancelled
+      trigger: 'decision: cancelled'
+      code_ref: src/kinds/interaction.ts:37（词汇表）+ :93-101（校验通过即可注册）
+      observable: 'approvalOutcome === ''cancelled'''
+      tested_by: []
+      unit_tested: false
+      note: '词汇表里有、driver 原样透传，但**没有任何测试或场景覆盖**——属于声明了却无人走的路。'
+    - id: AP-04
+      name: unavailable（作为**声明值**）
+      trigger: 'decision: unavailable'
+      code_ref: src/kinds/interaction.ts:37
+      observable: 'approvalOutcome === ''unavailable''（与 DP-03 的兜底值同形，来源不同）'
+      tested_by: []
+      unit_tested: false
+      note: >
+        与 DP-03 的兜底 `unavailable` **取值相同、来源不同**：这里是答者主动给的，
+        DP-03 是没人答时的 fail-closed 兜底。测试里只覆盖了后者（L185-192），
+        所以拿 `unavailable` 当断言目标时**无法区分**"答者给了 unavailable"与"没人答"。
+    - id: AP-05
+      name: 缺省决策（未声明 decision）
+      trigger: 'setup.interaction.approval 只写 reason / 什么都不写'
+      code_ref: src/kinds/interaction.ts:94
+      observable: 'normalizeDecision 返回 rejected'
+      tested_by: tests/interaction-driver.test.mjs:62-66
+      unit_tested: true
+    - id: AP-06
+      name: 非法决策被拦下（带词汇表的错误）
+      trigger: 'decision: ''yes'' 等不在词汇表里的值'
+      code_ref: src/kinds/interaction.ts:95-101
+      observable: '抛 Error，消息含「必须是：allowed-once | rejected | cancelled | unavailable」'
+      tested_by: tests/interaction-driver.test.mjs:69-74（normalizeDecision 直测）、:128-134（setup 期在**注册前**拦下）
+      unit_tested: true
+      guard_value: >
+        解析期拦下而不是让 DSH 把非法值归一化成 unavailable（interaction.ts:92）——
+        "写错了"与"没人答"必须可区分。
+
+# ---------------------------------------------------------------- Q. 提问应答形状 --
+question_paths:
+  source: src/kinds/interaction.ts:40-51（Spec）+ :70-90（buildAnswer）
+  paths:
+    - id: QP-01
+      name: answer 简写
+      trigger: 'question: { answer: ''选项 A'' }'
+      code_ref: src/kinds/interaction.ts:77-81
+      observable: 'answers[i].selected === [''选项 A'']'
+      tested_by: tests/interaction-driver.test.mjs:27-31、:136-154
+      unit_tested: true
+    - id: QP-02
+      name: select 显式数组（优先于 answer）
+      trigger: 'question: { answer: ''x'', select: [''A'', ''B''] }'
+      code_ref: src/kinds/interaction.ts:77-78
+      observable: 'answers[i].selected === [''A'', ''B'']（select 覆盖 answer）'
+      tested_by: tests/interaction-driver.test.mjs:32-36
+      unit_tested: true
+    - id: QP-03
+      name: answers 完全显式（原样透传）
+      trigger: 'question: { answers: [{ id, selected, custom }] }'
+      code_ref: src/kinds/interaction.ts:74
+      observable: '返回值逐字段等于声明的 answers（不再读 request.questions）'
+      tested_by: tests/interaction-driver.test.mjs:37-42
+      unit_tested: true
+    - id: QP-04
+      name: 未给任何选中项
+      trigger: 'question: {} 或 { custom: ''…'' }（无 answer / select / answers）'
+      code_ref: src/kinds/interaction.ts:77-81
+      observable: 'selected === []（空数组，不崩、不猜）'
+      tested_by: []
+      unit_tested: false
+      note: '唯一一条"空选中"路径，无测试覆盖。custom-only 的场景会静默走到这里。'
+    - id: QP-05
+      name: custom 自定义回答
+      trigger: 'question: { custom: ''我自己写的'' }'
+      code_ref: src/kinds/interaction.ts:87
+      observable: '答案对象带 custom 字段'
+      tested_by: tests/interaction-driver.test.mjs:56-61
+      unit_tested: true
+    - id: QP-06
+      name: 多问题 / 问题缺 id 回落 q1..qN
+      trigger: 'request.questions 多于一条，或某条没有 id'
+      code_ref: src/kinds/interaction.ts:84-88
+      observable: 'answers 与 questions 等长；缺 id 的回落为 `q${index+1}`'
+      tested_by: tests/interaction-driver.test.mjs:43-50
+      unit_tested: true
+    - id: QP-07
+      name: request 里没有 questions
+      trigger: '答者收到 { } 或缺 questions'
+      code_ref: src/kinds/interaction.ts:76
+      observable: 'answers === []（不崩）'
+      tested_by: tests/interaction-driver.test.mjs:51-55
+      unit_tested: true
+      # ── Lead 裁决 1（2026-10-11，采纳 spec-kinds 方案 A）：**保留在分母**，标不可表达 ──
+      expressible: false
+      spec_observable_covered: false
+      unreachable_reason:
+        summary: '**场景不可达**（属交互面，但 `given` 写不出来）——单测可达。'
+        why_1: >
+          `buildAnswer` 的 else 分支（interaction.ts:76 的 `Array.isArray(request?.questions) ? request.questions : []`）
+          确实存在于实现里。
+        why_2: >
+          但 act 构造的 request **恒有 1 个 question**（interaction.ts:178-191 写死
+          `questions: [{ id: 'testkit-q1', … }]`），而 act 是 `user-questions/request` 的**唯一触发点**
+          ⇒ 该 else 分支在测试台**不可达**。
+        why_3: '只有"真实宿主以空 questions 调该事件"时才可达——那是宿主的自由度，不是场景作者的。'
+        declared_in: 'spec/behaviors/kinds/interaction.md:205-211（-001 边界与已知缺陷 #5）'
+      previous_reading_preserved: 'unit_tested: true（原判成立且未变）；本条原先**没有** expressible 字段（当时整表默认可表达）'
+
+# ---------------------------------------------------------------- D. 降级 / 能力 / 防御路径 --
+degradation_paths:
+  paths:
+    - id: DP-01
+      name: 提问超时（答者故意不答）
+      trigger: 'question: { timeout: true }'
+      code_ref: src/kinds/interaction.ts:136-140（抛错）+ :105（标记常量）
+      observable: '抛 Error(TESTKIT_QUESTION_TIMEOUT)，error.code = ''ASK_TIMED_OUT''；act 捕获后记为 questionError；answer 缺省'
+      tested_by: tests/interaction-driver.test.mjs:156-167
+      unit_tested: true
+    - id: DP-02
+      name: 提问无答者（next 兜底抛错）
+      trigger: 'act 触发了 user-questions/request，但没有任何 listener（未调 setup 或已 release）'
+      code_ref: src/kinds/interaction.ts:200-204
+      observable: 'next 抛 Error(TESTKIT_NO_ANSWERER)，被 act 捕获进 questionError'
+      tested_by: []
+      unit_tested: false
+      note: >
+        DSH 的语义是「答者缺席 → fail closed 成 unavailable」；本 driver 刻意换成显式错误，
+        以便自检时区分"没人答"与"答错了"（interaction.ts:197-199）。
+        **这条路径无测试**：`TESTKIT_NO_ANSWERER` 在 tests/ 与 cases/ 里零出现。
+    - id: DP-03
+      name: 审批无答者（fail closed 兜底）
+      trigger: 'act 触发 approval/request 但没有 listener'
+      code_ref: src/kinds/interaction.ts:228-230
+      observable: 'outcome === ''unavailable''（与 DSH 的 fail-closed 语义一致）'
+      tested_by: tests/interaction-driver.test.mjs:185-192（对照组）、:203-213（release 后重新生效）
+      unit_tested: true
+    - id: DP-04
+      name: 宿主缺 userQuestions → 如实跳过
+      trigger: 'setup.interaction.question 存在但宿主无 userQuestions 能力'
+      code_ref: src/kinds/interaction.ts:120-122（setup）+ :175-177（act 再防一次）
+      observable: '抛 SkipCase(「宿主不具备 userQuestions 能力…」) ⇒ 场景 skipped，不是 failed'
+      tested_by: tests/interaction-driver.test.mjs:108-115
+      unit_tested: true
+      runtime_evidence: 'docs/ROADMAP.md:60-61 记录了真实 headless profile 下的这条读数'
+    - id: DP-05
+      name: approval-only 场景不因缺 userQuestions 而跳过
+      trigger: 'setup 只写 approval，宿主无 userQuestions'
+      code_ref: src/kinds/interaction.ts:110-113（**刻意不静态声明 requires**）
+      observable: '场景正常跑，不 skip'
+      tested_by: tests/interaction-driver.test.mjs:116-123（并把 plannedDecision 记为 allowed-once）、:215-217（断言不静态声明 requires）
+      unit_tested: true
+      spec_observable_covered: true
+      spec_observable_covered_at: '2026-10-11 task-19 → spec/behaviors/kinds/interaction.md:156-159（-002 observable #9）'
+      design_note: >
+        这是 requires 的**一般规则**的一个反例：静态 requires 会让 approval-only 场景被误判成"缺能力"。
+        故 interaction driver 的 requires 为空数组，能力判定放在分支内。
+    - id: DP-07
+      name: release 后答者被摘掉 → 兜底值重新生效
+      trigger: 'fixture.release() 之后再次触发'
+      code_ref: src/kinds/interaction.ts:144,160（ctx.fixture.add 登记 disposer）
+      observable: 'question 侧重新抛 TESTKIT_NO_ANSWERER；approval 侧重新返回 unavailable'
+      tested_by: tests/interaction-driver.test.mjs:203-213
+      unit_tested: true
+      # ── Lead 裁决 1（2026-10-11，采纳 spec-kinds 方案 A）：**保留在分母**，标不可表达 ──
+      expressible: false
+      spec_observable_covered: false
+      unreachable_reason:
+        summary: '**场景不可达**（属审批/交互面，但构造不出对应的 given）——单测可达。'
+        why_1: >
+          DSL 里唯一的提前释放入口是 `step.cleanup.releaseNotes`，它按**取证键**从 notes 取资源句柄
+          （src/isolation/cleanup.ts:87-108 的 `stepResourceOf(fixture.getNote(key))`）。
+        why_2: >
+          本 driver 的两个 disposer 走 `fixture.add('interaction:question' | 'interaction:approval', …)`
+          （interaction.ts:144,160）——**label 不进 notes，也没有任何 note 键指向它们** ⇒ `releaseNotes` 是 no-op。
+        why_3: >
+          更上游：全仓**没有任何 driver 调用** `registerStepDisposer`（isolation/cleanup.ts:60 定义、
+          runner.ts:19,775 消费、src/kinds/** 零调用），裸函数路径 `fixture.note(key, fn)` 也零使用。
+        declared_in: 'spec/behaviors/kinds/interaction.md:266-279（-002 边界与已知缺陷 #5）'
+        framework_finding: >
+          ⚠️ 这条同时暴露一条**框架级偏差**（不属本文件写权限，Lead 2026-10-11 已记下并另派任务）：
+          docs/SCENARIO-SPEC.md:342-356 向场景作者承诺 `releaseNotes` 会"在本步结束后释放对应 disposer"，
+          但当前实现对**全部 12 个 driver** 都不生效；且 cleanup.ts:58 的"找不到不报错"是**静默**的，
+          没有任何测试会红。**DP-07 只是它的第一个受害者。**
+      previous_reading_preserved: 'unit_tested: true（原判成立且未变）；本条原先**没有** expressible 字段（当时整表默认可表达）'
+
+# ---------------------------------------------------------------- 移出分母的路径（分母变化必须可见） --
+removed_from_denominator:
+  note: >
+    这里**不是**"删掉一条路径"，而是"它从来就不该在分母里"。按 Lead 裁决（2026-10-11）：
+    **分母错要改定义；可达性缺口要留在清单里被看见**——两者性质不同，混在一起报出来的数字没有意义。
+  entries:
+    - id: DP-06
+      name: 非 interaction 动作 → 显式报错
+      was_counted: true
+      previous_denominator: 20
+      new_denominator: 19
+      removed_at: '2026-10-11（Lead 裁决 1）'
+      reclassification: '不属审批面（分母错），不是可达性缺口'
+      why: >
+        `interaction.ts:166-170` 的动作类型守卫是**每个 driver 都有一份**的通用输入校验
+        （`tool.ts:442-446`、`llm.ts:195-199`、`session.ts:283-287`、`file.ts:166-170` 同款），
+        它不承载任何交互/审批语义——把其中一份计入 B5 分母是机械展开的产物。
+      still_facts_preserved:
+        code_ref: src/kinds/interaction.ts:166-170
+        observable: '抛 Error(「interaction driver 只支持 `interaction` 动作，收到：…」)'
+        tested_by: tests/interaction-driver.test.mjs:194-201
+        unit_tested: true
+      same_family_never_counted:
+        id: 'interaction.ts:241'
+        text: '"interaction 动作必须包含 question 或 approval"'
+        note: '同族守卫，**本来就没进分母**——两条现在都不在分母里，口径一致。'
+      declared_in: 'spec/behaviors/kinds/interaction.md:212-218（沿革原文）'
+      history_quote_from_spec: >
+        「沿革：它曾计入分母（原值 **20**），2026-10-11 因"不属审批面"移出（→ **19**）；
+        **原值在此保留，分母变化必须可见**。」
+
+# ---------------------------------------------------------------- 场景面（真实 DSH 里的 3 条） --
+scenario_surface:
+  runtime_evidence: '$NODE $REPO/bin/dsh-testkit.mjs doctor → interaction 行：场景 3 / active 3 / 会跳过「否」'
+  cases:
+    - { id: TK-0008, claim: '审批返回声明决策，而不是兜底的 unavailable', path: AP-02, ref: README.md:149 }
+  note: 'cases/ 下 interaction kind 共 3 条；其余两条见 cases/index.yaml 的 kind: interaction 行。'
+
+# ---------------------------------------------------------------- B5 覆盖读数（不宣称 100%） --
+b5_coverage:
+  metric: 'B5 审批路径覆盖 = spec 覆盖的交互/审批路径数 / 声明的路径总数（docs/REWRITE-METRICS.md §3 L85；阶段 0 门槛 100%，§15 L316）'
+  denominator: 19
+  denominator_history:
+    - { value: 20, from: '2026-10-11 阶段0-C（task-3）', until: '2026-10-11 阶段0-J（task-10）', note: '四组路径声明（审批词汇 6 / 提问 7 / 降级 7）' }
+    - { value: 19, from: '2026-10-11（Lead 裁决 1，task-22 落）', note: 'DP-06 因**不属审批面**移出（分母错 ⇒ 改定义）；见 removed_from_denominator' }
+  denominator_note: >
+    分母不随 observable 数量变化：**19** 是**声明的路径**（审批结果词汇 / 决策管道 / 提问应答形状 / 降级防御 四组，减去 DP-06）。
+    沿革照抄 `spec/behaviors/kinds/interaction.md:212-218`：
+    「`DP-06`（非 interaction 动作 → 显式报错）不是交互/审批路径（2026-10-11 裁决：出 B5 分母）：
+    `interaction.ts:166-170` 的动作类型守卫是**每个 driver 都有一份**的通用输入校验（`tool.ts:442-446`、`llm.ts:195-199`、`session.ts:283-287`、`file.ts:166-170` 同款），
+    它不承载任何交互/审批语义——把其中一份计入 B5 分母是机械展开的产物。
+    沿革：它曾计入分母（原值 **20**），2026-10-11 因"不属审批面"移出（→ **19**）；**原值在此保留，分母变化必须可见**。」
+  denominator_cross_check:
+    numerator_should_not_double_count: 'DP-06 同时从**分子**消失（它原本是 observable 已覆盖、单测已覆盖的）⇒ 读数不是"分子不变分母变小"，而是**两边各减 1**。'
+  display: >
+    **B5（spec observable，名义口径）= 17/19 ≈ 89.5%**（task-22 / 2026-10-11 刷新）；
+    **单测辅助 = 15/19 ≈ 78.9%**（旧分母下为 16/20 —— 分母变了，读数必须重算，不能沿用）；
+    **声明可表达性 = 17/19 ≈ 89.5%**（19 − QP-07 − DP-07，两条**场景不可达**）。
+    **三条都不宣称 100%**（Lead 2026-10-11 口径：宁可报低，不许把不可覆盖项算进分子）。
+    ⚠️ 差的 2 条**补不了**（不是"还差 2 条没补"）：它们的触发条件在**场景面**不存在，原因已逐条写在 `unreachable_paths` 里。
+  reading_history:
+    note: '读数纪律：口径变化必须可见，**旧读数保留、不覆盖**（Lead 2026-10-11 授权口径）。'
+    entries:
+      - { at: '2026-10-11 阶段0-C（task-3）', denominator: 20, spec_observable: '12/20 = 60%', unit_test: '16/20 = 80%', expressibility: '20/20（当时未察觉不可达）', note: 'observable 总计 12 条（001 7 条 + 002 5 条）' }
+      - { at: '2026-10-11 阶段0-E（task-5）', denominator: 20, spec_observable: '12/20 = 60%', unit_test: '16/20 = 80%', expressibility: '20/20（当时未察觉不可达）', note: '补了 B5 三行口径与 4 条缺口的逐条分类；spec 侧未变' }
+      - { at: '2026-10-11 阶段0-J（task-10）', denominator: 20, spec_observable: '14/20 = 70%', unit_test: '16/20 = 80%', expressibility: '20/20（当时未察觉不可达）', note: 'task-6 把 002 的 observable 由 5 条扩到 8 条 ⇒ 分子 +2（AP-03、AP-04）' }
+      - { at: '2026-10-11 阶段0/N（task-22，本条为当前读数）', denominator: 19, spec_observable: '17/19 ≈ 89.5%', unit_test: '15/19 ≈ 78.9%', expressibility: '17/19 ≈ 89.5%', note: 'task-19 把 observable 由 15 条扩到 18 条（+QP-04、+QP-05、+DP-05）⇒ 分子 +3；同时 DP-06 出分母（20 → 19）；QP-07 / DP-07 判定为**场景不可达** ⇒ 可表达性由 20/20 降为 17/19' }
+  spec_observable_covered:
+    count: 17
+    ratio: '17/19 ≈ 89.5%'
+    source: spec/behaviors/kinds/interaction.md revision 3 的两条原子（BEH-KIND-INTERACTION-001 **9 条** + BEH-KIND-INTERACTION-002 **9 条** = **18 条** observable）
+    recompute:
+      - 'node C:/Users/19059/AppData/Local/Temp/tk-enum/b5-check.mjs $REPO   # 机械复算：observable 条目数 / mapping 覆盖的 id / 缺口集合 / 三口径读数（本节的每个数字都由它产出）'
+      - 'Select-String -Path $REPO/spec/behaviors/kinds/interaction.md -Pattern "^\s+- given:" | Measure-Object | % Count   # = 18（observable 条目数）'
+      - 'Select-String -Path $REPO/spec/behaviors/kinds/interaction.md -Pattern "^\s+verdict:\s" | Measure-Object | % Count   # = 20；减去 2 条落在每份原子的 equivalence 块后 = 18'
+    observed_2026_10_11: |
+      interaction.md observable 条目: given=18 verdict=20 equivalence块内的verdict=2 ⇒ observable=18
+      声明的路径 id: 19
+      mapping 覆盖到的 id: 17 → AP-01..AP-06, DP-01..DP-05, QP-01..QP-06
+      缺口: 2 → DP-07, QP-07（**两条都是 expressible: false，补不了**）
+      B5（spec observable 口径）= 17/19 ≈ 89.5%
+      B5（单测辅助口径）        = 15/19 ≈ 78.9%
+      B5（声明可表达性）        = 17/19 ≈ 89.5%
+      RESULT: OK
+    verify_note: >
+      18 = 9（001）+ 9（002）。分子 17 不是 18：002 的 #6（区分规则）**不新增**路径 id
+      ——它是 AP-04 / DP-03 两条已有路径的**区分规则**；另有 #8（approval 请求形状）落在 DP-03 上。
+      分母 19 不是 20：DP-06 移出（见 removed_from_denominator）。
+    mapping_alignment:
+      aligned_at: '2026-10-11（task-10 首次按内容对齐；task-22 随 revision 3 扩充）'
+      method: '**按内容对齐，不按序号**（序号会随修订漂移，内容与 fx 键才是契约）。'
+      what_changed_task22: >
+        revision 3 把 001 的 observable 由 7 → 9、002 由 8 → 9。新增的三条按**内容**对齐：
+        001 #8（空选中 → `selected: []`）→ **QP-04**；001 #9（custom）→ **QP-05**；
+        002 #9（approval-only 不因缺 userQuestions 跳过）→ **DP-05**。原有条目行号整体下移，映射未变语义。
+      previous_what_changed: >
+        旧映射把 002 的 #4 与 #5 都指向 DP-03；task-6 把 #4 换成**声明值 unavailable**（AP-04）、
+        #5 才是**兜底**（DP-03），并新增 #6（区分规则）⇒ #4 → AP-04、#5 → DP-03、#6 → AP-04 + DP-03。
+      ordinal_caveat: >
+        ⚠️ 任务书引述的「#5 现在是声明值、#6 才是兜底」与文件当前实际序号**不一致**：
+        按 `interaction.md` 的 observable 顺序，**#4 = 声明值 unavailable（L128-131）、#5 = 兜底（L132-135）、#6 = 区分规则（L136-139）**；
+        spec-kinds 自己在文件正文 L234 也写「本轮已把规则写进 observable（第 5、6 条）」——即 5=兜底、6=规则，与本文件的读法一致。
+        本文件因此以**内容 + 行号**为准，序号仅作辅助；请勿用序号跨文件互相引用。
+    mapping:
+      'BEH-...-001 observable #1（L39-42）': [QP-01]
+      'BEH-...-001 observable #2（L43-46）': [QP-02, QP-06]
+      'BEH-...-001 observable #3（L47-50）': [QP-03]
+      'BEH-...-001 observable #4（L51-54）': [DP-01]
+      'BEH-...-001 observable #5（L55-58）': [DP-02]
+      'BEH-...-001 observable #6（L59-62）': [DP-04]
+      'BEH-...-001 observable #7（L63-66）': [DP-04]
+      'BEH-...-001 observable #8（L67-70）': [QP-04]
+      'BEH-...-001 observable #9（L71-74）': [QP-05]
+      'BEH-...-002 observable #1（L124-127）': [AP-01]
+      'BEH-...-002 observable #2（L128-131）': [AP-02, AP-05]
+      'BEH-...-002 observable #3（L132-135）': [AP-03]
+      'BEH-...-002 observable #4（L136-139）': [AP-04]
+      'BEH-...-002 observable #5（L140-143）': [DP-03]
+      'BEH-...-002 observable #6（L144-147）': [AP-04, DP-03]
+      'BEH-...-002 observable #7（L148-151）': [AP-06]
+      'BEH-...-002 observable #8（L152-155）': [DP-03]
+      'BEH-...-002 observable #9（L156-159）': [DP-05]
+    mapping_row_count_note: '18 行映射 = 18 条 observable；覆盖到的**路径 id** 是 17 个（两条 observable 复用同一条路径的既有 id）。'
+  missing_spec_observable:
+    count: 2
+    paths: [QP-07, DP-07]
+    expressible: false
+    previous_readings_preserved:
+      - '8 条（含 AP-03、AP-04）——2026-10-11 阶段0-C/E 读数'
+      - '6 条（[QP-04, QP-05, QP-07, DP-05, DP-06, DP-07]）——2026-10-11 阶段0-J（task-10）读数'
+    delta: >
+      6 → 2：QP-04 / QP-05 / DP-05 已由 task-19 补成 observable（⇒ 进分子）；
+      DP-06 移出**分母**（不属审批面，见 removed_from_denominator）；
+      余下 QP-07 / DP-07 判定为**场景不可达**（Lead 裁决 1：保留在分母 + 标 `expressible: false`）。
+    not_a_shortfall: >
+      ⚠️ **不要把 17/19 报成"还差 2 条没补"**：差的那 2 条**补不了**。
+      spec-kinds 这次没有为凑分子而硬补 observable——它补了 3 条、判定 2 条不可达，并**逐条给出源码行号**。
+      原因写在 `unreachable_paths` 与两条路径各自的 `unreachable_reason` 里（分母错与分子缺必须分清）。
+  unit_test_covered:
+    count: 15
+    ratio: '15/19 ≈ 78.9%'
+    previous_reading_preserved: '16/20 = 80%（2026-10-11 阶段0-C 起；分母为 20 时）'
+    denominator_change_effect: '16/20 与 15/19 是**同一批测试覆盖**在两个分母下的读数：DP-06（原本**已**被单测覆盖）随分母一起移出 ⇒ 分子分母各减 1。'
+    source: tests/interaction-driver.test.mjs（**18 个用例**，本轮复跑确认：`tests 18 / pass 18 / fail 0`）
+    recompute:
+      - 'cd $REPO && $NODE --test tests/interaction-driver.test.mjs   # tests 18 / pass 18 / fail 0（2026-10-11 task-22 复跑）'
+      - 'Select-String -Path $REPO/tests/interaction-driver.test.mjs -Pattern "^test\(" | Measure-Object | % Count   # = 18'
+    rerun_2026_10_11: '**已复跑，不是沿用旧值**：18/18 pass；测试文件未变（LastWriteTime 2026/10/10 0:08:44）。单测覆盖集合未变，变的是分母。'
+    false_positive_warning: >
+      ⚠️ 复算"`decision: cancelled` 是否被覆盖"时**不要**用全目录 grep：
+      `Select-String -Path $REPO/tests -Include *.mjs -Recurse -Pattern "cancelled"` 现在有 **2 处命中**，
+      但两处都在 `tests/rpc.test.mjs:314,316`（阶段 1 的任务状态机），**与 interaction 的 approval 决策无关**。
+      必须限定到 `tests/interaction-driver.test.mjs`。
+  expressibility_covered:
+    count: 17
+    ratio: '17/19 ≈ 89.5%'
+    previous_reading_preserved: '20/20（"全部路径都可用场景声明触发"）——2026-10-11 阶段0-J（task-10）读数，**该读数已被证伪**'
+    falsified_by: 'Lead 裁决 2（2026-10-11）：至少 2 条不可达（QP-07、DP-07）⇒ 20/20 不成立。'
+    unreachable: [QP-07, DP-07]
+    note: >
+      这不是"覆盖"意义上的数字，而是"可达性"意义上的：它回答"B5 的缺口是不是可补的"。
+      本轮答案是 **17 可补 / 2 不可补**——所以三项读数必须并列出现（防止把可达性当成覆盖，也防止把不可达当成没补）。
+    reading_rule: '降级必须可见：本条**不删旧读数**，而是把 20/20 与 17/19 并列。'
+  missing_unit_test:
+    count: 4
+    paths: [QP-04, AP-03, AP-04, DP-02]
+    denominator_note: '这 4 条在 **19** 的分母下不变（DP-06 原先是**已覆盖**的，它随分母一起移出 ⇒ 分子分母各减 1）。因此单测读数从 16/20 变为 15/19，覆盖集合**未变**。'
+    classification_note: >
+      任务书要求逐条判定「既有实现无法表达」还是「缺测试」。
+      **实测结论：4 条全部是「缺测试」，没有一条是「无法表达」。**
+      **task-22 更新**：这 4 条的 **spec observable 现在全部已补齐**
+      （task-6 补 AP-03 / AP-04 / DP-02；task-19 补 QP-04）⇒ 它们**全部**从"双缺"变成"仅测试缺"，
+      没有一条留在"spec 与测试双缺"。
+      这也是"名义口径 89.5%"与"辅助口径 78.9%"分叉的原因：spec 侧补齐了这些路径的判定条目，测试侧**一条都没补**。
+      ⚠️ 这 4 条是**可补的**（有 `test_landing`）；与此并列，`unreachable_paths` 里的 2 条是**补不了的**——两者不可混为一谈。
+    entries:
+      - id: QP-04
+        gap_kind: 缺测试（spec observable 已闭合）
+        expressible: true
+        observable_covered: true
+        observable_covered_at: '2026-10-11 task-19 → spec/behaviors/kinds/interaction.md:67-70（-001 observable #8）'
+        observable_keys: 'question: {} 时 fx.answer.answers[i].selected is []（空选中，不崩）'
+        observable_status: '已补（task-19）。原读数"仍缺 —— 正文有文字描述但无可判定条目"保留在 previous_reading_preserved 里。'
+        previous_reading_preserved: 'missing_also = "spec observable 未列这一档（正文 L163 有"否则 []"的文字描述，但没有可判定条目）"（2026-10-11 阶段0-E → 阶段0-J；已过期，保留）'
+        why_expressible: '`question: {}` 是合法声明：`buildAnswer` 在 `spec.answer === undefined` 时走 `selected: []`（src/kinds/interaction.ts:77-81）。'
+        test_landing: 'tests/interaction-driver.test.mjs 的 buildAnswer 段（现 L27-61）加一条 `buildAnswer(undefined, {})` → `{ answers: [] }`，并在 act 段断言 `fx.answer.answers[0].selected is []`。'
+        still_missing: '**单测仍缺**（spec/behaviors/kinds/interaction.md:296-297 也确认：spec 与测试**双缺**，task-19 只补了 spec 侧）⇒ 本条仍在 missing_unit_test 里。'
+      - id: AP-03
+        gap_kind: 缺测试（spec observable 已闭合）
+        expressible: true
+        observable_covered: true
+        observable_covered_at: '2026-10-11 task-6 → spec/behaviors/kinds/interaction.md:124-127（-002 observable #3）'
+        observable_keys: 'fx.approvalOutcome is cancelled；fx.plannedDecision is cancelled；fx.approvalCount is 1；fx.approvals length is 1'
+        previous_reading_preserved: 'missing_also = "spec observable 未列"（2026-10-11 阶段0-E 读数，已过期，保留）'
+        why_expressible: '`normalizeDecision` 接受 `APPROVAL_OUTCOMES` 全部 4 个值并原样返回（src/kinds/interaction.ts:93-101）；setup 的 listener 直接 `return decision`（:151-159）。'
+        proof: expressibility_proofs.AP-03
+        test_landing: 'tests/interaction-driver.test.mjs 的 normalizeDecision 段（现 L62-74）+ approval act 段（现 L169-183）各加一条 `decision: cancelled` 用例，可照抄 TK-9003 的形状。'
+      - id: AP-04
+        gap_kind: 缺测试（spec observable 已闭合）
+        expressible: true
+        observable_covered: true
+        observable_covered_at: '2026-10-11 task-6 → spec/behaviors/kinds/interaction.md:128-131（-002 observable #4，**声明值**）'
+        observable_keys: 'fx.approvalOutcome is unavailable；且 fx.plannedDecision is unavailable、fx.approvalCount is 1、fx.approvals length is 1（三键俱在）'
+        previous_reading_preserved: 'missing_also = "spec observable 未列"（2026-10-11 阶段0-E 读数，已过期，保留）'
+        why_expressible: '同上（`unavailable` 也在 `APPROVAL_OUTCOMES` 里）。'
+        proof: expressibility_proofs.AP-04
+        test_landing: '同 AP-03 的两处，并**必须**同时断言 `fx.plannedDecision is unavailable` + `fx.approvalCount is 1`（这两条才是与 DP-03 的分界）。'
+      - id: DP-02
+        gap_kind: 缺测试
+        expressible: true
+        observable_covered: true
+        observable_covered_at: '早于 task-6 即已存在 → spec/behaviors/kinds/interaction.md:55-58（-001 observable #5）'
+        previous_reading_preserved: 'missing_also = "本条是 4 条里唯一 spec 已声明、纯缺测试的"（2026-10-11 阶段0-E；task-6 后不再唯一，保留原判）'
+        why_expressible: 'waterfall 的 next 兜底是既有实现（src/kinds/interaction.ts:200-204）。'
+        test_landing: 'tests/interaction-driver.test.mjs 的 act 段，参照 L185-192 的 approval 对照组写法做 question 的对照组（不调 setup → 断言 `fx.questionError` 含 `TESTKIT_NO_ANSWERER`）。'
+
+# ---------------------------------------------------------------- 不可达路径（分母里保留，因为"补不了"必须被看见） --
+unreachable_paths:
+  ruling: >
+    **Lead 裁决 1（2026-10-11，采纳 spec-kinds 方案 A）：保留在分母 + 标 `expressible: false`。**
+    不选方案 B（出分母）的理由：这两条与 `DP-06` **性质不同**——
+    - `DP-06` 是**分母错**（它不属审批面 ⇒ 改定义，移出）；
+    - 这两条是**可达性缺口**（属审批/交互面，但场景不可达 ⇒ 留在清单里被看见）。
+    **出分母会把"有两条路径没有场景可达性"这件事从读数上抹掉；分母错要改定义，可达性缺口要留在清单里被看见——两者混在一起报出来的数字没有意义。**
+  entries:
+    - id: QP-07
+      expressible: false
+      single_test_reachable: true
+      single_test_evidence: 'tests/interaction-driver.test.mjs:51-55（`buildAnswer(undefined, {})` 直测纯函数）'
+      source_level_reason:
+        - 'buildAnswer 的 else 分支存在：`interaction.ts:76`（`Array.isArray(request?.questions) ? request.questions : []`）'
+        - '但 act 构造的 request **恒有 1 个 question**：`interaction.ts:178-191` 写死 `questions: [{ id: ''testkit-q1'', … }]`'
+        - '而 act 是 `user-questions/request` 的**唯一触发点** ⇒ 该 else 分支在测试台不可达'
+      why_no_given: '触发条件只存在于"真实宿主以空 questions 调该事件"，那是宿主的自由度，不是场景作者的 ⇒ **`given` 写不出来**。'
+      declared_in: 'spec/behaviors/kinds/interaction.md:205-211'
+    - id: DP-07
+      expressible: false
+      single_test_reachable: true
+      single_test_evidence: 'tests/interaction-driver.test.mjs:203-213（直接调 `fixture.release()`）'
+      source_level_reason:
+        - '需要"答者已释放、但场景继续跑"；DSL 里唯一的提前释放入口是 `step.cleanup.releaseNotes`'
+        - '`releaseNotes` 按**取证键**从 notes 取资源句柄：`src/isolation/cleanup.ts:87-108` 的 `stepResourceOf(fixture.getNote(key))`'
+        - '本 driver 的 disposer 走 `fixture.add(...)`（`interaction.ts:144,160`）——**label 不进 notes，也没有任何 note 键指向它们** ⇒ no-op（`cleanup.ts:58`："找不到不报错，只是这一步拆不掉，等场景结束"）'
+        - '更上游：**全仓没有任何 driver 调用** `registerStepDisposer`（`isolation/cleanup.ts:60` 定义、`runner.ts:19,775` 消费、`src/kinds/**` 零调用），裸函数路径 `fixture.note(key, fn)` 也零使用'
+      declared_in: 'spec/behaviors/kinds/interaction.md:266-279'
+      framework_finding: >
+        ⚠️ 这条同时是一条**框架级偏差**（Lead 已单独记录并另派任务，**本文件不处理**）：
+        `docs/SCENARIO-SPEC.md:342-356` 承诺 `releaseNotes` 会"在本步结束后释放对应 disposer"，
+        但对**全部 12 个 driver** 都不生效，且 `cleanup.ts:58` 的"找不到不报错"是**静默**的（没有测试会红）。
+        **DP-07 只是它的第一个受害者。**
+  reporting_rule: >
+    ⚠️ 报告 B5 时必须写成「17/19，其中 2 条**场景不可达**（QP-07 / DP-07，补不了）」，
+    **不要**写成"还差 2 条没补"——前者是可达性事实，后者会让人以为有人欠着活。
+  cross_ref: 'expressibility_proofs（那 17 条里 2 条的实跑证明）+ b5_coverage.expressibility_covered'
+
+# ---------------------------------------------------------------- 表达性实证（外部临时场景，不写入仓库） --
+expressibility_proofs:
+  note: '全部用 %TEMP% 下的临时场景实跑（**不写入仓库**）；命令与 2026-10-11 读数列在下面。'
+  command: '$NODE $REPO/bin/dsh-testkit.mjs run --cases <TEMP>/tk-exit/cases --only <TK-9xxx> --out <TEMP>/tk-exit/outN'
+  AP-03:
+    scenario: '<TEMP>/tk-exit/cases/TK-9003.yaml（setup.interaction.approval.decision: cancelled）'
+    observed: 'verdict=passed；notes.plannedDecision="cancelled"、notes.approvalCount=1、notes.approvalOutcome="cancelled"'
+    conclusion: '`cancelled` **可以**用场景声明表达，且真的被回显——不是只能靠"答者缺席"间接出现。'
+  AP-04:
+    scenario: '<TEMP>/tk-exit/cases/TK-9004.yaml（decision: unavailable）'
+    observed: 'verdict=passed；notes.plannedDecision="unavailable"、notes.approvalCount=1、notes.approvals=[{index:1,toolName:"bash"}]、notes.approvalOutcome="unavailable"'
+    conclusion: '`unavailable` 作为**声明值**可以表达，且与 DP-03 的兜底在 fx 上可区分。'
+  open_subtree_side_note: '同批还实跑了 TK-9002（断言对象带未声明键）与 TK-9005（答者缺席兜底），证据分别用于 reconcile-fields.yaml 的开放子树纪律与本节的 DP-03 对照。'
+
+# ---------------------------------------------------------------- 取证可区分性（提出 → 自我修正 → 已闭合，三段全留） --
+forensics_distinguishability:
+  pair: [AP-04（答者给出 unavailable）, DP-03（答者缺席兜底）]
+  same_value: '两者的 `cases[].notes.approvalOutcome` 都是字符串 "unavailable"。'
+  # ── 这条链子本身就是重构资产：三段状态全部保留，不抹掉中间态 ──
+  chain:
+    - stage: 1. 提出（2026-10-11 阶段0-C / task-3）
+      who: spec-contracts
+      reading: '「AP-04 与 DP-03 产出同一字符串，阶段 2 对拍无法区分」'
+      preserved_in: '本条目的 `my_previous_reading.text` 与 drift DRIFT-AP-2 的原文'
+      verdict: 过强（当时未做对照实跑）
+    - stage: 2. 自我修正（2026-10-11 阶段0-E / task-5）
+      who: spec-contracts
+      reading: '「可区分，靠 fx.plannedDecision / fx.approvalCount / fx.approvals 的**键存在性**；真正的缺口是这条规则未被 observable 声明」'
+      evidence: distinguishing_evidence（TK-9004 vs TK-9005 实跑）
+      verdict: 准确，但缺口仍未闭合
+    - stage: 3. 闭合（2026-10-11 阶段0-J / task-10）
+      who: spec-kinds（task-6 修订）+ spec-contracts（本节刷新读数）
+      closure_point: 'spec/behaviors/kinds/interaction.md:136-139（BEH-KIND-INTERACTION-002 observable #6「区分规则本身」）+ :205-215 的三键对照表 + :230-235 的沿革说明'
+      reading: '规则已被声明为**可判定条目**：声明值路径断言三键俱在、兜底路径断言三键 exists 均为 false'
+      verdict: 已闭合
+  my_previous_reading:
+    text: '任务 3（阶段 0-C）时我记录为「阶段 2 对拍无法区分这两条路径」。'
+    status: '**已按实测修正（2026-10-11 阶段0-E）**：该判断只在"只看 approvalOutcome"时成立，说过头了。原文按读数纪律保留。'
+  distinguishing_evidence:
+    declared_AP-04: 'notes = { plannedDecision: "unavailable", approvalCount: 1, approvals: [{index:1,toolName:"bash"}], approvalRequest, approvalOutcome: "unavailable" }'
+    fallback_DP-03: 'notes = { approvalRequest, approvalOutcome: "unavailable" }（**没有** plannedDecision / approvalCount / approvals）'
+    conclusion: '`fx.plannedDecision` / `fx.approvalCount` / `fx.approvals` 三个键的存在性即可机械区分。'
+  residual_gap:
+    status: '已闭合（closed 2026-10-11 阶段0-J）'
+    original_status_preserved: '真实缺口（降级后）' 
+    original_detail_preserved: >
+      真正缺的不是"可区分性"，而是**区分规则没有被声明**：spec/behaviors/kinds/interaction.md 的 observable
+      里没有一条把"plannedDecision / approvalCount 的存在性"写成判定条件，于是只看 approvalOutcome 的读者与
+      对拍器会把两条路径误判成同一条。
+    closed_by: 'task-6（spec-kinds）把规则写成 observable #6（interaction.md:136-139）；task-10 本条据此刷新为已闭合。'
+    residual_carryover: >
+      规则已声明 ≠ 已机械执行。阶段 2 的对拍器仍必须**按这条规则实现**（读三键存在性），
+      否则"规则存在但没人用"会重演同一个缺口；已在 report 侧建议把该规则列为对拍器的实现要求。
+  ruling_sync:
+    note: '本条状态变化不触碰 reconcile-fields.yaml 的 R-A3-1..4（那些是 A3/开放子树的裁决，与审批路径无关）；本文件的 `ruling` / `status` 字段已按本轮刷新同步。'
+
+# ---------------------------------------------------------------- 跨文件矛盾（需 Lead 裁决） --
+cross_file_contradiction:
+  id: CONFLICT-AP-1
+  severity: high
+  claim_in_spec:
+    file: spec/behaviors/kinds/interaction.md
+    lines: '190-192'
+    text: >
+      「四条审批词汇里有两条没有声明式入口：`InteractionApprovalSpec.decision` 实际只被用于
+      `allowed-once` / `rejected`；`cancelled` / `unavailable` 只能通过"答者缺席"的兜底间接出现
+      （源码 28-30 行承认"另外两个留给真实路径"）。因此 B5「审批路径覆盖 100%」在旧实现上
+      **无法用场景声明**表达全部四条路径。」
+  reality:
+    detail: >
+      该结论被实跑证伪：`decision: cancelled` 与 `decision: unavailable` 都能用场景声明写出，
+      而且真的被原样回显（TK-9003 / TK-9004 均 passed，notes.plannedDecision 等于声明值）。
+      源码 28-30 行的注释说的是"本 driver 只产出前两个为代表"，那是**注释的取舍说明**，
+      不是能力限制——`normalizeDecision` 接受全部 4 个值，listener 无条件返回它。
+    evidence: ['spec/behaviors/kinds/interaction.md:190-192', 'src/kinds/interaction.ts:37,93-101,151-159', 'expressibility_proofs.AP-03', 'expressibility_proofs.AP-04']
+  impact: >
+    影响 B5 的**可达性结论**：若按该 spec 的说法，B5 在旧实现上"最多只能到 2/4"，那会变成一条
+    "设计不可达"的结论；实际是 4/4 全部可表达，B5 不达标的真实原因只是**缺测试 + 缺 observable**（可补）。
+  suggested_action: '由 spec/behaviors/kinds/interaction.md 的持有者修订 L190-192，并在 BEH-KIND-INTERACTION-002 的 observable 里补 cancelled / unavailable 两条可判定条目（含 fx 区分规则）。'
+  not_modified_because: 'spec/behaviors/** 不在本次写权限内。'
+  # ── 本轮（task-10）刷新：矛盾已被 spec-kinds 在 task-6 自行修订并**保留为沿革记录** ──
+  status: '已闭合（closed 2026-10-11 阶段0-J）'
+  closure:
+    closed_at: '2026-10-11'
+    closed_by: 'spec-kinds（task-6 修订 interaction.md）'
+    closure_point: 'spec/behaviors/kinds/interaction.md:219-229 —— 原结论被保留为「【沿革记录】…已被实跑证伪（CONFLICT-AP-1，2026-10-11）」，并写明错误来源（把驱动头注释误读为实现约束）与纠错原则（注释与代码冲突时以代码 + 实跑为准）'
+    claim_text_now: '原 L190-192 的论断已不在正文里以"结论"形态存在；正文改为「四条词汇都能用场景声明」（:200-203）+ 证据链（:200-203 的 interaction.ts 行号链）'
+    original_claim_preserved: '上面的 `claim_in_spec.text` 原样保留原文（不删），便于追溯"当时到底写了什么"'
+    cross_ref: 'spec-kinds 的沿革记录明确点名引用了本文件的 `expressibility_proofs` —— 这构成"契约读数 ←→ 行为规格"的双向可追溯'
+    residual: 'B5 仍不达标（14/20 = 70%），但原因已从"设计不可达（最多 2/4）"纠正为"缺测试 + 部分缺 observable（可补）"——这才是准确的可行动结论。'
+
+# ---------------------------------------------------------------- 漂移 --
+drift:
+  - id: DRIFT-AP-1
+    severity: medium
+    kind: 声明词汇存在但零覆盖
+    detail: >
+      APPROVAL_OUTCOMES 声明 4 个值，但 `cancelled`（AP-03）与作为**声明值**的 `unavailable`（AP-04）
+      在 tests/ 与 cases/ 里都没有任何覆盖。B5 若按"词汇表成员数"算分母会得到 4/4 = 100%，
+      实际只有 2 个决策值被真正走过。
+    evidence: [src/kinds/interaction.ts:37, tests/interaction-driver.test.mjs（全文无 cancelled）]
+    recompute: 'Select-String -Path $REPO/tests/interaction-driver.test.mjs -Pattern "cancelled"   # 无命中（**必须限定到这个文件**，理由见下方 scoping_warning）'
+    scoping_warning: >
+      ⚠️ 复算时**不要**用全目录 grep：`Select-String -Path $REPO/tests -Include *.mjs -Recurse -Pattern "cancelled"`
+      在 2026-10-11 有 **2 处命中**，但两处都在 `tests/rpc.test.mjs:314,316`（阶段 1 的任务状态机 `state === ''cancelled''`），
+      **与 interaction 的 approval 决策无关**。这类"同名不同义"的命中会让你误判覆盖已达成——所以命令必须限定作用域。
+    updated_2026_10_11:
+      status: '部分闭合（spec 侧已闭合，tests 侧仍缺）'
+      detail: >
+        task-6 之后，`cancelled` 与**声明值** `unavailable` 在 spec/behaviors/kinds/interaction.md 的 observable 里
+        各自成条（:124-127 / :128-131），所以"声明词汇零覆盖"在 **spec 侧**已不成立；
+        **tests/ 侧仍未变**（`cancelled` 在 tests/ 全文零命中），故原读数与 recompute 命令继续有效。
+      preserved: '上面的原 detail 与 recompute 一字未改——它们描述的是 tests/ 侧的读数，仍然成立。'
+  - id: DRIFT-AP-2
+    severity: medium
+    kind: 两条降级路径无覆盖且取值可混淆
+    detail: >
+      DP-02（提问无答者 → TESTKIT_NO_ANSWERER）零覆盖：`TESTKIT_NO_ANSWERER` 在 tests/ 与 cases/ 里零出现。
+      更麻烦的是 AP-04 与 DP-03 都产出字符串 `unavailable`——靠断言值无法区分"答者给了 unavailable"
+      与"没人答"；阶段 2 对拍时这两个路径的取证会看起来一模一样。
+    evidence:
+      - src/kinds/interaction.ts:200-204（TESTKIT_NO_ANSWERER）
+      - src/kinds/interaction.ts:228-230（兜底 ''unavailable''）
+      - src/kinds/interaction.ts:37（词汇表里的 unavailable）
+    recompute: 'Select-String -Path $REPO/tests,$REPO/cases -Include *.mjs,*.yaml -Recurse -Pattern "TESTKIT_NO_ANSWERER"   # 无命中'
+    # 读数纪律：上面的原文（含"靠断言值无法区分…看起来一模一样"）**原样保留**，不因为后来的实测而改写。
+    corrected_2026_10_11:
+      correction: >
+        前半句（DP-02 零覆盖）**成立且仍成立**；后半句（AP-04 与 DP-03 无法区分）**说过头了**。
+        实测：两条路径在 fx 上可机械区分——`fx.plannedDecision` / `fx.approvalCount` / `fx.approvals`
+        只在"答者给出"时存在。原判断只在"只看 approvalOutcome"时成立。
+      evidence: approval-paths.yaml 的 forensics_distinguishability.distinguishing_evidence（TK-9004 vs TK-9005 实跑读数）
+      residual: '降级后仍是真的缺口：区分规则没有被 spec/behaviors/kinds/interaction.md 的 observable 声明。'
+      status: partially_superseded
+      residual_closed_2026_10_11:
+        closed_at: '2026-10-11 阶段0-J（task-10 刷新）'
+        closed_by: 'spec-kinds 的 task-6 修订'
+        closure_point: 'spec/behaviors/kinds/interaction.md:136-139（observable #6「区分规则本身」）+ :205-215（三键对照表）'
+        status_after: superseded（本条的两半都已处置：DP-02 的部分仍属"缺测试"，区分性的部分已闭合）
+        note: '中间态（partially_superseded）按读数纪律保留——它记录了"当时哪一半是错的、哪一半是对的"。'
+  - id: DRIFT-AP-3
+    severity: low
+    kind: 文档未覆盖全部路径
+    claim: docs/SCENARIO-SPEC.md:652 给出 decision 的 4 个值（完整）
+    reality: >
+      文档给出了**词汇**，但没有给出路径表：buildAnswer 的 4 种应答形状（answer / select / answers /
+      什么都不给）里，SCENARIO-SPEC 只演示了前三种；DP-07（release 后兜底重新生效）在文档里完全没有。
+    evidence: [docs/SCENARIO-SPEC.md:640-690, src/kinds/interaction.ts:70-90, src/kinds/interaction.ts:144,160]
+    updated_2026_10_11:
+      status: '部分闭合（spec 侧已闭合；SCENARIO-SPEC 仍缺）'
+      detail: >
+        "spec/behaviors 未覆盖全部路径"这一半已闭合：revision 3 的 observable 已覆盖 17/19 条路径，
+        余下 2 条是**场景不可达**（见 unreachable_paths），不是文档缺条目。
+        "docs/SCENARIO-SPEC 未给路径表"这一半**仍成立**：它至今只给词汇（:652 的四值）与三档取值优先级，
+        没有路径表，也没有 DP-07；而 DP-07 恰好又是 `releaseNotes` 静默 no-op 的受害者。
+      preserved: '上面的 reality / evidence 原样保留（描述的是 SCENARIO-SPEC 侧，仍然成立）。'
+      followup_owner: 'docs/SCENARIO-SPEC.md（不在本文件写权限内）'

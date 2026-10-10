@@ -1,0 +1,126 @@
+{
+  "generated_at": "2026-10-10T17:15:04.022Z",
+  "purpose": "判定口径（change_final，31 个文件）的全部历史读数汇总 + 逐条门槛判定",
+  "definition": "分母 = 设计 §1.2「变更」∪ 归属表显式加入者（tools.ts / commands.ts）− 显式移出者（kinds/types.ts）；裁决五（把 cli/index.ts 计入）已被 Lead 撤销",
+  "file_count": 31,
+  "threshold": 80,
+  "reading_count": 6,
+  "readings": [
+    {
+      "source": "coverage-final-repeat.json",
+      "label": "change_final(--repeat-final)",
+      "branch": 81.14,
+      "line": 88.63,
+      "funcs": 86.27,
+      "rows": 31,
+      "test_exit_code": 0,
+      "wall_s": 50.8,
+      "measured_at": "2026-10-10T17:11:57.586Z",
+      "note": "来自 --repeat-final 复采"
+    },
+    {
+      "source": "coverage-change-scope-run4.log",
+      "label": "change_final",
+      "branch": 81.25,
+      "line": 88.65,
+      "funcs": 86.27,
+      "rows": 31,
+      "test_exit_code": 0,
+      "wall_s": 48.2,
+      "note": "来自完整运行的 stdout"
+    },
+    {
+      "source": "coverage-change-scope-run1.log",
+      "label": "change_final",
+      "branch": 81.33,
+      "line": 88.69,
+      "funcs": 86.27,
+      "rows": 31,
+      "test_exit_code": 0,
+      "wall_s": 55.4,
+      "note": "来自完整运行的 stdout"
+    },
+    {
+      "source": "coverage-change-scope-run3.log",
+      "label": "change_without_ruling5",
+      "branch": 81.33,
+      "line": 88.69,
+      "funcs": 86.27,
+      "rows": 31,
+      "test_exit_code": 0,
+      "wall_s": 56.6,
+      "note": "来自完整运行的 stdout"
+    },
+    {
+      "source": "coverage-change-scope-run2.log",
+      "label": "change_final",
+      "branch": 81.36,
+      "line": 88.69,
+      "funcs": 86.27,
+      "rows": 31,
+      "test_exit_code": 0,
+      "wall_s": 47.1,
+      "note": "来自完整运行的 stdout"
+    },
+    {
+      "source": "coverage-final-repeat.json",
+      "label": "change_final(--repeat-final)",
+      "branch": 81.4,
+      "line": 88.69,
+      "funcs": 86.27,
+      "rows": 31,
+      "test_exit_code": 0,
+      "wall_s": 47.4,
+      "measured_at": "2026-10-10T17:12:45.213Z",
+      "note": "来自 --repeat-final 复采"
+    }
+  ],
+  "statistics": {
+    "min": 81.14,
+    "median": 81.33,
+    "max": 81.4,
+    "range_pp": 0.26,
+    "mean": 81.302
+  },
+  "verdict_per_reading": [
+    {
+      "source": "coverage-final-repeat.json",
+      "label": "change_final(--repeat-final)",
+      "branch": 81.14,
+      "pass": true
+    },
+    {
+      "source": "coverage-change-scope-run4.log",
+      "label": "change_final",
+      "branch": 81.25,
+      "pass": true
+    },
+    {
+      "source": "coverage-change-scope-run1.log",
+      "label": "change_final",
+      "branch": 81.33,
+      "pass": true
+    },
+    {
+      "source": "coverage-change-scope-run3.log",
+      "label": "change_without_ruling5",
+      "branch": 81.33,
+      "pass": true
+    },
+    {
+      "source": "coverage-change-scope-run2.log",
+      "label": "change_final",
+      "branch": 81.36,
+      "pass": true
+    },
+    {
+      "source": "coverage-final-repeat.json",
+      "label": "change_final(--repeat-final)",
+      "branch": 81.4,
+      "pass": true
+    }
+  ],
+  "all_readings_pass": true,
+  "margin_of_weakest_reading_pp": 1.14,
+  "discipline_note": "REWRITE-METRICS §18 给覆盖率工具的误差门槛是 ≤0.1%（百分点量级）。本口径 5 次读数的聚合极差已达到 0.26pp——**超过该门槛**。这是\"读数必须在多处重采后才可下判定\"的直接证据（不是结论，是给裁决者的输入）。"
+}
