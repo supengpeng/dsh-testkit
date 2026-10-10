@@ -1,0 +1,22 @@
+# 行尾统一为 LF。
+#
+# 为什么必须显式声明：Windows 上 Git for Windows 默认 `core.autocrlf=true`，
+# checkout 出来的文件是 CRLF。而 `bin/dsh-testkit.mjs` 的第一行是 shebang——
+# `#!/usr/bin/env node\r` 在 POSIX 上会被解析成"解释器名带 \r"，
+# 直接执行报 `bad interpreter`（npm 安装的 shim 也可能因此不可用）。
+#
+# 这类问题在 Windows 本地看不出来（我们从来不直接执行那个文件，
+# 都是 `node bin/dsh-testkit.mjs`），却在 GitHub 的 windows-latest 上把测试打红——
+# 而且它同时是一个**真实的发包缺陷**：装到 Linux/macOS 上就是坏的。
+#
+# `text=auto` 让 git 自己识别二进制（不会去改 png/zip 这类文件的行尾）。
+* text=auto eol=lf
+
+# 明确按二进制处理（不做行尾转换、不做 diff）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.tgz binary
+*.zip binary

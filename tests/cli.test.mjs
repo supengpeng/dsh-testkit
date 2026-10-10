@@ -81,7 +81,13 @@ test('bin 形态：shebang、入口映射、且 node 能直接执行它', (t) =>
   assert.ok(existsSync(BIN), `bin 必须存在：${BIN}`)
 
   const source = readFileSync(BIN, 'utf8')
-  assert.equal(source.split('\n')[0], '#!/usr/bin/env node', '第一行必须是 shebang（否则 npm 的 shim 不认）')
+  // 比较前去掉 `\r`：行尾由 `.gitattributes`（`eol=lf`）保证，但断言不该依赖
+  // checkout 时的 autocrlf 设置——那会让"文件其实是对的"在 Windows 上假红。
+  assert.equal(
+    source.split('\n')[0].replace(/\r$/, ''),
+    '#!/usr/bin/env node',
+    '第一行必须是 shebang（否则 npm 的 shim 不认）',
+  )
   assert.ok(source.length > 100, 'bin 不该是空壳')
 
   assert.equal(pkg.bin?.['dsh-testkit'], './bin/dsh-testkit.mjs', 'package.json 的 bin 必须指向它')

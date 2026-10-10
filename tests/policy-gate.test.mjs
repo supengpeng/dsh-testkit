@@ -22,7 +22,7 @@
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { test } from 'node:test'
 
 import { SCENARIO_KINDS } from '../lib/cases/types.js'
@@ -440,8 +440,12 @@ test('沙箱：allowShell / denyWriteCommands / allowFileWrite 是显式开关�
   const readOnly = resolvePolicy({ sandbox: { allowFileWrite: false } })
   assert.match(checkSandboxAction({ fs: { write: { path: 'a.txt', text: 'x' } } }, readOnly.sandbox), /allowFileWrite=false/)
   assert.equal(checkSandboxAction({ fs: { read: { path: 'a.txt' } } }, readOnly.sandbox), undefined, '只读动作不受写权限限制')
+  // 用 `resolve()` 生成**本平台**的绝对路径：早先这里硬写 `D:\secret\x.txt`，
+  // 在 Linux/macOS 上它不是绝对路径，`allowedPaths` 根本不适用 → 断言拿到 undefined。
+  const outsidePath = resolve('/secret/x.txt')
+  const allowedRoot = resolve('/work')
   assert.match(
-    checkSandboxAction({ file: { read: 'D:\\secret\\x.txt' } }, resolvePolicy({ sandbox: { allowedPaths: ['D:\\work'] } }).sandbox),
+    checkSandboxAction({ file: { read: outsidePath } }, resolvePolicy({ sandbox: { allowedPaths: [allowedRoot] } }).sandbox),
     /allowedPaths/,
   )
 

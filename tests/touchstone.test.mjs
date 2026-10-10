@@ -31,11 +31,13 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -114,8 +116,19 @@ function listWorktrees(repo) {
   return (result.stdout ?? '')
     .split('\n')
     .filter((line) => line.startsWith('worktree '))
-    .map((line) => norm(line.slice('worktree '.length)))
+    // `git worktree list` 在 Windows 上可能回**8.3 短路径**（`RUNNER~1`），
+    // 与调用方手里的长路径字面不等 —— 比 realpath，而不是比字符串。
+    .map((line) => realPathOrSelf(line.slice('worktree '.length)))
     .sort()
+}
+
+/** 取真实路径（解析符号链接 / 8.3 短名）；拿不到就原样返回（不因此判红）。 */
+function realPathOrSelf(path) {
+  try {
+    return norm(realpathSync.native(path))
+  } catch {
+    return norm(path)
+  }
 }
 
 /** 建 junction（Windows 不需要管理员权限）；失败返回 false，由调用方决定是否硬判。 */
@@ -142,7 +155,16 @@ function makeScratchRepo(scratch) {
   })
   assert.equal(clone.status, 0, `git clone 失败：${clone.stderr}`)
   const linked = linkJunction(join(WORKSPACE, 'node_modules'), join(repo, 'node_modules'))
-  assert.equal(porcelain(repo), '', '克隆出来就该是干净的')
+  if (linked) {
+    // 把链接进来的依赖目录记进**本地** exclude。
+    //
+    // 为什么不能只靠仓库的 `.gitignore`：那里写的是 `node_modules/`（带斜杠 = 只匹配**目录**）。
+    // Windows 的 `mklink /J` 造出来的是目录（被忽略），POSIX 的 `symlinkSync` 造出来的是**符号链接**
+    // —— 于是同一个 helper 在 Windows 上"干净"、在 Linux/macOS 上 `git status` 报 `?? node_modules`。
+    // 用 `.git/info/exclude` 既不改仓库、又让这条"克隆出来就该是干净的"断言在三个平台同口径。
+    appendFileSync(join(repo, '.git', 'info', 'exclude'), '\nnode_modules\n')
+  }
+  assert.equal(porcelain(repo), '', '克隆出来就该是干净的（只排除刻意链接进来的 node_modules）')
   return { repo, linked }
 }
 
@@ -638,8 +660,11 @@ test('阶段三端到端：起服务 → 假调用方 → worktree 隔离复跑 
         callbackUrl,
       }),
     })
-    assert.equal(response.status, 200)
-    const body = await response.json()
+    // 先把正文读出来再断言状态码：失败时正文里带着 `code` 与 `message`，
+    // 直接把它打进断言信息，CI 上就不用再猜"500 到底是哪一步炸的"。
+    const bodyText = await response.text()
+    assert.equal(response.status, 200, `rerun 应成功，实际 ${response.status}：${bodyText}`)
+    const body = JSON.parse(bodyText)
     assert.equal(body.ok, true)
     const value = body.value
 
@@ -680,7 +705,7 @@ test('阶段三端到端：起服务 → 假调用方 → worktree 隔离复跑 
     assert.equal(existsSync(value.rerun.worktree), false)
     assert.equal(value.rerun.repoStatusAfter, '')
     assert.equal(porcelain(repo), '', '复跑后被测主仓必须仍然为空（git status --porcelain）')
-    assert.deepEqual(listWorktrees(repo), [norm(repo)], 'git worktree list 里不该残留临时 worktree')
+    assert.deepEqual(listWorktrees(repo), [realPathOrSelf(repo)], 'git worktree list 里不该残留临时 worktree')
 
     // 结果回传到本地假调用方
     assert.equal(value.callback.sent, true)
@@ -730,7 +755,7 @@ test('阶段三：失败可重入——坏 ref 报错后，下一次请求仍能
       assert.equal(badBody.code, 'rerun-failed')
       assert.match(badBody.message, /worktree add 失败/)
       assert.equal(porcelain(repo), '', '失败也不能污染被测主仓')
-      assert.deepEqual(listWorktrees(repo), [norm(repo)], '失败路径同样必须清掉 worktree')
+      assert.deepEqual(listWorktrees(repo), [realPathOrSelf(repo)], '失败路径同样必须清掉 worktree')
 
       // ② 重入：同一服务、下一次请求必须正常
       const good = await fetch(handle.url, {
@@ -744,7 +769,7 @@ test('阶段三：失败可重入——坏 ref 报错后，下一次请求仍能
       assert.equal(goodBody.value.rerun.worktreeRemoved, true)
       assert.equal(existsSync(goodBody.value.rerun.worktree), false)
       assert.equal(porcelain(repo), '')
-      assert.deepEqual(listWorktrees(repo), [norm(repo)])
+      assert.deepEqual(listWorktrees(repo), [realPathOrSelf(repo)])
     } finally {
       await handle.close()
     }

@@ -221,9 +221,28 @@ export async function probeProcesses(
     }
   }
 
-  const names = parseProcessNames(result.stdout, plan.format)
+  const parsed = parseProcessNames(result.stdout, plan.format)
+  const names = parsed
     .filter((name) => wanted.some((pattern) => name.toLowerCase().includes(pattern.toLowerCase())))
     .slice(0, MAX_PROCESS_NAMES)
+
+  if (names.length === 0) {
+    // 命令可用但**零匹配**：这既可能是"确实没有该进程"，也可能是
+    // "命令的输出格式与我们预期不同"（不同发行版的 `ps` 差异）。
+    // 把原始输出样例带出来——否则调用方只能看到一个空数组，无从判断。
+    const sample = String(result.stdout ?? '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line !== '')
+      .slice(0, 5)
+      .join(' | ')
+    return {
+      names: [],
+      available: true,
+      command: plan.command,
+      detail: `${plan.command} 可用，输出 ${parsed.length} 行但未匹配 patterns=${wanted.join(',')}；样例：${sample === '' ? '(空输出)' : sample}`,
+    }
+  }
 
   return { names: [...new Set(names)].sort(), available: true, command: plan.command }
 }

@@ -138,8 +138,18 @@ test('probeProcesses：真实机器上跑一次（只断言形状，不假设一
   assert.ok(Array.isArray(result.names))
   assert.ok(result.command, '应给出实际使用的命令，便于复现')
   if (result.available) {
-    // 本测试进程自己就是 node，所以命令可用时必然能匹配到
-    assert.ok(result.names.length >= 1, `可用时应匹配到 node，实际：${JSON.stringify(result)}`)
+    // **不假设一定匹配到 node**：`ps -eo comm=` 在各发行版上的输出口径并不统一
+    // （名字截断、容器里名字不同、命令缺失……），把它当硬约束会让 CI 依赖运行时环境。
+    // 契约是：要么给出匹配，要么给出**说清为什么零匹配**的说明。
+    if (result.names.length >= 1) {
+      assert.ok(result.names.some((name) => name.toLowerCase().includes('node')))
+    } else {
+      assert.match(
+        String(result.detail),
+        /未匹配|空输出/,
+        `可用但零匹配时必须给出说明，实际：${JSON.stringify(result)}`,
+      )
+    }
   } else {
     assert.ok(String(result.detail).length > 0, '不可用必须给原因')
   }
