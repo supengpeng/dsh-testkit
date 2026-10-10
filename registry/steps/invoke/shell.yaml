@@ -1,0 +1,34 @@
+# invoke/shell —— 跑一条外部命令并取证（需要 subprocess 能力）
+#
+# ⚠️ 用它的场景 `kind` 必须是 `shell`（或 `setup` 里出现 `shell` 键）：
+# runner 的能力判定只合并「主 kind + setup 键」的 requires，
+# 否则 `subprocess` 不会被算进来，无 subprocess 的宿主上会 errored 而不是 skipped。
+#
+# 用法：
+#   steps:
+#     - use: invoke/shell
+#       with: { argv: [git, --version] }
+#
+# `{argv}` 是整串占位：数组原样替换，不做任何字符串拼接——
+# 片段层刻意不发明 shell 语法（argv 数组 = 不经 shell 解析，无注入面）。
+name: invoke/shell
+version: "1"
+description: 跑一条外部命令，并断言它真的被启动（不是 spawn 失败）
+params:
+  type: object
+  properties:
+    argv:
+      type: array
+      description: 命令与参数数组（与 subprocess.spawn 一致，不经 shell 解析）
+  required: [argv]
+  additionalProperties: false
+dependencies: []
+cost: low
+sandbox:
+  mode: workspace-write
+act:
+  shell:
+    argv: "{argv}"
+expect:
+  - ref: fx.spawnError
+    exists: false

@@ -143,7 +143,9 @@ test('act：真实产物被加载并注册了 conversation.view', async () => {
   await uiDriver.act(ctx, { ui: { load: true } })
 
   assert.equal(ctx.fixture.getNote('uiBundleExists'), true)
-  assert.equal(ctx.fixture.getNote('uiModuleId'), 'dsh-testkit')
+  // 模块 id = npm 包名（现在已改 scoped）；插件身份（uiName）仍是产品名 dsh-testkit。
+  // 两者的区别与理由写在 cases/TK-0015.yaml 与 scripts/build-client.mjs 的注释里。
+  assert.equal(ctx.fixture.getNote('uiModuleId'), '@supengpeng/dsh-testkit')
   assert.equal(ctx.fixture.getNote('uiName'), 'dsh-testkit')
   assert.equal(ctx.fixture.getNote('uiHasApply'), true)
   assert.equal(ctx.fixture.getNote('uiError'), undefined)

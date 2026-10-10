@@ -52,10 +52,29 @@ test('env 可注入（进报告溯源）', async () => {
   }
 })
 
-test('dispose 可重复调用且不抛错', async () => {
+// ⚠️ 这条测试曾经是「靠什么都没做才通过」：它只调两次 dispose() 且不抛错，
+// 而当时的 dispose() 判的是 `ctx.dispose`——cordis 4 的 Context 根本没有这个方法，
+// 于是整条路径是静默 no-op。现在改成**能失败**的形式：必须看到 effect 真的被清理。
+test('dispose：真卸载（effect 被清理、能力探测随之变空）且可重复调用幂等', async () => {
   const headless = await createHeadlessHost()
+  let cleaned = 0
+  // effect 是"宿主侧注册"的统一形态（工具/命令/路由/bridge 都经它登记），
+  // 所以"effect 有没有被跑掉"就是"宿主管不管得住自己的注册"。
+  headless.ctx.effect(() => () => {
+    cleaned += 1
+  })
+  assert.equal(headless.host.capabilities.has('tools'), true)
+
   await headless.dispose()
+  assert.equal(
+    cleaned,
+    1,
+    'dispose 必须真的执行 effect cleanup（回归：曾判 ctx.dispose，而 cordis 4 的卸载入口是 ctx.fiber.dispose）',
+  )
+  assert.equal(headless.host.capabilities.has('tools'), false, '卸载后服务不该还可见')
+
   await headless.dispose()
+  assert.equal(cleaned, 1, '重复 dispose 必须幂等，不得重复清理')
 })
 
 /* ------------------------------------------------------------------ tools -- */

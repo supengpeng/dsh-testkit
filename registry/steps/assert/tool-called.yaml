@@ -1,0 +1,35 @@
+# assert/tool-called —— 断言某个工具确实被调用过
+#
+# 用法：
+#   steps:
+#     - use: invoke/tool
+#       with: { tool: probe }
+#     - use: assert/tool-called
+#       with: { tool: probe, times: 1 }
+#
+# `dependencies` 只用于校验（存在性 + 无环），**不是**隐式调用：
+# 片段永远不能 use 别的 step（无环硬约束），跨步数据一律走 fx.* 显式引用。
+name: assert/tool-called
+version: "1"
+description: 断言最后一次工具调用落在指定工具上，且调用次数不少于 times
+params:
+  type: object
+  properties:
+    tool:
+      type: string
+      description: 期望被调用的工具名
+    times:
+      type: integer
+      description: 至少被调用几次
+      default: 1
+  required: [tool]
+  additionalProperties: false
+dependencies: [invoke/tool]
+cost: none
+sandbox:
+  mode: read-only
+expect:
+  - ref: fx.lastResult.name
+    is: "{tool}"
+  - ref: fx.callCount
+    atLeast: "{times}"

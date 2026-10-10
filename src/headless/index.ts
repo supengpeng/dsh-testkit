@@ -86,6 +86,15 @@ export interface HeadlessHost {
 interface CordisContextLike {
   provide(name: string, value: unknown): void
   waterfall(...args: unknown[]): unknown
+  /**
+   * 真正的卸载入口：cordis 4 里 `dispose` 挂在 **fiber** 上，`Context` 本身没有。
+   *
+   * 实测（cordis 4.0.4 发行体 `lib/index.js`）：
+   *   `typeof ctx.dispose === 'undefined'`，`typeof ctx.fiber.dispose === 'function'`；
+   *   `await ctx.fiber.dispose()` 会跑掉该 fiber 的全部 effect cleanup 且幂等。
+   */
+  fiber?: { dispose?: () => unknown }
+  /** 旧版/其它宿主可能把卸载方法直接挂在 ctx 上——仅作兜底。 */
   dispose?(): unknown
 }
 
@@ -152,6 +161,25 @@ export async function createHeadlessHost(
     ctx,
     services: { tools, commands, systemPrompt, web, webServer, llm, userQuestions, approval },
     async dispose() {
+      // ⚠️ 回归记录（原实现判 `ctx.dispose`，而 cordis 4 的 Context **没有** dispose）：
+      // 那时这里是一个**静默 no-op**——headless 宿主上的 effect 注册永不回收，
+      // 而"dispose 可重复调用不抛错"那条测试是**因为什么都没做**才通过的。
+      // 真正的卸载入口是 fiber（见 CordisContextLike.fiber 的注释）。
+      //
+      // 属性读也包 try：cordis 的 Context 是 Proxy，未注入的服务名会抛
+      // `cannot get property "X" without inject`；理论上 `fiber` 是混合成员，
+      // 但"宿主形状不同"不该让 dispose 变成抛错而不是卸载。
+      let fiber: { dispose?: () => unknown } | undefined
+      try {
+        fiber = ctx.fiber
+      } catch {
+        fiber = undefined
+      }
+      if (typeof fiber?.dispose === 'function') {
+        await Promise.resolve(fiber.dispose())
+        return
+      }
+      // 兜底：极少数宿主/旧版把卸载方法挂在 ctx 上
       if (typeof ctx.dispose === 'function') await Promise.resolve(ctx.dispose())
     },
   }

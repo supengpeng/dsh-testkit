@@ -28,13 +28,21 @@
  * 这样"导出结果长什么样"可以被单测穷举，而不必真的写盘再读回来。
  */
 
-import { relative } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 
 import type { Scenario } from '../cases/types.js'
 
 export interface ExportOptions {
   /** 场景目录（写进生成文件的绝对路径，保证与文件位置无关）。 */
   casesDir: string
+  /**
+   * 夹具目录（写进生成文件的绝对路径）。
+   *
+   * **不传就等于 CI 轨不应用 `fixtures:`**——而插件面一定会应用。
+   * 那条分叉的后果是"插件里绿、CI 里红"（或反过来），所以导出链必须显式给。
+   * 缺省：`<casesDir>/../fixtures`（包内布局）。
+   */
+  fixturesDir?: string
   /** 从生成文件 import 本包 lib 的说明符；缺省 `'../lib/'`（导出文件位于包内 `export/`）。 */
   libSpecifier?: string
   /** 单条场景的超时（毫秒）。 */
@@ -102,6 +110,10 @@ import { after, test } from 'node:test'
 ${imports.join('\n')}
 
 const CASES_DIR = ${JSON.stringify(options.casesDir)}
+const FIXTURES_DIR = ${JSON.stringify(options.fixturesDir ?? join(dirname(options.casesDir), 'fixtures'))}
+// 宿主版本拿不到时传 'headless'：夹具的版本校验对"解析不出来的宿主"是**采用且不校验**
+// （见 src/fixtures/apply.ts 头注）。宁可跑，也不要因为版本号读不到就把夹具场景静默跳过。
+const DSH_VERSION = process.env.DSH_VERSION ?? 'headless'
 
 const registry = new CaseRegistry(CASES_DIR)
 registry.reload()
@@ -123,6 +135,9 @@ async function runScenario(id) {
     // 成本闸门：CI 轨也**显式**带默认策略（allowModel=false）。省略 policy = 不启用闸门，
     // 那是"眼下恰好没烧钱"；显式带上是"结构上不可能烧钱"。
     policy: resolvePolicy({}),
+    // 夹具：与插件面用**同一条**合并路径（runner 里调 applyScenarioFixtures）。
+    // 不写这里的话，"条件来自 fixtures:" 的场景在 CI 轨会裸跑 —— 插件绿、CI 红。
+    fixtures: { fixturesDir: FIXTURES_DIR, dshVersion: DSH_VERSION },
   })
   return { outcome: summary.cases[0], runId: summary.runId }
 }

@@ -16,7 +16,7 @@ import type { Context } from '@deepseek-ai/cordis'
 
 import { CaseRegistry } from './cases/registry.js'
 import { defineTestkitCommands } from './commands.js'
-import { policyDefaultsFromConfig, resolveConfig, type Config as ConfigShape } from './config.js'
+import { packageRoot, policyDefaultsFromConfig, resolveConfig, type Config as ConfigShape } from './config.js'
 import { createHostFacade } from './host-facade.js'
 import { BRIDGE_PREFIX, makeBridgeRoutes, type WebRouteLike } from './http.js'
 import { createDriverRegistry } from './kinds/index.js'
@@ -143,6 +143,10 @@ function applyInner(ctx: Context, config: ConfigShape): void {
         pipeline,
         // 成本闸门默认值（allowModel 默认 false）；工具面只能在此基础上收紧
         policyDefaults: () => policyDefaultsFromConfig(resolved),
+        fixturesDir: () => resolved.fixturesDirAbs,
+        registryDir: () => resolved.registryDirAbs,
+        parallelLimit: () => resolved.parallelLimit,
+        redact: () => resolved.redact,
       })
       for (const tool of tools) {
         installEffect(ctx, () => host.registerTool(tool), `dsh-testkit: tool ${tool.name}`, log)
@@ -167,6 +171,11 @@ function applyInner(ctx: Context, config: ConfigShape): void {
         reload,
         // 命令面可以用 --allow-model / --allow-low-cost 显式放权（人类发起）
         policyDefaults: () => policyDefaultsFromConfig(resolved),
+        fixturesDir: () => resolved.fixturesDirAbs,
+        registryDir: () => resolved.registryDirAbs,
+        templatesDir: () => resolved.templatesDirAbs,
+        parallelLimit: () => resolved.parallelLimit,
+        redact: () => resolved.redact,
       })
       for (const command of commands) {
         installEffect(
@@ -213,6 +222,9 @@ function applyInner(ctx: Context, config: ConfigShape): void {
       runsDir: () => resolved.runsDirAbs,
       defaultTimeoutMs: () => resolved.defaultTimeoutMs,
       policyDefaults: () => policyDefaultsFromConfig(resolved),
+      fixturesDir: () => resolved.fixturesDirAbs,
+      parallelLimit: () => resolved.parallelLimit,
+      redact: () => resolved.redact,
     })
     for (const route of routes) {
       installEffect(
@@ -243,6 +255,38 @@ function applyInner(ctx: Context, config: ConfigShape): void {
   }
   // ---- 场景目录热重载 ----
   if (resolved.watch) installWatcher(ctx, resolved.casesDirAbs, reload, log)
+
+  // ---- touchstone 回环（阶段三）----
+  //
+  // 只在配置里显式给了端口时启动（默认 0 = 不启用）：它是"本机两个工具之间"的通道，
+  // 不是对外服务——`startWebhook` 只监听 127.0.0.1。
+  if (resolved.webhookPort > 0) {
+    // `apply()` 是同步的，所以这里用 promise 链而不是 await（不能把 apply 变成 async：
+    // DSH 的插件加载器把 apply 的返回值当同步契约用）。
+    void import('./touchstone/webhook.js')
+      .then(({ startWebhook }) =>
+        startWebhook({
+          port: resolved.webhookPort,
+          repoDir: packageRoot,
+          casesDir: resolved.casesDirAbs,
+          libDir: join(packageRoot, 'lib'),
+          onFixComplete: (event) => {
+            const matched = event.selection?.caseIds.length ?? 0
+            const degraded = event.selection?.degraded
+            const outcome =
+              event.result === null ? (event.error ?? '未复跑') : `复跑 ${event.result.totals.total} 条`
+            log(
+              'info',
+              `touchstone 回环：受影响 ${matched} 条${degraded === undefined ? '' : `（退让：${degraded}）`}，${outcome}`,
+            )
+          },
+        }),
+      )
+      .then((handle) => log('info', `touchstone webhook 已监听 ${handle.url}（仅 127.0.0.1）`))
+      .catch((error: unknown) =>
+        log('warn', `touchstone webhook 启动失败（端口 ${resolved.webhookPort}）：${String(error)}`),
+      )
+  }
 }
 
 /**

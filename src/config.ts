@@ -11,6 +11,7 @@ import { isAbsolute, join, resolve } from 'node:path'
 import z from '@deepseek-ai/schemastery'
 
 import type { PolicyOptions } from './executor/policy.js'
+import { READ_ONLY_DENY_COMMANDS } from './executor/policy.js'
 
 /** 本插件包根（`lib/` 的上一级）。 */
 export const packageRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -40,6 +41,38 @@ export interface Config {
    * 才会变成 `cases/TK-XXXX.yaml`。
    */
   pipelineDir: string
+  /**
+   * 夹具目录；留空 = 包内 `fixtures/`。
+   *
+   * 与 `.fixtures/`（下载来的被测对象，git 忽略）**不是一回事**：
+   * 这里是**入库的、声明式的夹具**（`llm/timeout`、`tool/read-file-enoent`），
+   * 带 schema 版本、来源与 DSH 版本绑定——见 docs/SCENARIO-SPEC.md。
+   */
+  fixturesDir: string
+  /** step 片段注册表目录；留空 = 包内 `registry/`。 */
+  registryDir: string
+  /** 参数化模板目录；留空 = 包内 `templates/`。 */
+  templatesDir: string
+  /**
+   * 并发度上限；`1` = 串行（默认）。
+   *
+   * 只有显式声明 `parallel: safe` 的场景才会并发；`exclusive` 永远独占。
+   */
+  parallelLimit: number
+  /**
+   * 报告脱敏；默认 `false`。
+   *
+   * 打开后写盘前会过滤常见敏感字段（token / 私钥 / 邮箱 / 家目录路径）。
+   * 见 `src/report/redact.ts`——**默认关闭**是刻意的：脱敏会改变取证原文，
+   * 不该在没人要求时悄悄发生（但 secret 扫描是另一回事，它默认就查）。
+   */
+  redact: boolean
+  /**
+   * touchstone 回环 webhook 的监听端口；`0` = 不启用。
+   *
+   * 只监听 `127.0.0.1`：它是"本机两个工具之间"的通道，不是对外服务。
+   */
+  webhookPort: number
   /** 插件激活时是否立即加载场景。 */
   autoload: boolean
   /** 是否监听 casesDir 变化并热重载（Phase 1）。 */
@@ -84,7 +117,16 @@ export interface Config {
   sandboxAllowShell: boolean
   /** 沙箱：是否允许文件写入（`fs` 的 write / edit）；默认 `true`。 */
   sandboxAllowFileWrite: boolean
-  /** 沙箱：被拒的命令名（"默认只读"的实现手段之一）。空 = 不拒。 */
+  /**
+   * 沙箱：是否允许真实网络；默认 **`false`**（文档 §7.1：禁止场景执行任意网络请求）。
+   *
+   * 场景自带假 provider（`setup.resource`）时不触发这条——网络已被替身接管。
+   */
+  sandboxAllowNetwork: boolean
+  /**
+   * 沙箱：被拒的命令名（**默认 = 只读清单**，见 `src/executor/policy.ts` 的
+   * `READ_ONLY_DENY_COMMANDS`）——"shell 默认只读"就是这里生效的。
+   */
   sandboxDenyWriteCommands: string[]
   /** 单次运行的真实模型调用次数上限；`0` = 不限。 */
   maxModelCalls: number
@@ -97,6 +139,12 @@ export const Config: z<Config> = z.object({
   runsDir: z.string().default(''),
   exportDir: z.string().default(''),
   pipelineDir: z.string().default(''),
+  fixturesDir: z.string().default(''),
+  registryDir: z.string().default(''),
+  templatesDir: z.string().default(''),
+  parallelLimit: z.number().default(1),
+  redact: z.boolean().default(false),
+  webhookPort: z.number().default(0),
   autoload: z.boolean().default(true),
   watch: z.boolean().default(true),
   exposeTools: z.boolean().default(true),
@@ -110,7 +158,9 @@ export const Config: z<Config> = z.object({
   allowLowCost: z.boolean().default(true),
   sandboxAllowShell: z.boolean().default(true),
   sandboxAllowFileWrite: z.boolean().default(true),
-  sandboxDenyWriteCommands: z.array(z.string()).default([]),
+  sandboxAllowNetwork: z.boolean().default(false),
+  // 默认 = 只读清单：与 DEFAULT_POLICY 同源，避免"配置默认"与"库默认"两套口径
+  sandboxDenyWriteCommands: z.array(z.string()).default([...READ_ONLY_DENY_COMMANDS]),
   maxModelCalls: z.number().default(0),
   maxTokens: z.number().default(0),
 })
@@ -128,6 +178,15 @@ export function defaultExportDir(): string {
 export function defaultPipelineDir(): string {
   return join(packageRoot, 'pipeline')
 }
+export function defaultFixturesDir(): string {
+  return join(packageRoot, 'fixtures')
+}
+export function defaultRegistryDir(): string {
+  return join(packageRoot, 'registry')
+}
+export function defaultTemplatesDir(): string {
+  return join(packageRoot, 'templates')
+}
 
 /** 解析配置里的目录：相对路径按包根解析，空值走默认。 */
 export function resolveDir(configured: string, fallback: string): string {
@@ -142,6 +201,9 @@ export interface ResolvedConfig extends Config {
   runsDirAbs: string
   exportDirAbs: string
   pipelineDirAbs: string
+  fixturesDirAbs: string
+  registryDirAbs: string
+  templatesDirAbs: string
 }
 
 export function resolveConfig(config: Config): ResolvedConfig {
@@ -151,6 +213,9 @@ export function resolveConfig(config: Config): ResolvedConfig {
     runsDirAbs: resolveDir(config.runsDir, defaultRunsDir()),
     exportDirAbs: resolveDir(config.exportDir, defaultExportDir()),
     pipelineDirAbs: resolveDir(config.pipelineDir, defaultPipelineDir()),
+    fixturesDirAbs: resolveDir(config.fixturesDir, defaultFixturesDir()),
+    registryDirAbs: resolveDir(config.registryDir, defaultRegistryDir()),
+    templatesDirAbs: resolveDir(config.templatesDir, defaultTemplatesDir()),
   }
 }
 
@@ -177,6 +242,7 @@ export function policyDefaultsFromConfig(config: Config): PolicyOptions {
     sandbox: {
       allowShell: config.sandboxAllowShell,
       allowFileWrite: config.sandboxAllowFileWrite,
+      allowNetwork: config.sandboxAllowNetwork,
       denyWriteCommands: [...config.sandboxDenyWriteCommands],
     },
   }

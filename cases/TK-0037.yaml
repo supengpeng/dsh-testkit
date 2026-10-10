@@ -1,0 +1,49 @@
+# TK-0037 —— 组合场景（draft）：use: 片段拼出"工具抛错 + 错误断言"
+#
+# ⚠️ 这条是 **draft**，而且**不能直接跑**：它含 `use:` 步骤，必须先经
+# `expandScenario()` 展开成 flat 步骤（工具面/命令面负责，见 src/registry/expand.ts）。
+#
+# 为什么放 `cases/` 而不是 `cases-draft/`：本仓手写 draft 一直在 `cases/`
+# （TK-0027 / TK-0033 / TK-0035 先例），而 `cases-draft/` 是 `.gitignore` 的、
+# 可从 issue 再生成的暂存区——放手写产物既不会入库，也可能被重新生成冲掉。
+#
+# 它证明的是**步骤级组合**：三个片段（setup/no-session → invoke/tool → assert/error）
+# 拼出的 flat 步骤与手写等价场景在 headless 上给出完全一致的 verdict 与断言结果
+# （见 tests/registry.test.mjs 的等价性证明）。
+schema: 1
+id: TK-0037
+title: "组合：临时工具抛错后错误码可断言（use: 步骤级组合）"
+kind: tool
+severity: medium
+status: draft
+tags: [registry, composed, tool, registry:v1]
+
+source:
+  issue: null
+  summary: |
+    用 step registry 的 setup/no-session + invoke/tool + assert/error 片段组合出的场景；
+    等价于手写「注册抛错工具 → 调用 → 断言 fx.callError」。
+
+runtime:
+  requires: [tools]
+
+setup:
+  tool:
+    register:
+      name: probe_missing
+      description: 组合场景专用：一定抛错的工具
+      throws: ENOENT
+
+steps:
+  - id: arrange
+    name: 前置：本次运行不应绑定会话
+    use: setup/no-session
+    with: { settleMs: 0 }
+
+  - id: call
+    use: invoke/tool
+    with: { tool: probe_missing, args: {} }
+
+  - id: check
+    use: assert/error
+    with: { ref: fx.callError, pattern: ENOENT }

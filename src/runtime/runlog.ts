@@ -33,6 +33,26 @@ export interface UsageRecord {
   tokens: number
 }
 
+/** fixture 的加载取证（进报告：用了哪一份、来自哪里、为什么没用上）。 */
+export interface FixtureRef {
+  /** 名字，形如 `llm/timeout`。 */
+  name: string
+  /** 来源：`hand-written` | `record` | `generate`（取自 fixture 文件自身）。 */
+  source: string
+  /** fixture 声明的 DSH 版本范围。 */
+  dshVersion?: string
+  /** 没被采用时的原因（解析失败 / 版本不匹配）——采用时不写。 */
+  reason?: string
+}
+
+/** 清理取证：释放了什么、有没有残留（幂等 / 可重入的判据）。 */
+export interface CleanupRecord {
+  /** 已释放的取证键。 */
+  released: string[]
+  /** 场景结束后仍存在的残留（临时文件 / 进程 / 端口 / 会话）。 */
+  leftovers: string[]
+}
+
 export interface AssertionOutcome {
   assertion: Assertion
   ok: boolean
@@ -92,6 +112,12 @@ export interface CaseOutcome {
   usage?: UsageRecord
   /** 最小复现指引（见 `src/analysis/repro.ts`）。 */
   minimalRepro?: string
+  /** 负责人（来源 `scenario.owner`）；覆盖矩阵与 triage 按它路由。 */
+  owner?: string
+  /** 本场景引用的 fixture 及其采用情况。 */
+  fixtures?: FixtureRef[]
+  /** 清理与残留取证（见 `src/isolation/`）。 */
+  cleanup?: CleanupRecord
 }
 
 export interface RunTotals {
@@ -110,6 +136,41 @@ export interface PolicySnapshot {
   sandbox: Record<string, unknown>
 }
 
+/**
+ * 选择器取证（增量测试选择用）：说清"这次为什么只跑了这些"。
+ *
+ * 报告里必须能回答"我改了一行，为什么它一条都没跑"——所以把判定依据原样落盘。
+ */
+export interface SelectionRecord {
+  /** 选择模式：`all` | `changed` | `since` | `affected-by` | `dsh-version` | `explicit`。 */
+  mode: string
+  /** 人类可读的依据（例如 `git diff HEAD~1 → 3 个文件`）。 */
+  detail: string
+  /** 命中的场景 ID（增量模式下用于自证）。 */
+  matched: string[]
+}
+
+/** 执行方式取证（并发隔离用）：这次是串行还是并发、并发度多少。 */
+export interface ExecutionRecord {
+  parallel: 'off' | 'limited'
+  limit: number
+  /** 参与并发的场景数（显式声明 `parallel: safe` 的）。 */
+  safe: number
+  /** 强制独占的场景数。 */
+  exclusive: number
+}
+
+/**
+ * 脱敏取证（`--redact`）。
+ *
+ * **只记位置与类型，绝不记原文**——findings 里出现被脱敏的内容，
+ * 报告本身就又变成了泄露源。
+ */
+export interface RedactionRecord {
+  count: number
+  findings: Array<{ path: string; kind: string }>
+}
+
 export interface RunSummary {
   runId: string
   startedAt: string
@@ -121,6 +182,12 @@ export interface RunSummary {
   cases: CaseOutcome[]
   /** 本次运行的闸门快照；未启用闸门（纯库调用）时为 undefined。 */
   policySnapshot?: PolicySnapshot
+  /** 选择器取证（只在非 all 模式时写）。 */
+  selection?: SelectionRecord
+  /** 执行方式取证。 */
+  execution?: ExecutionRecord
+  /** 脱敏取证；未开启 `--redact` 或没命中时不写。 */
+  redaction?: RedactionRecord
 }
 
 export function emptyTotals(): RunTotals {

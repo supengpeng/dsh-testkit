@@ -1,0 +1,14 @@
+# llm/timeout —— 上游迟迟不响应（只产出开头，之后挂住）
+#
+# 用途：验证「模型流挂住」这条路径上的超时 / 取消语义。
+# 语义细节见 src/kinds/llm.ts 的 buildChunkPlan：timeout 模式刻意**不产出 finish**，
+# 消费方会一直等，直到场景超时或取消——所以引用它的场景必须自带 runtime.timeoutMs。
+$schema: 1
+name: llm/timeout
+dsh_version: ">=0.2.0-rc.2"
+source: hand-written
+data:
+  llm:
+    respond:
+      chunks: []
+    failMode: timeout

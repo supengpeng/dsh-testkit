@@ -41,6 +41,7 @@ const KINDS = new Set<string>(SCENARIO_KINDS)
 const SEVERITIES = new Set(['low', 'medium', 'high'])
 const STATUSES = new Set(['active', 'draft', 'retired', 'blocked'])
 const COST_CLASSES = new Set(['none', 'low', 'high'])
+const PARALLEL_MODES = new Set(['safe', 'exclusive'])
 
 // 注：`setup` 的子键与 kind 同名（`setup.tool` / `setup.llm` / …），
 // 这样 runner 能按 key 把 setup 分派给对应 driver。
@@ -128,6 +129,22 @@ export function validateScenario(
     push('tags', 'tags 必须是字符串数组')
   }
 
+  // ---- owner / parallel / fixtures ----
+  //
+  // `owner` 是机器可读字段（覆盖矩阵与自动 triage 按它路由），拼错了不会有人发现，
+  // 所以这里只要求"非空字符串"——刻意不规定 `@` 前缀，那是团队惯例不是语法。
+  if (raw.owner !== undefined && (typeof raw.owner !== 'string' || raw.owner.trim() === '')) {
+    push('owner', 'owner 必须是非空字符串（例如 @supengpeng）')
+  }
+  if (raw.parallel !== undefined && !PARALLEL_MODES.has(String(raw.parallel))) {
+    push('parallel', `parallel 只能是 ${[...PARALLEL_MODES].join(' | ')}`)
+  }
+  if (raw.fixtures !== undefined) {
+    if (!Array.isArray(raw.fixtures) || raw.fixtures.some((f) => typeof f !== 'string' || f.trim() === '')) {
+      push('fixtures', 'fixtures 必须是非空字符串数组（名字形如 llm/timeout）')
+    }
+  }
+
   // ---- source ----
   if (!isPlainObject(raw.source)) {
     push('source', 'source 段必填')
@@ -202,9 +219,58 @@ export function validateScenario(
       if (step.name !== undefined && typeof step.name !== 'string') {
         push(`${at}.name`, 'name 必须是字符串')
       }
-      if (!Array.isArray(step.expect)) {
+      if (step.id !== undefined && (typeof step.id !== 'string' || step.id.trim() === '')) {
+        push(`${at}.id`, 'id 必须是非空字符串')
+      }
+
+      // ---- act / use：二选一 ----
+      //
+      // `use` 是「步骤级组合」的入口（引用 registry/steps 里的片段）。
+      // 二者互斥：同时写会让"这一步到底跑了什么"有两个答案，报告里将无法归因。
+      // 另外**允许只有 expect 的步骤**——本仓既有用法（TK-0035 第 3 步）
+      // 就是"对上一动作的取证补断言"，所以"三选一"而不是"二选一"。
+      const hasAct = step.act !== undefined
+      const hasUse = step.use !== undefined
+      const hasExpect = Array.isArray(step.expect) && step.expect.length > 0
+
+      if (hasAct && hasUse) {
+        push(at, 'act 与 use 互斥：要么写字面动作，要么引用注册表片段')
+      }
+      if (!hasAct && !hasUse && !hasExpect) {
+        push(at, 'step 至少要给出 act / use / expect 之一（空步骤无法判定）')
+      }
+      if (hasUse) {
+        if (typeof step.use !== 'string' || step.use.trim() === '') {
+          push(`${at}.use`, 'use 必须是非空字符串（片段名，例如 invoke/tool）')
+        }
+        if (step.with !== undefined && !isPlainObject(step.with)) {
+          push(`${at}.with`, 'with 必须是对象（片段的参数）')
+        }
+      } else if (step.with !== undefined) {
+        push(`${at}.with`, 'with 只在 use 展开时有意义')
+      }
+
+      // ---- cleanup：步骤级清理声明 ----
+      if (step.cleanup !== undefined) {
+        if (!isPlainObject(step.cleanup)) {
+          push(`${at}.cleanup`, 'cleanup 必须是对象')
+        } else {
+          const releaseNotes = step.cleanup.releaseNotes
+          if (
+            releaseNotes !== undefined &&
+            (!Array.isArray(releaseNotes) || releaseNotes.some((n) => typeof n !== 'string'))
+          ) {
+            push(`${at}.cleanup.releaseNotes`, 'releaseNotes 必须是字符串数组')
+          }
+          if (step.cleanup.note !== undefined && typeof step.cleanup.note !== 'string') {
+            push(`${at}.cleanup.note`, 'note 必须是字符串')
+          }
+        }
+      }
+
+      if (step.expect !== undefined && !Array.isArray(step.expect)) {
         push(`${at}.expect`, 'expect 必须是数组（可为空数组）')
-      } else {
+      } else if (Array.isArray(step.expect)) {
         step.expect.forEach((assertion, j) => validateAssertion(assertion, `${at}.expect[${j}]`, push))
       }
     })

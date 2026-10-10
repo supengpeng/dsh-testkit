@@ -1,0 +1,36 @@
+# invoke/llm —— 触发一次模型流（由 llm driver 接管，零上游请求）
+#
+# ⚠️ 用它的场景 `kind` 必须是 `llm`（或 `setup` 里出现 `llm` 键），
+# 否则 runner 的能力判定不会带上 `llm` 的 requires。
+#
+# 用法：
+#   setup:
+#     llm:
+#       respond: { chunks: [ALPHA, -TAIL], finishReason: stop }
+#   steps:
+#     - use: invoke/llm
+#       with: { prompt: 说点什么 }
+#
+# cost 记为 high 是**保守**的：policy 闸门按 driver 档位判定成本，
+# 而 llm driver 在闸门里是 high；这里不假装它免费。
+name: invoke/llm
+version: "1"
+description: 触发一次被接管的模型流，并断言流里没有错误
+params:
+  type: object
+  properties:
+    prompt:
+      type: string
+      description: 发给模型的用户消息（listener 不调 next()，不会真的路由）
+  required: [prompt]
+  additionalProperties: false
+dependencies: []
+cost: high
+sandbox:
+  mode: read-only
+act:
+  llm:
+    prompt: "{prompt}"
+expect:
+  - ref: fx.streamError
+    exists: false

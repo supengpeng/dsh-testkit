@@ -57,6 +57,12 @@ export interface HttpBridgeDeps {
    * `allowModel: false`），client 半的「跑一下」按钮不能成为绕过闸门的后门。
    */
   policyDefaults?: () => PolicyOptions
+  /** 夹具根（client 半点「跑一下」时同样要应用 `fixtures:`）。 */
+  fixturesDir?: () => string
+  /** 并发度上限；省略 = 1（串行）。 */
+  parallelLimit?: () => number
+  /** 是否对报告脱敏；省略 = false。 */
+  redact?: () => boolean
 }
 
 /** 统一的响应信封，风格沿用 dsh-free-search 的 bridge。 */
@@ -110,9 +116,16 @@ export function makeBridgeRoutes(deps: HttpBridgeDeps): WebRouteLike[] {
         // 与工具面一致：总是带闸门，client 半不是绕过成本闸门的后门。
         // 放权由人走命令面（`/testkit run --allow-model`），bridge 只读配置默认值。
         policy: resolvePolicy(deps.policyDefaults?.() ?? {}),
+        // 夹具与并发同样按配置生效：否则「UI 里跑一遍」与「命令里跑一遍」不是同一件事。
+        ...(deps.fixturesDir === undefined
+          ? {}
+          : { fixtures: { fixturesDir: deps.fixturesDir(), dshVersion: host.env.dshVersion } }),
+        ...(deps.parallelLimit === undefined ? {} : { parallelLimit: deps.parallelLimit() }),
       })
 
-      const write = await writeRunArtifacts(summary, deps.runsDir())
+      const write = await writeRunArtifacts(summary, deps.runsDir(), {
+        redact: deps.redact?.() === true,
+      })
 
       return {
         runId: summary.runId,

@@ -87,6 +87,9 @@ async function main() {
 
   const content = generateNodeTestFile(selected, {
     casesDir: registry.dir,
+    // 夹具目录显式传：CI 轨与插件面必须走**同一条**夹具链，
+    // 否则「条件来自 fixtures:」的场景在 CI 里会裸跑（插件绿、CI 红）。
+    fixturesDir: join(root, 'fixtures'),
     libSpecifier: toLibSpecifier(outDir, libDir),
   })
 

@@ -1,9 +1,16 @@
 # 发布手册（Publishing）
 
-> **结论先行：本仓当前不能发布。**
-> `npm publish dsh-testkit` 从物理上就不可能成功——那个名字**不属于我们**（见 §1）。
-> 改名因此不是"可选项"，而是**发布前的硬前提**；而改名会改动 client bundle 的 module id，
-> 必须在**活宿主**里验证过才能动（见 §5）。本会话（2026-10-10）不做改名。
+> **现状（2026-10-10 更新）：包名已改为 `@supengpeng/dsh-testkit`。**
+> 改名的原因不可回避：`dsh-testkit` 这个 npm 名**不属于我们**（见 §1），
+> 发布到那个名字从物理上就不可能成功。
+>
+> 已落地的部分：`package.json` 的 `name`、client 模块 id（`scripts/build-client.mjs`
+> 改为**从 package.json 读**，不再硬编码）、`cases/TK-0015` 与 `tests/ui-driver.test.mjs`
+> 的期望值、README/CHANGELOG 里的安装说明。
+>
+> **唯一还差的一步**：在活宿主（web profile）里确认「测试」标签仍然渲染 ——
+> 本机无法自动验证 GUI。验证步骤见 §5，回滚点见 §6。
+> **在那之前不要执行 `npm publish`。**
 
 ---
 
@@ -14,7 +21,7 @@
 | 事实 | 值 | 来源 |
 |---|---|---|
 | registry 记录 | **HTTP 200**（名字已存在） | <https://registry.npmjs.org/dsh-testkit> |
-| maintainer | `iiwish`（`v123vip@163.com`） | 同上 |
+| maintainer | `iiwish`（npm 包页公开的维护者账号） | 同上 |
 | latest | **`0.4.4`**，2026-09-10 发布 | 同上 / <https://www.npmjs.com/package/dsh-testkit> |
 | 版本数 | 16 个版本，首版 2026-08-15 | 同上 |
 | 仓库 | <https://github.com/iiwish/dsh-testkit> | 同上 |
@@ -37,17 +44,21 @@
 
 | # | 步骤 | 状态 |
 |---|---|---|
-| 1 | **改名**（scoped 或新名）并跑通 §4 的全量清单 | ⏳ **阻塞中**（前置：§5 活宿主验证） |
-| 2 | 版本号 `0.1.0` → `0.2.0`，`CHANGELOG.md` 里去掉「未发布」 | ⏳ 待做（改名确认后一起做） |
-| 3 | 本机 `pnpm run gate` 全绿 | ✅ 每次改动都在跑 |
+| 1 | **改名**（scoped 或新名）并跑通 §4 的全量清单 | ✅ **已改名**（`@supengpeng/dsh-testkit`）：`package.json` / client 模块 id（改为从 `package.json` 读）/ `TK-0015` / `ui-driver` / README / CHANGELOG 全部同步；**唯一未做的是 §5 的活宿主四步验证** |
+| 2 | 版本号 `0.1.0` → `0.2.0`，`CHANGELOG.md` 里去掉「未发布」 | ⏳ 待做（等 §5 验完再动版本号：没验完就发，等于把静默失败发出去） |
+| 3 | 本机 `pnpm run gate` 全绿 | ✅ 每次改动都在跑（当前 538 单测 + 契约轨 65 + CI 轨 26 条场景） |
 | 4 | CI 9 个组合全绿（`.github/workflows/ci.yml`） | ⏳ 待首次 push 后观察 |
 | 5 | `npm run verify:pack` 退出码 0（`files` 白名单覆盖全部入口声明的路径） | ✅ 已接进 gate（`scripts/check-pack-files.mjs`） |
-| 6 | `npm pack --dry-run` 人工核一遍清单（尤其 `schemas/`、`cases/`、`dsh/`） | ⏳ 待做 |
+| 6 | `npm pack --dry-run` 人工核一遍清单（尤其 `schemas/`、`cases/`、`fixtures/`、`registry/`、`templates/`、`dsh/`） | ⏳ 待做 |
 | 7 | `SECURITY.md` 里的邮箱占位换成真实可达地址 | ⏳ 待做（现在是 `security@dsh-testkit.invalid`） |
-| 8 | README 的 npm badge 指向自己的包名（改名前它一直显示别人的版本） | ⏳ 随改名 |
-| 9 | 从 registry 装进一个**隔离 profile** 做安装验证（`dsh plugin --profile tk add <新名>` → `/testkit list` 有输出） | ⏳ 待做 |
+| 8 | README 的 npm badge 指向自己的包名 | ✅ 已指向 `@supengpeng/dsh-testkit`（该包尚未发布，badge 会显示 not found，属预期） |
+| 9 | 从 registry 装进一个**隔离 profile** 做安装验证（`dsh plugin --profile tk add @supengpeng/dsh-testkit` → `/testkit list` 有输出） | ⏳ 待做（**这一步同时覆盖 §5 的 V1/V4**） |
 | 10 | 打 tag + GitHub Release（附 `CHANGELOG` 段落与 `junit.xml` 样例） | ⏳ 待做 |
 | 11 | 带 provenance 发布（`npm publish --provenance`，由 GitHub Actions 的 OIDC 身份签发） | ⏳ 待做；**当前 CI 刻意不发布、不需要任何 secret** |
+
+> **改名后必须重建 client 产物**：`lib/client.js` 是共享构建产物，源码改名而产物没重建会留下
+> "旧 module id"的分叉（本轮实测踩过一次，表现为 `TK-0015` / `ui-driver` 突然变红）。
+> `gate` 已保证 `build-client` 先跑；手工改完包名请补一条 `node scripts/build-client.mjs`。
 
 > 第 11 条的取舍：发布工作流要单独加、要写权限、要 trusted publisher 配置。
 > 在名字还没定下来之前配它没有意义（配置里到处是包名）。

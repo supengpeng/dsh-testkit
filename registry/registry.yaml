@@ -1,0 +1,10 @@
+# step registry 清单（唯一真源：版本号）
+#
+# 为什么要有这个文件：场景用 `use:` 组合片段时**必须锁注册表版本**
+# （`tags: [registry:v1]`），否则片段语义一改，历史场景会静默换义。
+# 版本只在**语义变化**时 +1：改占位符语义、改片段必需参数、删片段。
+# 加新片段、修描述文案不算——那不会让既有场景换义。
+#
+# 校验入口：`node scripts/verify-registry.mjs`
+version: "1"
+description: "dsh-testkit 步骤片段注册表：场景用 use: 引用，展开成 flat 步骤"

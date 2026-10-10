@@ -53,6 +53,16 @@ export type Severity = 'low' | 'medium' | 'high'
 export type CaseStatus = 'active' | 'draft' | 'retired' | 'blocked'
 
 /**
+ * 并发模式：
+ *   · `safe`      —— 与其它 safe 场景可并发（各自隔离命名空间 / tmpdir / 端口）
+ *   · `exclusive` —— 必须独占执行（会碰共享状态，例如真实会话、全局注册表）
+ *
+ * 缺省值由 runner 决定：**默认 `exclusive`**（不认识的东西不并发），
+ * 想并发必须由场景显式声明 `parallel: safe`。
+ */
+export type ParallelMode = 'safe' | 'exclusive'
+
+/**
  * 成本分级（见 `src/executor/policy.ts`）。
  *
  *   · `none` —— 纯离线：不调模型、不起外部进程
@@ -313,9 +323,27 @@ export type StepAction =
   | { emit: { event: string; payload?: unknown } }
 
 export interface Step {
+  /** 可选的步骤 ID（`use` 展开与跨步取值 `from` 用它引用）。 */
+  id?: string
   name?: string
   act?: StepAction
+  /**
+   * 复用注册表里的一个 step 片段（见 `registry/steps/**`）。
+   *
+   * 与 `act` **互斥**：写 `use` 就只有展开后的动作，写 `act` 就是字面动作。
+   * 这是「步骤级组合」的唯一入口——**禁止**场景级 include/extends。
+   */
+  use?: string
+  /** `use` 的参数（对应片段的 params schema）；展开是纯文本替换，不做语义推断。 */
+  with?: Record<string, unknown>
   expect?: Assertion[]
+  /**
+   * 步骤级清理声明（可选）。
+   *
+   * `releaseNotes` 里的取证键对应的 disposer 会在**本步结束后**释放（而不是等整条场景）；
+   * `note` 是给人看的说明。整条场景结束时的兜底释放不受它影响。
+   */
+  cleanup?: { releaseNotes?: string[]; note?: string }
 }
 
 /** 一条完整的场景。 */
@@ -329,6 +357,22 @@ export interface Scenario {
   tags?: string[]
   source: ScenarioSource
   runtime?: RuntimeSpec
+  /**
+   * 负责人（例如 `@supengpeng`）。
+   *
+   * 用途不是"礼貌署名"：覆盖矩阵与自动 triage 都要按 owner 路由
+   * （失败归谁、缺口补谁），所以它是**机器可读字段**。
+   */
+  owner?: string
+  /** 并发模式；缺省 `exclusive`（见 `ParallelMode`）。 */
+  parallel?: ParallelMode
+  /**
+   * 引用的 fixture 名（见 `fixtures/**`）。
+   *
+   * 名字是 `<kind>/<name>`（例如 `llm/timeout`）。解析失败或 DSH 版本不匹配时
+   * 场景会**跳过并说明原因**，而不是拿一份错的夹具硬跑。
+   */
+  fixtures?: string[]
   /**
    * 成本分级；缺省 = 按参与 driver 的 `cost()` 取**最高**的一档。
    *

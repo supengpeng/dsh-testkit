@@ -160,12 +160,40 @@ test('判定表：场景显式 cost 覆盖 driver 默认，source 如实标注',
   assert.equal(raisedOk.decision.source, 'scenario')
 })
 
-test('默认策略：默认不允许真实模型调用，但保留本地副作用与沙箱开关', () => {
+test('默认策略：默认不真调模型；shell 默认只读；禁止任意网络', () => {
   assert.equal(DEFAULT_POLICY.cost.allowModel, false, '默认不真调模型（文档 P0）')
   assert.equal(DEFAULT_POLICY.cost.allowLowCost, true, 'low 档默认放行（既有基线不因闸门变红）')
-  assert.equal(DEFAULT_POLICY.sandbox.allowShell, true, '沙箱收紧是**显式**开关，不改默认行为')
-  assert.equal(DEFAULT_POLICY.sandbox.allowFileWrite, true)
-  assert.deepEqual(DEFAULT_POLICY.sandbox.denyWriteCommands, [])
+  assert.equal(DEFAULT_POLICY.sandbox.allowShell, true, 'shell 仍然可用——被限制的是**写命令**，不是 shell 本身')
+  assert.equal(DEFAULT_POLICY.sandbox.allowFileWrite, true, 'fs driver 的职责就是驱动宿主沙箱语义，闸门层不替它决定')
+
+  // 「shell 默认只读」= 默认拒绝清单非空（文档 §3.2.4 / §7.1）。
+  // 只读的尺子是**命令名**：本仓 shell 动作是 argv 数组，没有重定向/管道。
+  const denied = DEFAULT_POLICY.sandbox.denyWriteCommands
+  assert.ok(denied.length > 0, '默认必须是一份只读清单，而不是空清单')
+  for (const command of ['rm', 'mv', 'chmod', 'sh', 'powershell']) {
+    assert.ok(denied.includes(command), `${command} 应在默认拒绝清单里`)
+  }
+  // 只读命令不受影响（既有 shell 场景跑的是 git / node / python）
+  for (const benign of ['git', 'node', 'python', 'pytest']) {
+    assert.equal(
+      checkSandboxAction({ shell: { argv: [benign, '--version'] } }, DEFAULT_POLICY.sandbox, {}),
+      undefined,
+      `${benign} 不该被默认只读拦下`,
+    )
+  }
+  // 禁止任意网络（文档 §7.1）：没有假 provider 就不放行 resource
+  assert.equal(DEFAULT_POLICY.sandbox.allowNetwork, false)
+  assert.match(
+    checkSandboxAction({ resource: { fetch: { url: 'https://x.invalid' } } }, DEFAULT_POLICY.sandbox, {}) ?? '',
+    /allowNetwork=false/,
+  )
+  // 例外：场景自带假 provider 时网络已被接管，不需要真网
+  assert.equal(
+    checkSandboxAction({ resource: { fetch: { url: 'https://x.invalid' } } }, DEFAULT_POLICY.sandbox, {
+      networkIntercepted: true,
+    }),
+    undefined,
+  )
 
   // 覆盖项逐个生效；0 是合法值（= 不限），不能被当成"没给"
   const custom = resolvePolicy({ cost: { allowModel: true, maxModelCalls: 3 }, sandbox: { allowShell: false } })

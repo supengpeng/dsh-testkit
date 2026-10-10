@@ -15,8 +15,13 @@ import type { ScenarioKind } from './cases/types.js'
 import { resolvePolicy, type PolicyOptions } from './executor/policy.js'
 import type { CommandDefinition, CommandResultLike, DriverRegistry, HostFacade } from './kinds/types.js'
 import type { PipelineStore } from './pipeline/index.js'
+import { expandScenario, loadRegistry } from './registry/index.js'
 import { writeRunArtifacts } from './report/json.js'
 import { runScenarios } from './runtime/runner.js'
+import { resolveSelection, type SelectionArgs } from './surface/selection-args.js'
+import { latestRunJson } from './surface/runs.js'
+import { exportBugReports, parseCaseMd } from './touchstone/index.js'
+import { join } from 'node:path'
 
 export interface CommandDeps {
   registry: CaseRegistry
@@ -31,6 +36,16 @@ export interface CommandDeps {
   reload: () => string
   /** 成本闸门的默认值（来自插件配置）；省略 = `DEFAULT_POLICY`。 */
   policyDefaults?: () => PolicyOptions
+  /** 夹具根；省略 = 包内 `fixtures/`。 */
+  fixturesDir?: () => string
+  /** step 片段注册表根；省略 = 包内 `registry/`。 */
+  registryDir?: () => string
+  /** 参数化模板根；省略 = 包内 `templates/`。 */
+  templatesDir?: () => string
+  /** 并发度上限；省略 = 1（串行）。 */
+  parallelLimit?: () => number
+  /** 是否对报告脱敏；省略 = false。 */
+  redact?: () => boolean
 }
 
 const USAGE = [
@@ -40,14 +55,27 @@ const USAGE = [
   '  /testkit run TK-0001 TK-0002     跑指定场景',
   '  /testkit run --kind tool         按类型跑',
   '  /testkit run --tag boundary      按标签跑',
+  '  /testkit run --changed           只跑受工作区改动影响的场景（git 不可用则退回全量）',
+  '  /testkit run --since HEAD~1      只跑受某 ref 之后改动影响的场景',
+  '  /testkit run --affected-by <file> 只跑受该文件影响的场景',
+  '  /testkit run --dsh-version <v>   按宿主版本过滤（读 fixture 的 dsh_version 绑定）',
+  '  /testkit run --parallel 4        并发度上限（只有 parallel: safe 的场景会并发）',
+  '  /testkit run --redact            写报告前脱敏（token / 私钥 / 邮箱 / 家目录路径）',
   '  /testkit run --allow-model       本次放行 high 档（**真实模型调用**，默认拒绝）',
   '  /testkit run --allow-low-cost    本次放行 low 档（起进程 / 写文件）',
-  '  /testkit report [runId]          查看报告',
+  '  /testkit expand TK-0100          把 use: 步骤展开成 flat 步骤',
+  '  /testkit registry                列出 step 片段注册表',
+  '  /testkit fixtures                列出夹具与其 DSH 版本绑定',
   '  /testkit export [outDir]         导出为可在 CI 跑的自包含测试文件',
+  '  /testkit export --format touchstone [outDir]  把失败项导成 bug_report/ 交给 touchstone',
+  '  /testkit import <case.md>        把 touchstone 的 case 转成场景**草稿**（走提案闸门）',
+  '  /testkit report [runId]          查看报告',
   '  /testkit reload                  重新扫描场景目录',
   '',
   '成本闸门：默认不允许真实模型调用（high 档会被记 skipped 并写明原因）；',
   '放权只有这条路——工具面（模型可调）只能收紧，不能提权。',
+  '',
+  '沙箱：shell 默认只读（写命令与解释器默认拒绝），禁止任意网络请求。',
   '',
   '提炼闸门（要不要提炼、要不要落地，都由你决定）：',
   '  /testkit issue                   查看台账与当前批次',
@@ -93,20 +121,53 @@ export function defineTestkitCommands(deps: CommandDeps): CommandDefinition[] {
               withCommandOverrides(deps.policyDefaults?.() ?? {}, selection.overrides),
             )
 
+            const fixturesDir = deps.fixturesDir?.() ?? join(packageRoot, 'fixtures')
+            const registryDir = deps.registryDir?.() ?? join(packageRoot, 'registry')
+
+            // 增量选择：`--changed` / `--since` / `--affected-by` / `--dsh-version`。
+            // 判定依据会随报告落盘（SelectionRecord），"为什么只跑了这些"不用靠回忆。
+            const incremental =
+              selection.incremental === undefined
+                ? { warnings: [] as string[] }
+                : resolveSelection(selection.incremental, {
+                    scenarios: deps.registry.all,
+                    fixturesDir,
+                    registryDir,
+                  })
+
             const summary = await runScenarios({
               registry: deps.registry,
               drivers: deps.drivers,
               host: deps.host,
-              filter: selection.filter,
+              filter: incremental.filter ?? selection.filter,
               signal,
               policy,
+              fixtures: { fixturesDir, dshVersion: deps.host.env.dshVersion },
+              parallelLimit: selection.parallelLimit ?? deps.parallelLimit?.() ?? 1,
+              ...(incremental.selection === undefined ? {} : { selection: incremental.selection }),
             })
-            const write = await writeRunArtifacts(summary, deps.runsDir())
+            const write = await writeRunArtifacts(summary, deps.runsDir(), {
+              redact: selection.redact === true || deps.redact?.() === true,
+            })
             const t = summary.totals
             const lines = [
               `Run ${summary.runId} — 合计 ${t.total}：✅ ${t.passed} · ❌ ${t.failed} · ⏭️ ${t.skipped} · 💥 ${t.errored}`,
               describePolicy(summary),
             ]
+            for (const warning of 'warnings' in incremental ? incremental.warnings : []) {
+              lines.push(`⚠️ ${warning}`)
+            }
+            if (summary.selection !== undefined) {
+              lines.push(`增量判定（${summary.selection.mode}）：${summary.selection.detail}`)
+            }
+            if (summary.execution !== undefined && summary.execution.parallel !== 'off') {
+              lines.push(
+                `并发：上限 ${summary.execution.limit}（safe ${summary.execution.safe} / exclusive ${summary.execution.exclusive}）`,
+              )
+            }
+            if (write.redaction !== undefined) {
+              lines.push(`已脱敏 ${write.redaction.count} 处（findings 只记位置与类型，不含原文）`)
+            }
             for (const c of summary.cases.filter((x) => x.verdict !== 'passed')) {
               const why = c.error ?? c.skipReason ?? '存在未通过断言'
               const category =
@@ -138,18 +199,153 @@ export function defineTestkitCommands(deps: CommandDeps): CommandDefinition[] {
             }
           }
 
+          case 'expand': {
+            const id = argv[0]
+            if (id === undefined) return { kind: 'error', text: '用法：/testkit expand <场景 ID>' }
+            const scenario = deps.registry.all.find((s) => s.id === id)
+            if (scenario === undefined) return { kind: 'error', text: `找不到场景 ${id}` }
+            const loaded = loadRegistry({ registryDir: deps.registryDir?.() ?? join(packageRoot, 'registry') })
+            const result = expandScenario(scenario, { registry: loaded })
+            if (!result.ok) {
+              return {
+                kind: 'error',
+                text: [`展开失败（${result.problems.length} 个问题）：`, ...result.problems.map((p) => `  - ${p}`)].join('\n'),
+              }
+            }
+            const lines = [`场景 ${id}：${result.flat.length} 步（已展开为 flat，无 use/with 残留）`]
+            result.flat.forEach((step, i) => {
+              lines.push(`  ${i + 1}. ${step.name ?? '(未命名)'}`)
+              if (step.act !== undefined) lines.push(`     act: ${JSON.stringify(step.act)}`)
+              for (const assertion of step.expect ?? []) lines.push(`     expect: ${JSON.stringify(assertion)}`)
+            })
+            return { kind: 'success', text: lines.join('\n') }
+          }
+
+          case 'registry': {
+            const loaded = loadRegistry({ registryDir: deps.registryDir?.() ?? join(packageRoot, 'registry') })
+            const lines = [`step 片段注册表：${loaded.steps.size} 份（版本 ${loaded.version}）`]
+            for (const fragment of [...loaded.steps.values()].sort((a, b) => a.name.localeCompare(b.name))) {
+              lines.push(
+                `  ${fragment.name}@${fragment.version}（cost=${fragment.cost ?? '—'}）${fragment.description}`,
+              )
+            }
+            if (loaded.problems.length > 0) {
+              lines.push('', `⚠️ ${loaded.problems.length} 个问题：`)
+              for (const p of loaded.problems) lines.push(`  - ${p}`)
+            }
+            return { kind: loaded.problems.length > 0 ? 'error' : 'success', text: lines.join('\n') }
+          }
+
+          case 'fixtures': {
+            const { loadFixtures } = await import('./fixtures/load.js')
+            const loaded = loadFixtures(deps.fixturesDir?.() ?? join(packageRoot, 'fixtures'))
+            const lines = [`夹具目录：${loaded.dir}`, `共 ${loaded.fixtures.length} 份，无效 ${loaded.invalid.length} 份`, '']
+            for (const item of loaded.fixtures) {
+              const version = item.spec?.dshVersion ?? '—'
+              const source = item.spec?.source ?? '—'
+              lines.push(`  ${item.name}（source=${source} dsh_version=${version}）`)
+            }
+            for (const bad of loaded.invalid) {
+              lines.push(`  ✗ ${bad.name}：${bad.error ?? bad.issues.map((i) => `${i.path}: ${i.message}`).join('; ')}`)
+            }
+            return { kind: loaded.invalid.length > 0 ? 'error' : 'success', text: lines.join('\n') }
+          }
+
+          case 'import': {
+            const file = argv[0]
+            if (file === undefined) {
+              return { kind: 'error', text: '用法：/testkit import <touchstone case.md 路径>' }
+            }
+            const { readFile } = await import('node:fs/promises')
+            let text: string
+            try {
+              text = await readFile(file, 'utf8')
+            } catch (error) {
+              return { kind: 'error', text: `读取失败：${error instanceof Error ? error.message : String(error)}` }
+            }
+            const draft = parseCaseMd(text)
+            if (!draft.validation.ok) {
+              return {
+                kind: 'error',
+                text: [
+                  '转换出的草稿没通过场景校验（**没有**提交提案）：',
+                  ...draft.validation.issues.map((i) => `  - ${i.path}: ${i.message}`),
+                ].join('\n'),
+              }
+            }
+            // 走闸门的**提案**通道：不 open 批次（那是人的动作）、不写 cases/。
+            const proposed = deps.pipeline.propose({
+              yamlText: draft.yaml,
+              notes: draft.notes.length > 0 ? draft.notes.join('；') : '来自 touchstone case.md 的草稿',
+            })
+            if (!proposed.ok) {
+              return {
+                kind: 'error',
+                text: [
+                  proposed.error,
+                  ...(proposed.findings ?? []).map((f) => `  [${f.level === 'block' ? '阻断' : '提醒'}] ${f.message}`),
+                ].join('\n'),
+              }
+            }
+            return {
+              kind: 'success',
+              text: [
+                `已登记提案 ${proposed.proposalId}（批次 ${proposed.batchId}）`,
+                `场景：${proposed.title}（${proposed.kind} / ${proposed.status}）`,
+                ...(draft.unmapped.length > 0
+                  ? ['', `未映射的内容（已保留为 YAML 注释）：${draft.unmapped.length} 处`]
+                  : []),
+                '',
+                '落地与否由人决定：/testkit issue approve ' + proposed.proposalId,
+              ].join('\n'),
+            }
+          }
+
           case 'export': {
+            const formatIndex = argv.findIndex((a) => a === '--format')
+            const format = formatIndex >= 0 ? argv[formatIndex + 1] : undefined
+            const positional = argv.filter((a, i) => !a.startsWith('-') && i !== formatIndex + 1)
+            const outDir = positional[0]
+
+            if (format === 'touchstone') {
+              const located = latestRunJson(deps.runsDir())
+              if (!located.ok || located.path === undefined) {
+                return { kind: 'error', text: `无法定位运行记录：${located.reason ?? '未知原因'}` }
+              }
+              try {
+                const result = await exportBugReports({
+                  source: located.path,
+                  outDir: outDir ?? join(packageRoot, 'bug_report'),
+                  scenarioSeverity: (caseId) => deps.registry.all.find((s) => s.id === caseId)?.severity,
+                })
+                const lines = [
+                  `已导出 ${result.exported.length} 条失败场景 → ${result.outDir}`,
+                  ...result.exported.map((item) => `  ${item.caseId}（severity=${item.severity}）→ ${item.dir}`),
+                ]
+                if (result.skipped.length > 0) {
+                  lines.push('', `未导出 ${result.skipped.length} 条（不是 bug 或无法归因）：`)
+                  for (const item of result.skipped) lines.push(`  ${item.caseId}：${item.reason}`)
+                }
+                return { kind: 'success', text: lines.join('\n') }
+              } catch (error) {
+                return {
+                  kind: 'error',
+                  text: `导出失败：${error instanceof Error ? error.message : String(error)}`,
+                }
+              }
+            }
+
             const selected = deps.registry.filter({ status: ['active'] })
             if (selected.length === 0) {
               return { kind: 'error', text: '没有可导出的 active 场景' }
             }
             try {
-              const { join } = await import('node:path')
               const { exportScenariosToFile } = await import('./export/write.js')
               const result = await exportScenariosToFile({
                 scenarios: selected,
                 casesDir: deps.registry.dir,
-                outDir: argv[0] ?? deps.exportDir(),
+                fixturesDir: deps.fixturesDir?.() ?? join(packageRoot, 'fixtures'),
+                outDir: outDir ?? deps.exportDir(),
                 libDir: join(packageRoot, 'lib'),
                 timeoutMs: deps.defaultTimeoutMs(),
               })
@@ -356,6 +552,12 @@ interface SelectionResult {
   filter: { ids?: string[]; kinds?: ScenarioKind[]; tags?: string[]; status: string[] }
   /** 命令面显式放权（人类发起，可以**提权**；工具面不行）。 */
   overrides?: { allowModel?: boolean; allowLowCost?: boolean }
+  /** 增量选择参数（`--changed` / `--since` / `--affected-by` / `--dsh-version`）。 */
+  incremental?: SelectionArgs
+  /** `--redact`：写报告前脱敏。 */
+  redact?: boolean
+  /** `--parallel <n>`：并发度上限。 */
+  parallelLimit?: number
   error?: string
 }
 
@@ -363,20 +565,56 @@ function parseSelection(argv: string[]): SelectionResult {
   const ids: string[] = []
   const kinds: string[] = []
   const tags: string[] = []
+  const affectedBy: string[] = []
   const overrides: { allowModel?: boolean; allowLowCost?: boolean } = {}
+  const incremental: SelectionArgs = {}
+  let redact: boolean | undefined
+  let parallelLimit: number | undefined
+
+  const needValue = (option: string, value: string | undefined): string | undefined => {
+    if (value === undefined || value.startsWith('-')) return undefined
+    return value
+  }
 
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i]!
     if (token === '--kind' || token === '-k') {
-      const value = argv[i + 1]
+      const value = needValue('--kind', argv[i + 1])
       if (!value) return { filter: { status: ['active'] }, error: '--kind 需要一个值' }
       kinds.push(value)
       i += 1
     } else if (token === '--tag' || token === '-t') {
-      const value = argv[i + 1]
+      const value = needValue('--tag', argv[i + 1])
       if (!value) return { filter: { status: ['active'] }, error: '--tag 需要一个值' }
       tags.push(value)
       i += 1
+    } else if (token === '--changed') {
+      incremental.changed = true
+    } else if (token === '--since') {
+      const value = needValue('--since', argv[i + 1])
+      if (!value) return { filter: { status: ['active'] }, error: '--since 需要一个 git ref，如 HEAD~1' }
+      incremental.since = value
+      i += 1
+    } else if (token === '--affected-by') {
+      const value = needValue('--affected-by', argv[i + 1])
+      if (!value) return { filter: { status: ['active'] }, error: '--affected-by 需要一个文件路径' }
+      affectedBy.push(value)
+      i += 1
+    } else if (token === '--dsh-version') {
+      const value = needValue('--dsh-version', argv[i + 1])
+      if (!value) return { filter: { status: ['active'] }, error: '--dsh-version 需要一个版本号' }
+      incremental.dshVersion = value
+      i += 1
+    } else if (token === '--parallel') {
+      const value = needValue('--parallel', argv[i + 1])
+      const parsed = value === undefined ? Number.NaN : Number(value)
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        return { filter: { status: ['active'] }, error: '--parallel 需要一个 >= 1 的整数' }
+      }
+      parallelLimit = parsed
+      i += 1
+    } else if (token === '--redact') {
+      redact = true
     } else if (token === '--allow-model') {
       overrides.allowModel = true
     } else if (token === '--allow-low-cost') {
@@ -388,6 +626,13 @@ function parseSelection(argv: string[]): SelectionResult {
     }
   }
 
+  if (affectedBy.length > 0) incremental.affectedBy = affectedBy
+  const hasIncremental =
+    incremental.changed === true ||
+    incremental.since !== undefined ||
+    incremental.affectedBy !== undefined ||
+    incremental.dshVersion !== undefined
+
   return {
     filter: {
       ...(ids.length > 0 ? { ids } : {}),
@@ -396,6 +641,9 @@ function parseSelection(argv: string[]): SelectionResult {
       status: ['active'],
     },
     ...(Object.keys(overrides).length === 0 ? {} : { overrides }),
+    ...(hasIncremental ? { incremental } : {}),
+    ...(redact === undefined ? {} : { redact }),
+    ...(parallelLimit === undefined ? {} : { parallelLimit }),
   }
 }
 

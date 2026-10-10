@@ -45,15 +45,83 @@ import type { PolicyDecision, PolicySnapshot, UsageRecord } from '../runtime/run
 export interface SandboxPolicy {
   allowShell: boolean
   allowFileWrite: boolean
+  /**
+   * 是否允许**真实网络**。
+   *
+   * 默认 `false`（文档 §7.1「禁止场景执行任意网络请求」）。判定时有一个例外：
+   * 场景自己注册了假 provider（`setup.resource`）时，网络已被替身接管，
+   * 不需要真网——这种情况由 runner 以 `networkIntercepted` 告知，予以放行。
+   */
+  allowNetwork: boolean
   /** 非空时：只允许这些命令名（白名单）。空 = 不限制。 */
   allowedCommands: string[]
   /** 非空时：只允许访问这些路径根（对**绝对路径**生效，见 `checkSandboxAction`）。空 = 不限制。 */
   allowedPaths: string[]
   /** 单次动作超时（预留；当前 runner 的超时仍以 `runtime.timeoutMs` 为准）。 */
   timeoutMs: number
-  /** 非空时：命中这些命令名的 shell 动作被拒（"默认只读"的实现手段之一）。 */
+  /**
+   * 命中这些命令名的 shell 动作被拒——**默认非空**，这就是「shell 默认只读」。
+   *
+   * 见 `READ_ONLY_DENY_COMMANDS`：它挡的是"会写/会删/会改权限"的命令，
+   * 以及**无法静态判定会写什么**的解释器（`sh -c` / `powershell -Command` 之类）。
+   */
   denyWriteCommands: string[]
 }
+
+/**
+ * 默认拒绝清单（「shell 默认只读」的实现）。
+ *
+ * 两类：
+ *   ① 会写盘的命令：删/移/拷/改权限/格式化/写块设备；
+ *   ② **解释器**：`sh` / `bash` / `cmd` / `powershell` 这类无法静态判定会写什么，
+ *      放行等于把只读默认值作废——要跑它们请显式放宽（配置项或工具参数）。
+ *
+ * 为什么用命令名而不是"扫描参数里有没有重定向"：本仓的 shell 动作是
+ * **argv 数组**（不经 shell 解析，没有重定向/管道），所以"命令名"就是可判定的边界。
+ */
+export const READ_ONLY_DENY_COMMANDS: readonly string[] = [
+  // ① 写/删/改
+  'rm',
+  'rmdir',
+  'rd',
+  'del',
+  'erase',
+  'deltree',
+  'mv',
+  'move',
+  'cp',
+  'copy',
+  'xcopy',
+  'robocopy',
+  'dd',
+  'mkfs',
+  'chmod',
+  'chown',
+  'truncate',
+  'tee',
+  'format',
+  'shred',
+  'diskpart',
+  'reg',
+  'sc',
+  'taskkill',
+  'setx',
+  'npm', // `npm install` / `npm publish` 都有写副作用，默认只读下不放行
+  // ② 解释器（无法静态判定）
+  'sh',
+  'bash',
+  'zsh',
+  'fish',
+  'dash',
+  'cmd',
+  'powershell',
+  'pwsh',
+  'wsl',
+]
+
+/** 只读模式的说明（进拒绝消息与文档，避免两处措辞漂移）。 */
+export const READ_ONLY_HINT =
+  '默认只读：需要写操作时显式放宽（配置 sandboxDenyWriteCommands/sandboxAllowShell，或工具参数）'
 
 /** 一次运行的完整策略：成本闸门 + 沙箱 + 审批。 */
 export interface ExecutionPolicy {
@@ -91,11 +159,18 @@ export interface PolicyOptions {
  *   · `allowLowCost: true` —— 本地副作用默认放行。本仓约 26 条既有场景里有
  *     shell / fs 类要写目录，默认收紧会让既有基线平白多出一片 skipped，
  *     那是**自己制造的假红**，会让真正的失败淹没在噪音里。
- *   · `allowShell / allowFileWrite: true`、`denyWriteCommands: []` —— 同上：
- *     「默认只读」做成**显式开关**（配置项 / 工具参数），不改变既有默认行为。
+ *   · `sandbox.denyWriteCommands = READ_ONLY_DENY_COMMANDS` —— **「shell 默认只读」**
+ *     （文档 §3.2.4 / §7.1）。既有 shell 场景用的是 `git` / `node` / `python`
+ *     这类**直接 argv**（不经 shell、没有重定向），所以默认只读不会误伤它们；
+ *     真需要写的时候显式放宽（配置项、工具参数或 `--allow-write`）。
+ *   · `sandbox.allowNetwork: false` —— **禁止场景执行任意网络请求**（文档 §7.1）。
+ *     场景自带假 provider（`setup.resource`）时不触发这条：网络已被替身接管。
+ *   · `allowFileWrite: true` 是**刻意保留**的：`fs` driver 的存在意义就是驱动
+ *     宿主文件服务并观察**宿主自己**的沙箱语义（TK-0030/0031 测的正是它）。
+ *     在闸门层默认拒绝写入，等于把这个 driver 变成哑巴——要收紧请显式开。
  *
- * 结论：本次只把**花钱**默认关掉；"只读模式"要收紧时显式打开，并在报告里
- * 以 `skipped + reason` 说明为什么没跑。
+ * 结论：默认关掉**花钱**与**任意写盘/联网**；"只读模式"要收紧时显式打开，
+ * 并在报告里以 `skipped + reason` 说明为什么没跑。
  */
 export const DEFAULT_POLICY: ExecutionPolicy = {
   cost: {
@@ -108,10 +183,11 @@ export const DEFAULT_POLICY: ExecutionPolicy = {
   sandbox: {
     allowShell: true,
     allowFileWrite: true,
+    allowNetwork: false,
     allowedCommands: [],
     allowedPaths: [],
     timeoutMs: 30_000,
-    denyWriteCommands: [],
+    denyWriteCommands: [...READ_ONLY_DENY_COMMANDS],
   },
   approval: { requireHumanApproval: false, approvers: [] },
 }
@@ -137,6 +213,7 @@ export function resolvePolicy(options: PolicyOptions = {}): ExecutionPolicy {
     sandbox: {
       allowShell: sandbox.allowShell ?? DEFAULT_POLICY.sandbox.allowShell,
       allowFileWrite: sandbox.allowFileWrite ?? DEFAULT_POLICY.sandbox.allowFileWrite,
+      allowNetwork: sandbox.allowNetwork ?? DEFAULT_POLICY.sandbox.allowNetwork,
       allowedCommands: [...(sandbox.allowedCommands ?? DEFAULT_POLICY.sandbox.allowedCommands)],
       allowedPaths: [...(sandbox.allowedPaths ?? DEFAULT_POLICY.sandbox.allowedPaths)],
       timeoutMs: sandbox.timeoutMs ?? DEFAULT_POLICY.sandbox.timeoutMs,
@@ -363,6 +440,7 @@ export function checkBudget(
  * 规则（自上而下）：
  *   · `shell`：`allowShell=false` → 拒；命令名命中 `denyWriteCommands` → 拒；
  *     `allowedCommands` 非空且不在白名单 → 拒；`cwd` 是绝对路径且不在 `allowedPaths` 下 → 拒
+ *   · `resource`：`allowNetwork=false` 且未注册假 provider → 拒（禁止任意网络请求）
  *   · `fs`：`write` / `edit` 且 `allowFileWrite=false` → 拒；绝对 `path` 不在 `allowedPaths` 下 → 拒
  *   · `file`：绝对 `read` 路径不在 `allowedPaths` 下 → 拒（纯离线读，同样受路径白名单约束）
  *   · 其余动作：不限制
@@ -373,7 +451,11 @@ export function checkBudget(
  *
  * @returns 拒绝原因；允许时返回 undefined
  */
-export function checkSandboxAction(action: StepAction, sandbox: SandboxPolicy): string | undefined {
+export function checkSandboxAction(
+  action: StepAction,
+  sandbox: SandboxPolicy,
+  opts: { networkIntercepted?: boolean } = {},
+): string | undefined {
   if ('shell' in action) {
     if (!sandbox.allowShell) {
       return '沙箱策略拒绝：本次运行不允许 shell 动作（sandbox.allowShell=false）'
@@ -385,7 +467,7 @@ export function checkSandboxAction(action: StepAction, sandbox: SandboxPolicy): 
     }
     const denied = sandbox.denyWriteCommands.map((c) => commandName(c))
     if (denied.includes(name)) {
-      return `沙箱策略拒绝：命令 ${name} 命中 denyWriteCommands（默认只读模式的拒绝清单）`
+      return `沙箱策略拒绝：命令 ${name} 命中 denyWriteCommands（默认只读清单，含解释器）——${READ_ONLY_HINT}`
     }
     const allowed = sandbox.allowedCommands.map((c) => commandName(c)).filter((c) => c !== '')
     if (allowed.length > 0 && !allowed.includes(name)) {
@@ -394,6 +476,18 @@ export function checkSandboxAction(action: StepAction, sandbox: SandboxPolicy): 
     const cwd = action.shell.cwd
     if (cwd !== undefined && isAbsolute(cwd) && !isUnderAny(cwd, sandbox.allowedPaths)) {
       return `沙箱策略拒绝：shell 的 cwd=${cwd} 不在 allowedPaths 允许的路径根下`
+    }
+    return undefined
+  }
+
+  if ('resource' in action) {
+    // 「禁止场景执行任意网络请求」：只有两种情况下放行——
+    //   ① 策略显式允许真实网络；② 本场景自己注册了假 provider（网络已被接管，不需要真网）。
+    if (!sandbox.allowNetwork && opts.networkIntercepted !== true) {
+      return (
+        '沙箱策略拒绝：resource 动作需要真实网络，但 sandbox.allowNetwork=false（默认），' +
+        '且本场景没有注册假 provider（setup.resource）——请改用假 provider，或显式允许网络'
+      )
     }
     return undefined
   }

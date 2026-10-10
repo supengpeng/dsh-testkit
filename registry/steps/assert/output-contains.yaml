@@ -1,0 +1,37 @@
+# assert/output-contains —— 断言某个 fx.* 取值包含给定片段
+#
+# 用法：
+#   steps:
+#     - use: assert/output-contains
+#       with: { ref: fx.resultText, value: BODY }
+#
+# `soft` 也支持：整串占位 `{soft}` 会替换成 with 里的布尔值，
+# 于是"软断言"不用另写一个片段。
+name: assert/output-contains
+version: "1"
+description: 断言 ref（fx.*）存在且包含 value 片段
+params:
+  type: object
+  properties:
+    ref:
+      type: string
+      description: 断言取值路径，例如 fx.resultText
+    value:
+      type: string
+      description: 期望包含的片段
+    soft:
+      type: boolean
+      description: 软断言（失败不中断后续步骤）
+      default: false
+  required: [ref, value]
+  additionalProperties: false
+dependencies: []
+cost: none
+sandbox:
+  mode: read-only
+expect:
+  - ref: "{ref}"
+    exists: true
+  - ref: "{ref}"
+    contains: "{value}"
+    soft: "{soft}"

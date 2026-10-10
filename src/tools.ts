@@ -5,16 +5,22 @@
  * 越窄越不容易与宿主既有工具冲突，也越好向模型解释。
  */
 
+import { join } from 'node:path'
+
 import { FAILURE_CATEGORY_LABEL } from './analysis/classify.js'
 import { packageRoot } from './config.js'
-import type { CaseRegistry } from './cases/registry.js'
+import type { CaseFilter, CaseRegistry } from './cases/registry.js'
 import type { ScenarioKind } from './cases/types.js'
 import { resolvePolicy, tightenLimit, type ExecutionPolicy, type PolicyOptions, type SandboxPolicy } from './executor/policy.js'
 import type { DriverRegistry, HostFacade, ToolDefinition } from './kinds/types.js'
 import type { PipelineStore } from './pipeline/index.js'
+import { loadRegistry, expandScenario } from './registry/index.js'
 import { runScenarios, type RunProgress } from './runtime/runner.js'
 import { writeRunArtifacts } from './report/json.js'
 import { renderMarkdown } from './report/markdown.js'
+import { resolveSelectionFromRaw } from './surface/selection-args.js'
+import { latestRunJson } from './surface/runs.js'
+import { exportBugReports } from './touchstone/index.js'
 
 export interface ToolDeps {
   registry: CaseRegistry
@@ -25,6 +31,14 @@ export interface ToolDeps {
   exportDir: () => string
   defaultTimeoutMs: () => number
   maxInvalidReported: () => number
+  /** 夹具根（`scenario.fixtures` 按它解析）；省略 = 包内 `fixtures/`。 */
+  fixturesDir?: () => string
+  /** step 片段注册表根（`testkit_expand` 用）；省略 = 包内 `registry/`。 */
+  registryDir?: () => string
+  /** 并发度上限；`1` = 串行（默认）。 */
+  parallelLimit?: () => number
+  /** 是否对报告脱敏（`--redact`）；省略 = false。 */
+  redact?: () => boolean
   /**
    * 提炼闸门。
    *
@@ -46,6 +60,13 @@ void NO_ARGS // Phase 4 的 export 工具会用
 
 export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
   const { registry, drivers, host } = deps
+
+  // 三条路径缺省都指向包内默认目录：调用方（含既有测试）不传也能工作，
+  // 但插件面一定会显式传配置解析出来的绝对路径（否则相对路径会随 cwd 漂）。
+  const fixturesDir = (): string => deps.fixturesDir?.() ?? join(packageRoot, 'fixtures')
+  const registryDir = (): string => deps.registryDir?.() ?? join(packageRoot, 'registry')
+  const parallelLimit = (): number => deps.parallelLimit?.() ?? 1
+  const redact = (): boolean => deps.redact?.() ?? false
 
   return [
     {
@@ -141,12 +162,38 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
             type: 'boolean',
             description: '是否允许写文件（fs 的 write / edit）。只能收紧，默认取配置值。',
           },
+          changed: {
+            type: 'boolean',
+            description:
+              '只跑受**工作区改动**影响的场景（git diff HEAD）。git 不可用时**退回全量**并说明，绝不静默跑 0 条。',
+          },
+          since: {
+            type: 'string',
+            description: '只跑受某个 git ref 之后改动影响的场景，如 HEAD~1、main。',
+          },
+          affectedBy: {
+            type: 'array',
+            items: { type: 'string' },
+            description: '只跑受这些文件影响的场景（按 kind / step 片段 / fixture 依赖推导）。',
+          },
+          dshVersion: {
+            type: 'string',
+            description: '按宿主 DSH 版本过滤：fixture 的 dsh_version 与它不匹配的场景会被排除。',
+          },
+          parallelLimit: {
+            type: 'number',
+            description: '并发度上限；只有声明 parallel: safe 的场景会并发，exclusive 永远独占。1 = 串行。',
+          },
+          redact: {
+            type: 'boolean',
+            description: '写报告前脱敏（过滤 token / 私钥 / 邮箱 / 家目录路径），并在报告里写明脱敏了几处。',
+          },
         },
         additionalProperties: false,
       },
       execute: async (args, exec) => {
         const ids = asStringArray(args.ids)
-        const filter = {
+        let filter: CaseFilter = {
           ...(ids ? { ids } : {}),
           ...(asStringArray(args.kinds) ? { kinds: asStringArray(args.kinds) as ScenarioKind[] } : {}),
           ...(asStringArray(args.tags) ? { tags: asStringArray(args.tags)! } : {}),
@@ -155,6 +202,14 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
           // 没有选择器时仍只跑 active——draft 绝不能混进默认回归集。
           ...(ids ? {} : { status: ['active'] }),
         }
+
+        // 增量选择：不给参数就完全不影响既有行为（filter 原样）。
+        const selection = resolveSelectionFromRaw(args, {
+          registry,
+          fixturesDir: fixturesDir(),
+          registryDir: registryDir(),
+        })
+        if (selection.filter !== undefined) filter = selection.filter
 
         // 闸门**总是**构造（默认 allowModel=false）；见 buildPolicy 的两条纪律。
         const policy = buildPolicy(deps, args)
@@ -166,6 +221,11 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
           host,
           filter,
           policy,
+          fixtures: { fixturesDir: fixturesDir(), dshVersion: deps.host.env.dshVersion },
+          ...(selection.selection === undefined ? {} : { selection: selection.selection }),
+          ...(typeof args.parallelLimit === 'number'
+            ? { parallelLimit: args.parallelLimit }
+            : { parallelLimit: parallelLimit() }),
           ...(exec.signal ? { signal: exec.signal } : {}),
           ...(typeof args.timeoutMs === 'number' ? { defaultTimeoutMs: args.timeoutMs } : {}),
           onProgress: (event: RunProgress) => {
@@ -177,7 +237,9 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
           },
         })
 
-        const write = await writeRunArtifacts(summary, deps.runsDir())
+        const write = await writeRunArtifacts(summary, deps.runsDir(), {
+          redact: args.redact === true || redact(),
+        })
         const t = summary.totals
 
         const lines: string[] = []
@@ -185,8 +247,20 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
         // 回显选择器：否则「合计 0」只能靠猜（真踩过——draft 场景按 id 单跑时
         // 曾因为写死 status=active 而静默选中 0 条）
         lines.push(`选择器：${describeFilter(filter)}`)
+        for (const warning of selection.warnings) lines.push(`⚠️ ${warning}`)
+        if (summary.selection !== undefined) {
+          lines.push(`增量判定（${summary.selection.mode}）：${summary.selection.detail}`)
+        }
         lines.push(`合计 ${t.total} — ✅ ${t.passed} · ❌ ${t.failed} · ⏭️ ${t.skipped} · 💥 ${t.errored}`)
         lines.push(describePolicy(summary))
+        if (summary.execution !== undefined && summary.execution.parallel !== 'off') {
+          lines.push(
+            `并发：上限 ${summary.execution.limit}（safe ${summary.execution.safe} 条 / exclusive ${summary.execution.exclusive} 条）`,
+          )
+        }
+        if (write.redaction !== undefined) {
+          lines.push(`已脱敏 ${write.redaction.count} 处（findings 只记位置与类型，不含原文）`)
+        }
         if (t.total === 0) {
           lines.push('没有选中任何场景：省略选择器只跑 active；draft 场景需显式按 id 点名。')
         }
@@ -257,21 +331,58 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
 
     {
       name: 'testkit_export',
-      description: '把场景导出为可脱离活宿主运行的 CI 用例（node:test）。',
+      description:
+        '导出测试产物：`node-test`（可脱离活宿主运行的 CI 用例）或 `touchstone`（把失败项导成 bug_report/ 交给 touchstone）。',
       parameters: {
         type: 'object',
         properties: {
-          target: { type: 'string', enum: ['node-test'], description: '导出目标' },
+          target: {
+            type: 'string',
+            enum: ['node-test', 'touchstone'],
+            description: '导出目标：node-test（CI 用例）/ touchstone（bug_report 目录）',
+          },
           ids: { type: 'array', items: { type: 'string' }, description: '指定 case id' },
-          outDir: { type: 'string', description: '输出目录（默认包内 export/）' },
+          outDir: { type: 'string', description: '输出目录（node-test 默认包内 export/，touchstone 默认包内 bug_report/）' },
+          runId: { type: 'string', description: 'touchstone 目标：指定 Run ID（省略取最近一次运行）' },
         },
         additionalProperties: false,
         required: ['target'],
       },
       execute: async (args) => {
         const target = typeof args.target === 'string' ? args.target : 'node-test'
+        if (target === 'touchstone') {
+          const { join } = await import('node:path')
+          const runId = typeof args.runId === 'string' && args.runId.trim() !== '' ? args.runId.trim() : undefined
+          const outDir =
+            typeof args.outDir === 'string' && args.outDir.trim() !== ''
+              ? args.outDir
+              : join(packageRoot, 'bug_report')
+          const located = latestRunJson(deps.runsDir(), runId)
+          if (!located.ok || located.path === undefined) {
+            return `无法定位运行记录：${located.reason ?? '未知原因'}`
+          }
+          try {
+            const result = await exportBugReports({
+              source: located.path,
+              outDir,
+              scenarioSeverity: (caseId) =>
+                registry.all.find((s) => s.id === caseId)?.severity,
+            })
+            const lines = [
+              `已导出 ${result.exported.length} 条失败场景 → ${result.outDir}`,
+              ...result.exported.map((item) => `- ${item.caseId}（severity=${item.severity}）→ ${item.dir}`),
+            ]
+            if (result.skipped.length > 0) {
+              lines.push('', `未导出 ${result.skipped.length} 条（不是 bug 或无法归因）：`)
+              for (const item of result.skipped) lines.push(`- ${item.caseId}：${item.reason}`)
+            }
+            return lines.join('\n')
+          } catch (error) {
+            return `导出失败：${error instanceof Error ? error.message : String(error)}`
+          }
+        }
         if (target !== 'node-test') {
-          return `不支持的导出目标：${target}（当前只支持 node-test）`
+          return `不支持的导出目标：${target}（支持 node-test / touchstone）`
         }
 
         const ids = asStringArray(args.ids)
@@ -295,6 +406,7 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
           const result = await exportScenariosToFile({
             scenarios: selected,
             casesDir: registry.dir,
+            fixturesDir: fixturesDir(),
             outDir,
             libDir: join(packageRoot, 'lib'),
             timeoutMs: deps.defaultTimeoutMs(),
@@ -311,6 +423,46 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
         } catch (error) {
           return `导出失败：${error instanceof Error ? error.message : String(error)}`
         }
+      },
+    },
+
+    {
+      name: 'testkit_expand',
+      description:
+        '把一条场景的 `use:` 步骤展开成 flat 步骤（组合系统的自证：展开结果必须能一眼读懂，且不残留 use/with）。',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: '场景 ID，如 TK-0100' },
+        },
+        additionalProperties: false,
+        required: ['id'],
+      },
+      execute: (args) => {
+        const id = typeof args.id === 'string' ? args.id.trim() : ''
+        if (id === '') return '缺少 id：请传入场景 ID'
+        const scenario = registry.all.find((s) => s.id === id)
+        if (scenario === undefined) return `找不到场景 ${id}（用 testkit_list 看可用 ID）`
+
+        const loaded = loadRegistry({ registryDir: registryDir() })
+        const result = expandScenario(scenario, { registry: loaded })
+        if (!result.ok) {
+          return [`展开失败（${result.problems.length} 个问题）：`, ...result.problems.map((p) => `- ${p}`)].join('\n')
+        }
+
+        const lines = [
+          `场景 ${id}：${result.flat.length} 步（已展开为 flat，无 use/with 残留）`,
+          `registry 版本：${loaded.version}`,
+          '',
+        ]
+        result.flat.forEach((step, i) => {
+          lines.push(`${i + 1}. ${step.name ?? '(未命名)'}`)
+          if (step.act !== undefined) lines.push(`   act: ${JSON.stringify(step.act)}`)
+          for (const assertion of step.expect ?? []) {
+            lines.push(`   expect: ${JSON.stringify(assertion)}`)
+          }
+        })
+        return lines.join('\n')
       },
     },
 

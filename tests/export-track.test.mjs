@@ -128,6 +128,10 @@ test('落盘链路（testkit_export 共用）：写出的文件同样带闸门',
   const content = readFileSync(result.file, 'utf8')
   assert.match(content, /policy: resolvePolicy\(\{\}\)/)
   assert.match(content, /executor\/policy\.js/)
+  // 夹具链也必须写进生成物：否则「条件来自 fixtures:」的场景在 CI 轨会裸跑
+  // （插件里绿、CI 里红）。这条断言让"同一条夹具链"变成结构约束。
+  assert.match(content, /fixtures: \{ fixturesDir: FIXTURES_DIR, dshVersion: DSH_VERSION \}/)
+  assert.match(content, /const FIXTURES_DIR = /)
 })
 
 test('CI 轨语义跑真实 cases/：0 failed，且 high 档场景的跳过原因来自成本闸门', async () => {
@@ -149,6 +153,9 @@ test('CI 轨语义跑真实 cases/：0 failed，且 high 档场景的跳过原�
       filter: { ids: selected.map((s) => s.id) },
       defaultTimeoutMs: 20_000,
       policy: resolvePolicy({}),
+      // 与生成物**逐字同构**：夹具链、宿主版本口径都要一致，
+      // 否则这条用例证的是"另一个运行路径"，而不是 CI 轨。
+      fixtures: { fixturesDir: join(REPO_ROOT, 'fixtures'), dshVersion: process.env.DSH_VERSION ?? 'headless' },
     })
 
     // ① 闸门不会把 CI 轨染红：不能有 failed / errored

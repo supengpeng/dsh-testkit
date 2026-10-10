@@ -19,12 +19,13 @@ runtime:
   timeoutMs: 15000
   requires: [llm]
 
-setup:
-  llm:
-    respond:
-      chunks: [前半段, 后半段, 永远到不了]
-    failMode: mid-stream-error
-    failAfterChunks: 1
+# 条件来源：**完全由夹具提供**（fixtures/llm/error-mid-stream.yaml）。
+# 场景这里刻意**不写** `setup.llm`——它测的正是"条件来自夹具"这条路径：
+# runner 会调 `applyScenarioFixtures` 把夹具 `data.llm` 合并进 setup。
+# 等价性由 tests/fixture-governance.test.mjs 钉住（夹具展开出的 setup 与
+# 曾经显式写的字段逐字段 deepEqual，且实跑 verdict / 断言指纹一致）。
+fixtures:
+  - llm/error-mid-stream
 
 steps:
   - name: 触发模型流

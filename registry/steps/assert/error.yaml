@@ -1,0 +1,33 @@
+# assert/error —— 断言某个 fx.* 取值上确实有错误
+#
+# 用法：
+#   steps:
+#     - use: assert/error
+#       with: { ref: fx.callError, pattern: ENOENT }
+#
+# 只做两件事：取值必须存在（不能是 undefined/null），且匹配给定正则。
+# 片段**不**猜错误形状（不看 code / info.code），那是场景自己的事。
+name: assert/error
+version: "1"
+description: 断言 ref（fx.*）上存在错误取值，并可选用正则匹配其文本
+params:
+  type: object
+  properties:
+    ref:
+      type: string
+      description: 断言取值路径，例如 fx.callError
+    pattern:
+      type: string
+      description: 错误文本要匹配的正则（缺省 .* 表示只要求存在）
+      default: ".*"
+  required: [ref]
+  additionalProperties: false
+dependencies: []
+cost: none
+sandbox:
+  mode: read-only
+expect:
+  - ref: "{ref}"
+    exists: true
+  - ref: "{ref}"
+    matches: "{pattern}"

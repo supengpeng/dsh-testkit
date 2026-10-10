@@ -10,7 +10,7 @@
  * 用法：node scripts/build-client.mjs
  */
 
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -18,8 +18,20 @@ import { build } from 'esbuild'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
-/** 必须与 package.json 的 name 一致：DSH 的 client 模块表按它索引。 */
-const PKG_ID = 'dsh-testkit'
+/**
+ * client 模块 id = **package.json 的 name**，所以这里从 package.json 读，
+ * 不再硬编码：DSH 的 client 模块表按包名索引（`dsh.client` 扫描 → `__DSH_BOOT__` 入口图）。
+ *
+ * 证据：DSH 自己的客户端包同样用包名做 id，且**支持 scoped 名**
+ * （发行体里可见 `window.__ModuleLoader__.load({ id: "@deepseek-ai/dsh-api-gateway" …)`
+ * 与示例 `id: '@local/my-decoration'`）。
+ *
+ * 注意区分两件事（改名时别搞混）：
+ *   · **模块 id**（这里）= npm 包名 → 改名就跟着变；
+ *   · **插件身份**（`src/index.ts` 的 `export const name`、`dsh/cordis.patch.yml` 的 id、
+ *     client 半的 `export const name`）= 产品名 `dsh-testkit`，**不随 npm 名变化**。
+ */
+const PKG_ID = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).name
 
 mkdirSync(join(root, 'lib'), { recursive: true })
 

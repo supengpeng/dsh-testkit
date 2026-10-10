@@ -269,7 +269,27 @@ function stringifyToolValue(value: unknown): string {
  * 标准 JSON Schema → DSH 的 `ParameterSchemaSpec`（属性表形态）。
  *
  * 转换规则对照 `@deepseek-ai/dsh-tools` 的 ValueSchemaSpec：
- *   string/number/integer/boolean/null/array/object 原样映射，其余落 `json`。
+ *   - `string/number/integer/boolean/null/array/object` 原样映射，其余落 `json`；
+ *   - 标量节点的 `enum` 按 DSH **支持的类型集合**保留（见 `toValueSpec` 头注）。
+ *
+ * ## 根级 `additionalProperties` 是**显式丢弃**（不是漏写）
+ *
+ * DSH 的 author 侧参数表 `ParameterSchemaSpec` 是一个
+ * 「**隐式开放的对象根**」：它本身就是一张属性表，没有 openness 字段
+ * （发行体 `@deepseek-ai/dsh-tools/lib/types/schema.d.ts:77-84`）；
+ * 编译产物 `parameterSchemaSpecToJsonSchema` 也固定只产出
+ * `{ type: 'object', properties[, required] }`
+ * （同包 `lib/types/schema.js:238-247`）。
+ *
+ * 所以根级 `additionalProperties: false` **在 author 侧不可表达**，无法映射。
+ * 为什么不能顺手拷进属性表：那会变成一条**名为 `additionalProperties` 的参数**
+ * （真实参数）而不是约束，比丢弃更糟——本函数因此选择丢弃并在此写明理由。
+ * 嵌套 object 的 openness 是 `ObjectValueSchemaSpec` 的**必填**字段，必须保留
+ * （见 `toValueSpec` 的 `'object'` 分支）。
+ *
+ * 副作用提醒：本仓 `src/tools.ts` 的 `NO_ARGS` 等在根级写了
+ * `additionalProperties: false`，转换后根**仍是开放的**——这是 DSH 的既有语义，
+ * 不是本函数能修的（见 `tests/contracts/dsh-tools.contract.mjs` 的用例）。
  */
 export function jsonSchemaToParameters(
   schema: Record<string, unknown> | undefined,
@@ -278,6 +298,7 @@ export function jsonSchemaToParameters(
   const properties = schema['properties']
   if (!properties || typeof properties !== 'object') return {}
 
+  // 刻意不读 schema['additionalProperties']：根级 openness 在 author 侧不可表达（见头注）。
   const required = new Set(
     Array.isArray(schema['required']) ? (schema['required'] as string[]) : [],
   )
@@ -290,24 +311,65 @@ export function jsonSchemaToParameters(
   return spec
 }
 
+/**
+ * 单个属性节点 → DSH 的 `ValueSchemaSpec`。
+ *
+ * ## enum / const 的保真范围（按 DSH 的支持集合，不是按印象）
+ *
+ * DSH 只在**标量节点**上接受 `enum` 与 `const`：`string` / `number` / `integer` / `boolean` / `null`
+ *   · 各自 spec 上的 `enum?` / `const?` 字段：发行体 `lib/types/schema.d.ts:20-48`
+ *   · 允许表：`lib/types/json-schema.js:251-263` 的 `allowedFor`
+ *   · 强制校验：`lib/types/json-schema.js:295-313`
+ *     - `enum` 必须非空且每个值类型正确；
+ *     - `const` 的值类型必须与声明类型一致；
+ *     - 同时声明两者时 `const` 必须取 `enum` 里的某一个值。
+ *   · 非法时 `defineTool` 直接抛 `JsonSchemaError`
+ * `array` / `object` / `json` / 未知类型都**不接受** enum / const（带上会被 DSH 拒）。
+ *
+ * 回归记录：原实现只在 `type: 'string'` 时保留 enum，number/integer/boolean/null
+ * 的 enum 被**静默丢弃**；`const` 则被**全类型**静默丢弃。两者都会让约束无声消失
+ * （校验变松）。现在按上面的支持集合保留。
+ *
+ * ## 取舍：非法 schema 会**更早炸**（这是刻意的）
+ *
+ * 忠实翻译意味着**不替调用方 sanitize**：类型不匹配的 enum/const 原样进入 spec，
+ * 由 `defineTool` 在**注册期**抛 `JsonSchemaError`——而不是被我们悄悄丢掉。
+ * 代价是"升级前能激活、升级后激活失败"，所以恢复路径必须写清楚（作者该改什么）：
+ *   ① 让 enum/const 的值与声明的 `type` 一致（`integer` 只能整数、`boolean` 只能
+ *      true/false、`null` 只能 null）；
+ *   ② 同时声明 enum + const 时，`const` 必须取 enum 中的一个值；
+ *   ③ `enum` 必须是非空数组；
+ *   ④ 约束若落在 array/object 上，请把它移到 `items` / `properties.<key>` 的标量节点上。
+ *
+ * 已知未映射：无（enum 与 const 均已按支持集合处理）。
+ */
 function toValueSpec(raw: unknown): Record<string, unknown> {
   if (typeof raw !== 'object' || raw === null) return { type: 'json' }
   const node = raw as Record<string, unknown>
   const annotations: Record<string, unknown> = {}
   if (typeof node['description'] === 'string') annotations['description'] = node['description']
   const enumValues = Array.isArray(node['enum']) ? (node['enum'] as unknown[]) : undefined
+  // 用 `Object.hasOwn` 判存在，**不能用真值/!== undefined**：`const: false` 与
+  // `const: null` 都是合法取值（boolean / null 类型），真值判断会把它们静默丢掉——
+  // 那正是本函数要消灭的"无声放松"。
+  const hasConst = Object.hasOwn(node, 'const')
 
-  switch (node['type']) {
+  /** 标量节点：保留 annotations，并按支持集合带上 enum / const。 */
+  const scalarSpec = (type: string): Record<string, unknown> => ({
+    type,
+    ...annotations,
+    ...(enumValues ? { enum: enumValues } : {}),
+    ...(hasConst ? { const: node['const'] } : {}),
+  })
+
+  const type = node['type']
+  switch (type) {
     case 'string':
-      return { type: 'string', ...annotations, ...(enumValues ? { enum: enumValues } : {}) }
     case 'number':
-      return { type: 'number', ...annotations }
     case 'integer':
-      return { type: 'integer', ...annotations }
     case 'boolean':
-      return { type: 'boolean', ...annotations }
     case 'null':
-      return { type: 'null', ...annotations }
+      return scalarSpec(type)
     case 'array': {
       const spec: Record<string, unknown> = { type: 'array', ...annotations }
       if (node['items'] !== undefined) spec['items'] = toValueSpec(node['items'])

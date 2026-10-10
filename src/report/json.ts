@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import type { RunSummary } from '../runtime/runlog.js'
 import { renderJUnit } from './junit.js'
 import { renderMarkdown } from './markdown.js'
+import { redactSummary, type RedactionFinding } from './redact.js'
 
 export interface RunArtifacts {
   dir: string
@@ -18,6 +19,18 @@ export interface RunArtifacts {
   markdownPath: string
   /** `junit.xml` 路径；这一份写失败时为 undefined（见 `writeRunArtifacts` 的 `junitError`）。 */
   junitPath?: string
+}
+
+/** `writeRunArtifacts` 的选项。 */
+export interface WriteArtifactsOptions {
+  /**
+   * 是否脱敏（`--redact`）。
+   *
+   * 默认 **false**：脱敏会改写取证原文，不该在没人要求时悄悄发生。
+   * 打开时三份产物（json/md/junit）都渲染**同一份已脱敏的** summary——
+   * 三面同源在这里也不能破。
+   */
+  redact?: boolean
 }
 
 /** 序列化整份运行记录（稳定缩进，便于 diff）。 */
@@ -38,24 +51,37 @@ export function renderJson(summary: RunSummary): string {
 export async function writeRunArtifacts(
   summary: RunSummary,
   runsDir: string,
-): Promise<{ artifacts?: RunArtifacts; error?: string; junitError?: string }> {
+  options: WriteArtifactsOptions = {},
+): Promise<{
+  artifacts?: RunArtifacts
+  error?: string
+  junitError?: string
+  /** 脱敏命中（只含路径与类型，不含原文）。 */
+  redaction?: { count: number; findings: RedactionFinding[] }
+}> {
   const dir = join(runsDir, summary.runId)
   try {
     await mkdir(dir, { recursive: true })
+
+    const redacted = options.redact === true ? redactSummary(summary) : undefined
+    const effective = redacted === undefined ? summary : redacted.summary
+
     const jsonPath = join(dir, 'run.json')
     const markdownPath = join(dir, 'report.md')
     const junitPath = join(dir, 'junit.xml')
-    await writeFile(jsonPath, renderJson(summary), 'utf8')
-    await writeFile(markdownPath, renderMarkdown(summary), 'utf8')
+    await writeFile(jsonPath, renderJson(effective), 'utf8')
+    await writeFile(markdownPath, renderMarkdown(effective), 'utf8')
 
     let writtenJUnit: string | undefined
     let junitError: string | undefined
     try {
-      await writeFile(junitPath, renderJUnit(summary), 'utf8')
+      await writeFile(junitPath, renderJUnit(effective), 'utf8')
       writtenJUnit = junitPath
     } catch (error) {
       junitError = error instanceof Error ? error.message : String(error)
     }
+
+    const findings = redacted === undefined ? [] : redacted.findings
 
     return {
       artifacts: {
@@ -65,6 +91,7 @@ export async function writeRunArtifacts(
         ...(writtenJUnit === undefined ? {} : { junitPath: writtenJUnit }),
       },
       ...(junitError === undefined ? {} : { junitError }),
+      ...(findings.length === 0 ? {} : { redaction: { count: findings.length, findings } }),
     }
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) }
@@ -72,3 +99,4 @@ export async function writeRunArtifacts(
 }
 
 export { renderJUnit, renderMarkdown }
+

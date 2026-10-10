@@ -1,0 +1,18 @@
+# llm/error-mid-stream —— 流中途注入错误
+#
+# 语义：产出 failAfterChunks 个 text-delta 之后，以 finish.reason.kind = error 收尾。
+# 已产出的内容必须保留（不能因为后来出错就丢掉前面），收尾也不能伪装成正常结束。
+# 该夹具是 cases/TK-0006 的条件来源。
+$schema: 1
+name: llm/error-mid-stream
+dsh_version: ">=0.2.0-rc.2"
+source: hand-written
+data:
+  llm:
+    respond:
+      chunks:
+        - 前半段
+        - 后半段
+        - 永远到不了
+    failMode: mid-stream-error
+    failAfterChunks: 1

@@ -1,9 +1,10 @@
 # 优化执行报告（对照《dsh-testkit 完整优化与生态融合方案》）
 
-> 执行日期：2026-10-10
-> 执行方式：Agent Teams（Lead + 3 名队友：`policy-gate` / `report-standard` / `release-ci`，写域互不重叠）
+> 执行日期：2026-10-10（两批：第一批 3 名队友，第二批 5 名队友 + 1 个后续修复任务）
+> 执行方式：Agent Teams —— 写域互不重叠，Lead 冻结接口、裁决跨域问题、做最终验收
 > 基线：[baseline/README.md](../baseline/README.md)（内置套件 **386 passed / 0 failed**；CI 轨 **26 tests：18 pass / 8 skip / 0 fail**）
-> 结论读数：**`pnpm run gate` 退出码 0 · 内置套件 444 passed / 0 failed · CI 轨 26 tests：18 pass / 8 skip / 0 fail**
+> 结论读数：**`pnpm run gate` 退出码 0 · 内置套件 538 passed / 0 failed · 契约轨 65/65 · 场景 39 条 · CI 轨 26 tests：18 pass / 8 skip / 0 fail**
+> 并且**在 `git worktree` 出来的全新 checkout 上复跑过一遍**（第一批的教训：`.gitignore` 曾把 `src/export/**` 一起忽略，本地绿、新克隆必挂）
 
 ---
 
@@ -26,13 +27,17 @@
 | 第 4 步 | 执行器加 Policy 层 | ✅ | `src/executor/policy.ts`；`runner.ts` 接线；`tests/policy-gate.test.mjs`（13 条） |
 | 第 6 步 | 自举测试 + CI + 徽章 | ✅ | `.github/workflows/ci.yml`（Node 22/24 × 3 平台）；README 四徽章；`tests/self-bootstrap.test.mjs` |
 | 第 7 步 | flaky 治理 + 失败分类 + 最小复现 | ✅ | `src/analysis/classify.ts`（11 条判定表）、`repro.ts`、`rounds` 记账；报告三面都呈现归因 |
-| 第 8 步 | 增量测试选择（`--changed` / `--since` / `--affected-by`） | ⏳ 推迟 | 见 §5；文档自己的停止线也写了「场景数长期 < 50 → 增量测试不需要」 |
-| 第 11 步 | npm 改 scoped name | ⏳ 推迟（**升级为发布硬前提**） | [docs/PUBLISHING.md](PUBLISHING.md) §1–§5；registry 实测见 §4 |
-| 第 12 步 | SECURITY.md + 隐私声明 | ✅（`--redact` 如实标"待实现"） | [SECURITY.md](../SECURITY.md) |
+| 第 8 步 | 增量测试选择（`--changed` / `--since` / `--affected-by` / `--dsh-version`） | ✅ 第二批 | `src/selection/**` + `tests/selection.test.mjs`（含"非 git / 坏 ref 退回全量"与"改 `tests/` 不影响任何场景"的反例）；加速比见 §7 |
+| 第 11 步 | npm 改 scoped name | ✅ 第二批 | 包名 `@supengpeng/dsh-testkit`；client 模块 id 改为**从 `package.json` 读**（不再硬编码）；插件身份保持 `dsh-testkit`；[docs/PUBLISHING.md](PUBLISHING.md) §1–§5（**活宿主渲染仍需人工验一次**） |
+| 第 12 步 | SECURITY.md + 隐私声明 + `--redact` | ✅ | [SECURITY.md](../SECURITY.md)；`src/report/redact.ts` + `scripts/check-secrets.mjs`（进 gate，只报位置不打印原文） |
 | 第八部分 §8.1 | 成本分级 none/low/high + 预算 | ✅ | `cost`/`budget` 字段（`src/cases/schema.ts` 校验）；`--allow-model` 才放权 |
 | 第八部分 §8.2 | `report.md` + `report.json` + `junit.xml` | ✅ | `runs/<RUN-ID>/` 三件产物 |
-| 第九部分 | touchstone 三阶段适配器 | ⏳ 推迟 | 见 §5（前置条件：真实用户里有人在用 touchstone） |
-| 第十一部分 | 反面清单（不加第 13 个 driver 等） | ✅ 未违反 | 本次 `SCENARIO_KINDS` 仍为 12；无 DSL；无场景级 include |
+| 第九部分 | touchstone 三阶段适配器（export / import / webhook + `git worktree` 隔离） | ✅ 第二批 | `src/touchstone/**`；`tests/touchstone.test.mjs`（真起服务 + 真复跑 + 主仓 `git status` 前后为空）；[docs/TOUCHSTONE.md](TOUCHSTONE.md) |
+| 第五部分 §5.2–5.5 | 增量选择 / fixture 治理 / 契约测试 / 并发隔离 | ✅ 第二批 | `src/selection/**`、`fixtures/**`、`src/contracts/**`、`src/isolation/**`；`verify:fixtures` 进 gate |
+| 第四部分 + 第 5 步 | 组合系统（step registry + 参数化模板 + 一键展开） | ✅ 第二批（**加法式**，保留既有 YAML 形状） | `registry/steps/**`（9 片段）、`templates/**`（2 模板 → 6 draft）、`src/registry/**`、`scripts/verify-registry.mjs`；3 条 `use:` draft + 等价性证明 |
+| 第七部分 §7.1 | 禁止任意网络请求 + shell 默认只读 | ✅ 第二批 | `READ_ONLY_DENY_COMMANDS` 成为默认；`sandbox.allowNetwork` 默认 false（场景自带假 provider 例外） |
+| 第十一部分 | 反面清单（不加第 13 个 driver 等） | ✅ 未违反 | `SCENARIO_KINDS` 仍为 12；无通用 DSL；无场景级 include/extends |
+| （第二批新增） | 独立 CLI（`bin`） | ⏳ 仍推迟 | 见 §5（前置条件：导出轨先在真实仓库的 CI 上跑通） |
 
 ---
 
@@ -55,34 +60,53 @@
 | 2 | `package.json` 的 `files` 缺 `schemas` | 新增的 `schemas/run-report.schema.json` 装了会缺件（正是 TK-0019 从 dsh-memory #48 提炼的形态） | `files` 加 `schemas`；`exports` 声明该 schema（`check-pack-files` 的必需路径由入口字段推导，这样它才查得到）；新增 `verify:pack` 进 `gate` |
 | 3 | `scripts/check-git-installable.mjs` 默认包根多跳一级 | 不带参数跑必然 exit 1，脚本等于半个残废 | 去掉那一跳；同时发现它报出的**真问题**：入口指向 `lib/` 但没有 `prepare`，git 安装得到的是没有入口的空壳 → 加 `prepare` 构建脚本，并把 `verify:git-install` 接进 `gate` |
 | 4 | **两条时序断言在 CI 上会假红**（新检出复跑时实测命中一次） | `assert.ok(duration >= 40)` / `assert.ok(waitedMs >= 30)` 与 `setTimeout` 的名义值**相等**，而 `Date.now()` 起止各取整一次 + 定时器精度会让实测少 1–2ms（实测 39 < 40）。9 个矩阵任务里迟早撞上，表现为随机红 | 两处加 5ms 容差并写明理由（要证的是"确实等了"，不等待时是 0–2ms，差一个量级）；同时这也是"失败归因 `flaky`"这条能力存在的理由 |
+| 5 | **CI 导出轨不应用夹具**（第二批把 TK-0006 切纯夹具版时暴露） | 生成物只带 `policy` 不带 `fixtures`：于是"条件来自 `fixtures:`"的场景在 CI 轨**裸跑**——插件里绿、CI 里红（或反过来），正是本仓最怕的那类分叉 | 生成物显式带 `fixtures: { fixturesDir, dshVersion }`；`tests/export-track.test.mjs` 断言这行存在，并按同一套语义批量跑真实 `cases/` |
+| 6 | **headless `dispose()` 是静默 no-op**（契约测试揪出） | 它判 `typeof ctx.dispose === 'function'`，但 cordis 4 的 Context 没有 `dispose`（真入口是 `ctx.fiber.dispose()`）→ effect 注册永不回收；而既有"dispose 可重复调用"的测试**因为什么都没做才通过** | 改为真卸载 + 把"effect 确实被清理"写成契约；旧测试改成能失败的形式；配反安慰剂③（退回 no-op 必须红） |
+| 7 | **`enum` / `const` 被静默丢弃**（契约测试揪出，`enum` 只保留 `string`） | 参数约束被无声放松：作者写了 `enum`/`const`，运行期却没人校验——"写了但没生效"比没写更危险 | 按 DSH 支持集合（标量 5 类）忠实传递；`const` 用 `Object.hasOwn` 判存在（否则 `false`/`null` 被真值判断丢掉）；配反安慰剂④⑤⑥ |
 
 ---
 
 ## 5. 推迟项与前置条件（不是"没时间"，是"条件不具备"）
 
-| 项 | 为什么本次不做 | 前置条件 |
+| 项 | 为什么还没做 | 前置条件 |
 |---|---|---|
-| npm 改 scoped name | `scripts/build-client.mjs` 的 `PKG_ID` 必须与 `package.json.name` 一致，改名会改掉 **client bundle 的 module id**；本仓自己记录过"注册名变化会导致加载静默失败"。本会话无法在活宿主（web profile）验证 | 按 [docs/PUBLISHING.md](PUBLISHING.md) §5 的 V1–V4 在活宿主验：标签渲染 / combo URL / `__ModuleLoader__.load` 的 id / bridge |
-| 独立 CLI（`bin`） | 本包刻意无 `bin`：命令行能力由 `/testkit` 与导出轨承担；先加 CLI 等于在没有真实用户的前提下加新面 | 真实有人在 CI 外需要它；且先确定只做 `run` / `list` 两个子命令 |
-| 组合系统（step registry + 参数化模板） | 文档第四部分的设计（步骤级 + 参数化、禁场景级 include）成本高，且与"场景数长期 < 50"的现实不匹配；文档自己的停止线也支持推迟 | 场景数上量、或确实出现"一堆同构场景" |
-| touchstone 三阶段（export/import/webhook） | 文档第十二部分写明风险：可能"用户群不重叠"，花 5 周集成没有收益 | 有真实用户在用 touchstone 且需要一个确定性回归网 |
-| 增量测试选择（`--changed` 等） | 12 步优先级的第 8 位；文档停止线："场景数长期 < 50 → 增量测试、发现检索、趋势全不需要" | 场景数上量到几十条以上、全量跑开始慢 |
-| `--redact` / 脱敏扫描 | 本会话没做，**文档里如实写"待实现"**，不虚报 | 有真实 report 需要对外分享的场景 |
+| 独立 CLI（`bin`） | 本包刻意无 `bin`：命令行能力由 `/testkit` 人类命令 + `testkit_*` 工具 + 导出轨承担；先加 CLI 等于在没有真实用户的前提下加新面 | ① 导出轨在至少一个真实仓库的 CI 上跑通；② 只做 `run` / `list` 两个子命令，不造第二套引擎 |
+| 可观测性与 DX（trace / 趋势 / 覆盖矩阵 / `--watch` / `--smoke`） | 前提是"运行数据已足够多、值得聚合"。第二批先把**数据本身**做对：选择取证 / 执行取证 / 归因 / 最小复现 / 夹具取证 / 清理取证都已进 `run.json` | ① 真实运行次数上来（有可比历史）；② 先定"趋势要回答什么问题" |
+| 供应链与治理（产物签名 / RFC / CODEOWNERS / 贡献指南 / good first issues） | 这些机制在**发布之后**才有意义（签名要签发布产物、RFC 要有外部参与者） | 先完成一次真实发布（含**活宿主渲染验证**），再按 [PUBLISHING.md](PUBLISHING.md) 的清单补齐 |
+
+> 被第二批消掉的推迟项：**npm scoped rename**、**step registry + 参数化模板**、
+> **touchstone 三阶段**、**`--redact`**、**默认只读沙箱**、**增量测试选择**。
 
 ---
 
 ## 6. 已知限界（诚实边界）
 
 - **模型用量记账是下界**：`1 个高成本 act = 1 次调用`，token 不猜（driver 不上报就记 0）。所以 `budget.maxModelCalls` 是**保守闸门**，`maxTokens` 只在有上报时才真正强制。
-- **「默认只读沙箱」是显式开关，不是默认行为**：本次只把**花钱**默认关掉（`allowModel: false`），沙箱收紧留给配置项 / 工具参数——否则既有 26 条场景里那几条写目录的 shell 场景会平白变成 skipped，噪音会淹没真失败。取舍写在 `src/executor/policy.ts` 的 `DEFAULT_POLICY` 注释里。
+- **沙箱默认值（第二批起）**：`shell` **默认只读**（写命令与解释器被拒，记 skipped 并给理由），真实网络**默认禁止**；但 `allowFileWrite` 仍默认 `true`——`fs` driver 的职责就是驱动宿主文件服务、观察宿主自己的沙箱语义，闸门层默认拒绝写入会把该 driver 变成哑巴。
 - **工具面只能收紧、不能提权**：`testkit_run` 的 `allowModel: true` 只在配置已允许时才有效；唯一放权入口是人类命令面 `/testkit run --allow-model`。
-- **CI 轨的跳过原因变了**（数量未变，仍 8 条）：`TK-0014` / `TK-0016` 现在因**成本闸门**跳过，而不是"宿主缺少能力"。这是刻意的：把"不烧钱"从"眼下恰好没烧"升级为"结构上不可能烧"。
-- `.github/workflows/ci.yml` 只验证了「YAML 可解析 + 矩阵/步骤/权限断言」，**未在真实 GitHub Actions 上跑过**（本会话没有 push）。
-- client 半、改名后的 module id、bridge 的活宿主行为：本会话均不可验证。
+- **`--redact` 是模式匹配级，不是数据分级**：挡得住"不小心把 token 贴进日志"，挡不住精心构造的泄露。`check-secrets` 是闸门、`--redact` 是兜底，都不是安全认证。
+- **增量选择的收益是"少跑"不是"跑得快"**：API 口径改一个 kind 只命中 1–2/26 条；端到端口径被 `node --test` 启动地板（约 1.1s）压住，只有约 2×。
+- **残留检测只做 tmpdir 真检测**：Node 无可靠的同步端口探测，端口/进程探针缺省**不探测**（不写假阴性），要真检测需调用方注入。
+- **组合系统的参数校验是"简化 JSON Schema"级**：不递归校验嵌套 `properties`；占位符嵌入字符串时要求标量，对象/数组必须整串占位。
+- **`enum` / `const` 保真带来了"更早炸"**：类型不匹配的 schema 现在会在 `defineTool` 期抛 `JsonSchemaError`（刻意取舍：宁可响亮也不要静默放宽）。恢复路径见 [CHANGELOG.md](../CHANGELOG.md) 的迁移说明。
+- **活宿主仍未验证的部分**：改名后的 client 模块 id 与「测试」标签渲染（[PUBLISHING.md](PUBLISHING.md) §5 的 V1–V4）、client bridge 的活宿主行为、`.github/workflows/ci.yml` **未在真实 GitHub Actions 上跑过**（本会话没有 push）。
+- **CI 轨与插件面已对齐夹具链**：生成物显式带 `fixtures: { fixturesDir, dshVersion }`，并由 `tests/export-track.test.mjs` 钉住——不加这条会出现"插件绿、CI 红"的分叉。
 
 ---
 
-## 7. 复现（一条命令一族）
+## 7. 第二批实测读数（可复跑）
+
+| 项 | 读数 |
+|---|---|
+| 内置套件 | **538 passed / 0 failed**（第一批 444；基线 386） |
+| 契约轨 | `node --test "tests/contracts/*.test.mjs"` → **65 / 65**（含 6 条反安慰剂） |
+| 场景 | `cases/` **39 条**（含 3 条 `use:` draft、7 条 `fixture` 标签）；CI 轨 26 条 → 18 passed / 8 skipped / 0 failed |
+| 守卫 | `verify:cases` / `verify:docs` / `verify:adapter` / `verify:pack` / `verify:git-install` / `verify:fixtures` / `verify:registry` / `verify:secrets` **全部退出码 0** |
+| 增量加速 | API 口径：改 `src/kinds/llm.ts` → 2/26 条（**140×**）；改 `src/kinds/compaction.ts` → 1/26 条（**2864×**）；端到端口径约 **2×** |
+
+---
+
+## 8. 复现（一条命令一族）
 
 ```bash
 # 全链（CI 用的就是它）
@@ -90,11 +114,11 @@ pnpm run gate
 
 # 单项（调参时用，省时间）
 node scripts/build-lock.mjs            # 串行化编译闸门：多人协作时避免并发 tsc 互踩
+node scripts/build-client.mjs          # 改名 / 改 client 半之后**必须**跑（共享产物）
 node --test "tests/*.test.mjs"         # 内置套件
+node --test "tests/contracts/*.test.mjs"   # 契约轨（先于场景测试）
 node scripts/export-scenarios.mjs && node --test export/scenarios.test.mjs
-node scripts/check-adapter-boundary.mjs
-node scripts/check-pack-files.mjs
-node scripts/check-git-installable.mjs
+node scripts/verify-fixtures.mjs && node scripts/verify-registry.mjs && node scripts/check-secrets.mjs
 ```
 
 基线对照方法见 [baseline/README.md](../baseline/README.md)。

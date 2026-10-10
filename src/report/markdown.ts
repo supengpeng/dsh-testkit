@@ -42,6 +42,13 @@ export function renderMarkdown(summary: RunSummary): string {
   if (summary.policySnapshot) {
     lines.push(`- **闸门快照**：${formatPolicySnapshot(summary.policySnapshot)}`)
   }
+  // 脱敏必须**写在报告里**：否则读者以为看到的是原文，而取证已经被改写。
+  if (summary.redaction) {
+    const kinds = [...new Set(summary.redaction.findings.map((f) => f.kind))].join('、')
+    lines.push(
+      `- **已脱敏**：过滤 ${summary.redaction.count} 处敏感数据（\`--redact\`；类型：${kinds || '—'}）。findings 只记位置与类型，不含原文。`,
+    )
+  }
   lines.push('')
   lines.push(
     `**合计**：${totals.total} 条 — ✅ ${totals.passed} · ❌ ${totals.failed} · ⏭️ ${totals.skipped} · 💥 ${totals.errored}`,

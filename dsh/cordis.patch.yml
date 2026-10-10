@@ -12,8 +12,12 @@
 # 本行默认不启用任何配置；需要覆盖时改 profile 的 cordis.patch.yml：
 #   - id: dsh-testkit
 #     config:
-#       casesDir: 'C:/Users/19059/Documents/deepseek-harness/default-workspace/dsh-testkit/cases'
+#       casesDir: 'C:/Users/<user>/Documents/deepseek-harness/default-workspace/dsh-testkit/cases'
 #       autoload: true
+#
+# ⚠️ 这里的 `id` 是**插件身份**（对应 src/index.ts 的 `export const name`），
+#    与 npm 包名是**两件事**：包名已改 scoped（见 docs/PUBLISHING.md），
+#    插件身份仍是产品名 `dsh-testkit`，所以这行**不用**跟着改。
 - insert:
     - id: dsh-testkit
       name: dsh-testkit

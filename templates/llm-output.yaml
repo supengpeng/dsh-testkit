@@ -1,0 +1,36 @@
+# 参数化模板：llm-output
+#
+# 一条"接管模型流 → 输出分块可断言"的同构场景，只有参数不同：
+#   · chunk  —— 第一段文本分块
+#   · finish —— finishReason（stop / max-tokens）
+#
+# 展开产物一律 status: draft；生成结果仍带 use:，需 expandScenario() 展平后执行。
+template: llm-output
+id_pattern: TK-01xx
+title: "模板：llm 分块 {chunk} 且 finish 为 {finish}"
+kind: llm
+severity: low
+description: 被接管的模型流输出的参数化模板（矩阵：chunk × finish）
+tags: [registry, template, llm, registry:v1]
+source:
+  issue: null
+  summary: 参数化模板 llm-output 展开出的 draft 场景（模型流输出）
+matrix:
+  chunk: [ALPHA, BETA]
+  finish: [stop, max-tokens]
+setup:
+  llm:
+    respond:
+      chunks: ["{chunk}", "-TAIL"]
+      finishReason: "{finish}"
+steps:
+  - id: stream
+    use: invoke/llm
+    with: { prompt: "template-{chunk}" }
+  - id: contains
+    use: assert/output-contains
+    with: { ref: fx.mockText, value: "{chunk}" }
+  - id: finish
+    name: finish 应与声明一致
+    expect:
+      - { ref: fx.finishReason, is: "{finish}" }

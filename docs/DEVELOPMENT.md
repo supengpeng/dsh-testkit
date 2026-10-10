@@ -9,20 +9,20 @@
 
 | 项 | 值 |
 |---|---|
-| 工作区 | `C:\Users\19059\Documents\deepseek-harness\default-workspace` |
+| 工作区 | `C:\Users\<user>\Documents\deepseek-harness\default-workspace` |
 | 本插件目录 | `<工作区>\dsh-testkit` |
 | DSH 版本 | `0.2.0-rc.2` |
 | DSH CLI | `D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd` |
-| Node | `C:\Users\19059\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe` |
-| pnpm | `C:\Users\19059\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\pnpm\bin\pnpm.mjs` |
-| DSH profile | `desktop`（`C:\Users\19059\.dsh\profiles\desktop`） |
+| Node | `C:\Users\<user>\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe` |
+| pnpm | `C:\Users\<user>\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\pnpm\bin\pnpm.mjs` |
+| DSH profile | `desktop`（`C:\Users\<user>\.dsh\profiles\desktop`） |
 | Web GUI | `http://127.0.0.1:19387` |
 
 因为 `node` 不在 PATH，所有命令显式使用绝对路径。建议先设别名：
 
 ```powershell
-$NODE = 'C:\Users\19059\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe'
-$PNPM = 'C:\Users\19059\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\pnpm\bin\pnpm.mjs'
+$NODE = 'C:\Users\<user>\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe'
+$PNPM = 'C:\Users\<user>\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\pnpm\bin\pnpm.mjs'
 $DSH  = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 ```
 
@@ -31,7 +31,7 @@ $DSH  = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 ## 2. 首次搭建
 
 ```powershell
-cd C:\Users\19059\Documents\deepseek-harness\default-workspace\dsh-testkit
+cd C:\Users\<user>\Documents\deepseek-harness\default-workspace\dsh-testkit
 
 # 安装依赖（含 dev）
 & $NODE $PNPM install
@@ -162,7 +162,7 @@ Invoke-RestMethod -Uri http://127.0.0.1:19387/api/dsh-testkit/list -Method POST 
 `src/index.ts` 里写了**独立探针**，把失败写到 DSH 日志系统之外：
 
 ```
-C:\Users\19059\.dsh\logs\dsh-testkit-apply-error.log
+C:\Users\<user>\.dsh\logs\dsh-testkit-apply-error.log
 ```
 
 排查顺序：

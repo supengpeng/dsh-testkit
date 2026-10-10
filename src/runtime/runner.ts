@@ -13,6 +13,17 @@
 
 import { classifyCase } from '../analysis/classify.js'
 import { buildMinimalReproForScenario } from '../analysis/repro.js'
+import { applyScenarioFixtures } from '../fixtures/apply.js'
+// 逐模块导入（不用 index 桶文件）：桶文件会让"这个符号到底住哪"变成一道谜题，
+// 而 runner 是唯一消费者，直接点名更省事。
+import { releaseStepNotes } from '../isolation/cleanup.js'
+import {
+  createIsolationContext,
+  disposeIsolationContext,
+  type IsolationContext,
+} from '../isolation/context.js'
+import { detectLeftovers } from '../isolation/leaks.js'
+import { groupScenarios, isSafeScenario } from '../isolation/pool.js'
 import type { CaseFilter, CaseRegistry } from '../cases/registry.js'
 import {
   SCENARIO_KINDS,
@@ -49,8 +60,12 @@ import {
   type AssertionOutcome,
   type CaseOutcome,
   type CaseVerdict,
+  type CleanupRecord,
+  type ExecutionRecord,
+  type FixtureRef,
   type PolicyDecision,
   type RunSummary,
+  type SelectionRecord,
   type StepOutcome,
 } from './runlog.js'
 
@@ -74,6 +89,21 @@ export interface RunRequest {
    * 一律显式构造并传入，默认 `allowModel: false`（见 `src/executor/policy.ts`）。
    */
   policy?: ExecutionPolicy
+  /**
+   * 夹具应用（`scenario.fixtures`）。
+   *
+   * **省略 = 不应用夹具**：没声明 `fixtures` 的场景本来就与夹具无关；
+   * 声明了但调用方没给这个选项时，夹具会被无视——所以插件面的三条入口一律显式传。
+   */
+  fixtures?: { fixturesDir: string; dshVersion?: string }
+  /**
+   * 并发度上限；`<= 1` = 串行（默认）。
+   *
+   * 只有显式声明 `parallel: safe` 的场景会被并发；`exclusive`（含缺省）永远独占。
+   */
+  parallelLimit?: number
+  /** 选择器取证：增量模式下由入口算好后传入，runner 只负责落进报告。 */
+  selection?: SelectionRecord
 }
 
 export type RunProgress =
@@ -93,8 +123,9 @@ export function makeRunId(now: Date = new Date()): string {
 
 /** 执行一批场景。 */
 export async function runScenarios(request: RunRequest): Promise<RunSummary> {
-  const { registry, drivers, host, filter, signal, onProgress, policy } = request
+  const { registry, drivers, host, filter, signal, onProgress, policy, fixtures, selection } = request
   const defaultTimeout = request.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS
+  const parallelLimit = Math.max(1, Math.floor(request.parallelLimit ?? 1))
 
   const selected = registry
     .filter(filter ?? { status: ['active'] })
@@ -104,31 +135,56 @@ export async function runScenarios(request: RunRequest): Promise<RunSummary> {
   const outcomes: CaseOutcome[] = []
   onProgress?.({ phase: 'run-start', total: selected.length })
 
-  let index = 0
-  for (const scenario of selected) {
-    index += 1
+  // 进度事件要带**在选中序列里的位置**：并发时"第几个跑完"与"第几个"不是一回事，
+  // 用递增计数器会让 case-start/case-end 的下标对不上。
+  const positionOf = new Map(selected.map((scenario, i) => [scenario.id, i + 1]))
+
+  const runWithProgress = async (scenario: Scenario): Promise<CaseOutcome> => {
+    const index = positionOf.get(scenario.id) ?? 0
     onProgress?.({ phase: 'case-start', caseId: scenario.id, index, total: selected.length })
-
-    outcomes.push(
-      await runOne(scenario, {
-        drivers,
-        host,
-        signal,
-        timeoutMs: scenario.runtime?.timeoutMs ?? defaultTimeout,
-        ...(policy === undefined ? {} : { policy }),
-      }),
-    )
-
-    const last = outcomes[outcomes.length - 1]!
+    const outcome = await runOne(scenario, {
+      drivers,
+      host,
+      signal,
+      timeoutMs: scenario.runtime?.timeoutMs ?? defaultTimeout,
+      ...(policy === undefined ? {} : { policy }),
+      ...(fixtures === undefined ? {} : { fixtures }),
+    })
     onProgress?.({
       phase: 'case-end',
       caseId: scenario.id,
-      verdict: last.verdict,
+      verdict: outcome.verdict,
       index,
       total: selected.length,
     })
+    return outcome
+  }
 
+  // 分组：`exclusive` 永远独占，只有连续的 `safe` 段按上限切块。
+  const groups =
+    parallelLimit > 1
+      ? groupScenarios(selected, { limit: parallelLimit })
+      : [{ kind: 'serial' as const, items: selected }]
+
+  for (const group of groups) {
     if (signal?.aborted) break
+    if (group.kind === 'parallel') {
+      // 组内并发但**保序**（Promise.all 保序），所以报告与串行跑逐条对齐。
+      outcomes.push(...(await Promise.all(group.items.map((scenario) => runWithProgress(scenario)))))
+    } else {
+      for (const scenario of group.items) {
+        if (signal?.aborted) break
+        outcomes.push(await runWithProgress(scenario))
+      }
+    }
+  }
+
+  const safeCount = selected.filter((scenario) => isSafeScenario(scenario)).length
+  const execution: ExecutionRecord = {
+    parallel: parallelLimit > 1 && safeCount > 0 ? 'limited' : 'off',
+    limit: parallelLimit,
+    safe: safeCount,
+    exclusive: selected.length - safeCount,
   }
 
   const summary: RunSummary = {
@@ -142,6 +198,10 @@ export async function runScenarios(request: RunRequest): Promise<RunSummary> {
     cases: outcomes,
     // 快照进报告：复现"当时为什么这么判"（策略对象运行期可变，快照不会）
     ...(policy === undefined ? {} : { policySnapshot: policySnapshot(policy) }),
+    // 增量模式必须自证"为什么只跑了这些"：判定依据原样落盘，不靠读者猜。
+    ...(selection === undefined ? {} : { selection }),
+    // 并发取证：报告要能说明这次是串行还是并发，以及为什么某些场景独占。
+    ...(parallelLimit > 1 ? { execution } : {}),
   }
 
   onProgress?.({ phase: 'run-end', totals: summary.totals })
@@ -155,34 +215,63 @@ interface RunOneDeps {
   timeoutMs: number
   /** 省略 = 不启用闸门（见 `RunRequest.policy`）。 */
   policy?: ExecutionPolicy
+  /** 省略 = 不应用夹具（见 `RunRequest.fixtures`）。 */
+  fixtures?: { fixturesDir: string; dshVersion?: string }
 }
 
 /** 跑单条场景。任何路径都必须走到夹具释放。 */
-async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome> {
+async function runOne(scenarioInput: Scenario, deps: RunOneDeps): Promise<CaseOutcome> {
   const t0 = Date.now()
   const fixture = new Fixture()
-  const repeat = Math.max(1, scenario.runtime?.repeat ?? 1)
   const policy = deps.policy
+
+  /** 提前收尾（未进入执行阶段）时的 outcome 构造器。 */
+  const finishing = (
+    verdict: CaseVerdict,
+    extra: Partial<CaseOutcome> = {},
+  ): CaseOutcome => ({
+    id: scenarioInput.id,
+    title: scenarioInput.title,
+    kind: scenarioInput.kind,
+    verdict,
+    durationMs: Date.now() - t0,
+    steps: [],
+    notes: fixture.snapshot(),
+    releaseFailures: [],
+    sourceIssue: scenarioInput.source.issue,
+    ...(scenarioInput.owner === undefined ? {} : { owner: scenarioInput.owner }),
+    ...extra,
+  })
+
+  // ---- 夹具应用（`fixtures:`）----
+  //
+  // 放在**所有判定之前**：夹具决定这条场景到底在什么条件下跑，
+  // 拿未合并的 setup 去做能力/成本判定，会出现"按 A 判定、按 B 执行"。
+  // 夹具缺失或版本不匹配 → skipped 并说明原因（绝不用错夹具硬跑）。
+  let scenario = scenarioInput
+  let fixtureRefs: FixtureRef[] | undefined
+  if (deps.fixtures !== undefined && (scenarioInput.fixtures?.length ?? 0) > 0) {
+    const applied = await applyScenarioFixtures(scenarioInput, {
+      fixturesDir: deps.fixtures.fixturesDir,
+      dshVersion: deps.fixtures.dshVersion ?? deps.host.env.dshVersion,
+    })
+    scenario = applied.scenario
+    fixtureRefs = applied.refs
+    if (applied.skipReason !== undefined) {
+      return finishing('skipped', {
+        skipReason: applied.skipReason,
+        fixtures: applied.refs,
+      })
+    }
+  }
+
+  const repeat = Math.max(1, scenario.runtime?.repeat ?? 1)
 
   const env: RefEnvironment = {
     dshVersion: deps.host.env.dshVersion,
     platform: deps.host.env.platform,
     nodeVersion: deps.host.env.nodeVersion,
   }
-
-  /** 提前收尾（未进入执行阶段）时的 outcome 构造器。 */
-  const finishing = (verdict: CaseVerdict, extra: Partial<CaseOutcome> = {}): CaseOutcome => ({
-    id: scenario.id,
-    title: scenario.title,
-    kind: scenario.kind,
-    verdict,
-    durationMs: Date.now() - t0,
-    steps: [],
-    notes: fixture.snapshot(),
-    releaseFailures: [],
-    sourceIssue: scenario.source.issue,
-    ...extra,
-  })
 
   if (!deps.drivers.get(scenario.kind)) {
     return finishing('errored', {
@@ -252,6 +341,25 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
     })
   }
 
+  // ---- 隔离上下文 ----
+  //
+  // 每个场景一个独占的 namespace / tmpdir：并发跑时这是"不互相污染"的前提，
+  // 串行跑时它是"残留可检出"的锚点。端口只**声明**不分配（Node 没有可靠的同步
+  // 端口检查，不猜就不写假条目——见 `detectLeftovers` 的探针说明）。
+  let isolation: IsolationContext | undefined
+  try {
+    isolation = createIsolationContext(scenario)
+    fixture.note('isolationNamespace', isolation.namespace)
+    fixture.note('isolationTmpdir', isolation.tmpdir)
+  } catch (error) {
+    // 隔离目录建不出来不该改变判定（它既不是被授权问题，也不是产品问题）。
+    // 但必须留痕：否则"没有残留"会被误解成"检查过了没问题"。
+    fixture.note(
+      'isolationError',
+      error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+    )
+  }
+
   const controller = new AbortController()
   let timedOut = false
   const onExternalAbort = (): void => controller.abort()
@@ -279,6 +387,10 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
   let skipReason: string | undefined
   /** 每轮是否"干净"（无硬失败断言、未超时）；repeat > 1 时进 outcome.rounds。 */
   const rounds: boolean[] = []
+  /** 步骤级 cleanup 实际释放掉的取证键（进 `CaseOutcome.cleanup.released`）。 */
+  const releasedNotes: string[] = []
+  /** 场景跑完后检测到的残留（临时目录 / 端口 / 进程；探针没给就不猜）。 */
+  let leftovers: string[] | undefined
   let budgetError: BudgetExceeded | undefined
 
   try {
@@ -295,6 +407,7 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
         env,
         deps.host,
         usage === undefined ? undefined : { usage, limits },
+        releasedNotes,
       )
       const roundSteps = roundResult.steps
 
@@ -360,6 +473,15 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
         /* 忽略 */
       }
     }
+
+    // 残留检测放在 **dispose 之前**：口径是「这条场景自己清干净了吗」
+    // （文档 §7.4 要检测的正是临时文件/进程/端口残留）。
+    // dispose 是**兜底删除**，不是检测手段——先删再查会把残留一起删掉，
+    // 于是永远"没有残留"，这个检查就变成了装饰。
+    if (isolation !== undefined) {
+      leftovers = detectLeftovers(isolation).leftovers
+      await disposeIsolationContext(isolation)
+    }
   }
 
   const outcome: CaseOutcome = {
@@ -374,9 +496,20 @@ async function runOne(scenario: Scenario, deps: RunOneDeps): Promise<CaseOutcome
     notes: fixture.snapshot(),
     releaseFailures,
     sourceIssue: scenario.source.issue,
+    ...(scenario.owner === undefined ? {} : { owner: scenario.owner }),
+    ...(fixtureRefs === undefined ? {} : { fixtures: fixtureRefs }),
     ...(rounds.length > 1 ? { rounds } : {}),
     ...(decision === undefined ? {} : { policy: decision }),
     ...(usage === undefined ? {} : { usage: usage.snapshot() }),
+    // 清理取证：只在"确实做了点什么"时写，避免每份报告都被空记录淹没。
+    ...(releasedNotes.length === 0 && (leftovers?.length ?? 0) === 0
+      ? {}
+      : {
+          cleanup: {
+            released: [...new Set(releasedNotes)],
+            leftovers: leftovers ?? [],
+          } satisfies CleanupRecord,
+        }),
   }
 
   // 归因必须落在**最终对象**上：classifyCase 要读 rounds / policy / releaseFailures，
@@ -450,9 +583,12 @@ function involvedDriverCosts(
  */
 function sandboxViolation(scenario: Scenario, sandbox: SandboxPolicy): string | undefined {
   const steps = scenario.steps ?? []
+  // 场景自己注册了假 provider（`setup.resource`）时网络已被接管：
+  // resource 动作不需要真网，所以「禁止任意网络请求」这条对它不成立。
+  const networkIntercepted = scenario.setup !== undefined && 'resource' in scenario.setup
   for (const [i, step] of steps.entries()) {
     if (!step.act) continue
-    const reason = checkSandboxAction(step.act, sandbox)
+    const reason = checkSandboxAction(step.act, sandbox, { networkIntercepted })
     if (reason !== undefined) {
       const name = step.name === undefined ? '' : `「${step.name}」`
       return `${reason}（第 ${i + 1} 步${name}）`
@@ -479,6 +615,7 @@ async function runSteps(
   env: RefEnvironment,
   host: HostFacade,
   budget?: BudgetGuard,
+  cleanupSink?: string[],
 ): Promise<RoundSteps> {
   const out: StepOutcome[] = []
 
@@ -535,6 +672,17 @@ async function runSteps(
 
     outcome.durationMs = Date.now() - t0
     out.push(outcome)
+
+    // ---- 步骤级 cleanup ----
+    //
+    // 位置在断言与取证之后：本步的取证已经采集完，再释放资源就不会"证据跟着资源一起没了"。
+    // `releaseStepNotes` 是**幂等且不抛穿**的（键不存在/已释放/disposer 抛错都只记账），
+    // 所以这里不需要 try：一次清理失败不该把整条场景判成 errored。
+    const notes = step.cleanup?.releaseNotes ?? []
+    if (notes.length > 0) {
+      const released = await releaseStepNotes(ctx.fixture, notes)
+      if (cleanupSink !== undefined) cleanupSink.push(...released)
+    }
 
     // 每步之后对账：超限立刻停（而不是"跑完再看账单"），
     // 并把已经产生的 steps 原样带出去——对账失败不该吞掉现场证据。

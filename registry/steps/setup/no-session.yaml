@@ -1,0 +1,33 @@
+# setup/no-session —— 前置条件自检：本次运行没有绑定会话
+#
+# 展开语义（见 src/registry/expand.ts 头注）：
+#   · `act` 让 session driver 走只读的 `events` 分支（顺带记 `fx.sessionEventCount`），
+#     不写任何会话事件——与「events 分支只读」的纪律一致。
+#   · `expect` 才是这个片段真正的语义：把「没有绑定会话」这个**隐式前提显式化**。
+#     `fx.sessionTargetId` 由 session driver 的 setup 写入；没有会话时它是 undefined。
+#
+# 片段只做纯文本替换，不做语义推断：真正的条件制造仍由场景 `setup:` 段负责。
+name: setup/no-session
+version: "1"
+description: 前置自检：settle 一小会儿，并断言当前运行没有绑定会话（fx.sessionTargetId 不存在）
+params:
+  type: object
+  properties:
+    settleMs:
+      type: integer
+      description: 观察事件前的等待毫秒数（只用于让会话状态落定）
+      default: 0
+  required: []
+  additionalProperties: false
+dependencies: []
+cost: none
+sandbox:
+  mode: read-only
+act:
+  session:
+    events:
+      waitMs: "{settleMs}"
+      limit: 1
+expect:
+  - ref: fx.sessionTargetId
+    notExists: true

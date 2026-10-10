@@ -1,0 +1,40 @@
+# TK-0038 —— 组合场景（draft）：use: 片段拼出"工具被调用 + 返回值包含标记"
+#
+# ⚠️ draft 且含 `use:`：执行前必须先 expandScenario() 展平（见 TK-0037 头注）。
+# 覆盖三个片段：invoke/tool → assert/tool-called → assert/output-contains。
+schema: 1
+id: TK-0038
+title: 组合：工具被调用一次且返回值包含标记
+kind: tool
+severity: low
+status: draft
+tags: [registry, composed, tool, registry:v1]
+
+source:
+  issue: null
+  summary: |
+    用 invoke/tool + assert/tool-called + assert/output-contains 组合出的场景；
+    等价于手写「调用 probe_body → 断言 fx.lastResult.name / fx.callCount / fx.resultValue」。
+
+runtime:
+  requires: [tools]
+
+setup:
+  tool:
+    register:
+      name: probe_body
+      description: 组合场景专用：返回固定标记
+      returns: REGISTRY-BODY
+
+steps:
+  - id: call
+    use: invoke/tool
+    with: { tool: probe_body, args: {} }
+
+  - id: called
+    use: assert/tool-called
+    with: { tool: probe_body, times: 1 }
+
+  - id: body
+    use: assert/output-contains
+    with: { ref: fx.resultValue, value: REGISTRY-BODY }

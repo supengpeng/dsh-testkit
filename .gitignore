@@ -10,6 +10,9 @@ lib/
 # 运行产物（每次 run 都会新增，不入库）
 runs/
 
+# touchstone 适配器的导出产物（阶段一：run.json → bug_report/，每次导出重新生成）
+bug_report/
+
 # 从 issue 数据生成的提炼草稿（可随时重跑 scripts/from-issue-data.mjs 再生成）
 cases-draft/
 

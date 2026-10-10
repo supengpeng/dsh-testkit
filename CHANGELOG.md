@@ -78,16 +78,138 @@
   实测本仓源码里有 9 处**注释**提到这些包名（引用发行体路径、对照上游实现、说明契约来源），
   grep 会把它们全部误报。本守卫先**剥离注释**再扫描，并在单测里专门覆盖"注释不算"。
 
+### 五、增量测试选择（P0 §5.2）
+
+- 新增 `src/selection/**`：`changedFilesSince(ref)`（`git diff --name-only --relative` +
+  `ls-files --others`，**新增文件也算改动**）、`affectedScenarios(files, …)`（三档规则：
+  精确命中 / 明确无关 / **保守全选**）、`selectByDshVersion(version, …)`。
+- 入口：`testkit_run` 的 `changed` / `since` / `affectedBy` / `dshVersion` 参数，
+  命令面 `/testkit run --changed|--since <ref>|--affected-by <file>|--dsh-version <v>`。
+- **纪律：选不出来就退回全量**（git 不可用、ref 写错 → 退回全量并告警），
+  绝不静默变成"跑 0 条"；判定依据原样落进 `RunSummary.selection`（mode / detail / matched），
+  报告里能回答"我改了一行，为什么它一条都没跑"。
+- 实测加速比（CI 轨集合 26 条）：改单个 kind → 命中 1–2 条；
+  但端到端被 `node --test` 启动地板压住，只有约 2×——**真正的收益在"少跑"，
+  不在"跑得快"**，别把它当性能特性用。
+
+### 六、fixture 治理（P0 §5.3）
+
+- 新增 `fixtures/**`（入库的声明式夹具，区别于 `.fixtures/` 里下载来的被测对象）：
+  字段固定为 `$schema` / `name` / `dsh_version` / `source: hand-written|record|generate` / `data`。
+- 场景用 `fixtures: [llm/error-mid-stream]` 引用；`data` 的键是 **kind 名**，
+  合并规则 `setup[kind] = deepMerge(fixture.data[kind], scenario.setup[kind])`
+  ——**场景显式字段优先**，数组整体替换，多份夹具按声明顺序后者覆盖前者。
+- `applyScenarioFixtures()` **只读、不抛**：夹具缺失 / 解析失败 / 版本不匹配 → 该场景
+  **skipped 并说明原因**（绝不用一份错的夹具硬跑）；采用情况进 `CaseOutcome.fixtures`。
+- **CI 轨与插件面走同一条夹具链**：`src/export/node-test.ts` 生成物里显式带
+  `fixtures: { fixturesDir, dshVersion }`。这条不加，会出现"插件绿、CI 红"
+  （或反过来）——生成物与插件行为分叉的经典形态。
+- `scripts/verify-fixtures.mjs`（进 gate）：schema / name↔路径一致 / `dsh_version` 可解析 /
+  敏感扫描 / 重名 / **反向核对**（场景声明的夹具必须存在且合法）。
+- `cases/TK-0006.yaml` 改为**纯夹具版**（删掉原来重复写的 `setup.llm`）：
+  等价性由 `tests/fixture-governance.test.mjs` 用"夹具展开 vs 把条件写回场景"的
+  实跑比对钉住（verdict / 断言指纹 / 取证 deepEqual / 零上游）。
+
+### 七、契约测试（P0 §5.4）
+
+- 新增 `src/contracts/**`（契约形状 + 运行器 + 点名报错）与 `tests/contracts/**`：
+  `host-facade` / `dsh-tools` / `cordis` / `headless` 四个 adapter 各一组契约。
+- **先于场景测试跑**：gate 里 `tests/contracts/*.test.mjs` 排在 `tests/*.test.mjs` 之前——
+  替身漂移了就不该继续跑场景（否则 CI 轨绿着骗人）。
+- 每个契约都配**反安慰剂**：把实现打回旧行为，断言契约**必须变红并点名**。
+  只加断言不证明契约有效。
+- 顺带修掉三处真实漂移（详见「迁移说明」的 enum/const 一行）。
+
+### 八、并发隔离 + 幂等/清理（P0 §5.5 + §7.4）
+
+- 新增 `src/isolation/**`：`IsolationContext`（namespace / tmpdir / ports / session）、
+  `groupScenarios`（只有 `parallel: safe` 才并发；`exclusive` 与缺省永远独占；
+  连续 safe 按 `parallelLimit` 切块且**保序**）、`detectLeftovers`（tmpdir 真检测；
+  端口/进程探针**可注入、缺省不探测**——不猜就不写假条目）、`releaseStepNotes`（步骤级清理，幂等）。
+- 场景新增可选 `parallel: safe | exclusive`（**缺省 `exclusive`**：不认识的东西不并发）；
+  报告新增 `RunSummary.execution`（串行还是并发、并发度、safe/exclusive 各多少条）。
+- 步骤级清理：`step.cleanup.releaseNotes` 在**本步结束后**释放（幂等、失败不抛穿）；
+  残留检测在 **dispose 之前**做（口径是"这条场景自己清干净了吗"，dispose 是兜底不是检测手段）。
+- 验收口径：并发与串行**逐条**比 verdict 与断言 ok 矩阵（不是只比总数），
+  并用探针证明"并发真的发生了"（4 条 80ms 场景：串行 maxActive=1、并发 maxActive=4）。
+
+### 九、组合系统：step registry + 参数化模板（P0 第 5 步）
+
+- 新增 `registry/steps/**`（9 份片段，`name` / `version` / `params` / `dependencies` /
+  `cost` / `sandbox` + 字面 `act`/`expect` 模板）、`src/registry/**`（加载 / DAG 校验 / 展开 / 模板）。
+- 场景可用 `use: invoke/tool` + `with: {...}` 引用片段；`act` 与 `use` **互斥**；
+  展开是**纯文本替换**（`{param}` / `{a.b}`），`with` 里多给或漏给参数都在**校验期**报错。
+- 硬约束全部进守卫（`scripts/verify-registry.mjs`）：片段**不得** use 别的片段（无环）、
+  `act`/`use` 互斥、禁止 YAML 控制流（`if`/`for`/`while`）与场景级 `include`/`extends`、
+  场景锁 registry 版本（载体是 tag 约定 `registry:v1`）、展开后不得残留 `use`/`with`。
+- 参数化模板 `templates/**`：矩阵笛卡尔积 → 独立 TK 号的 **draft** 场景（不撞既有号段）。
+- 新增 3 条 `use:` 场景（`TK-0037`/`0038`/`0039`，draft）；等价性证明：展开结果与
+  等价手写场景**逐步逐字段 deepEqual**，且在 headless 上 verdict 与断言 ok 矩阵完全一致。
+
+### 十、touchstone 三阶段适配器（文档第九部分）
+
+- 阶段一 `export`：`run.json` → `bug_report/<CASE-ID>/{report.md, repro.yaml, severity.txt,
+  evidence/trace.json, evidence/logs.txt}` + 索引；只导出 `failed`/`errored`，
+  `repro.yaml` 的命令**逐字取自** `src/analysis/repro.ts`（不另发明一套）。
+- 阶段二 `import`：`case.md` → 场景 YAML **草稿**（恒 `status: draft` / `id: TK-0000`），
+  结构映射为主、映射不了的原样成注释，且**只走提案闸门**（不自动开批次、不写 `cases/`）。
+  **停止线**：转换器 > 500 行即抛错（当前 469 行，守卫真的拦过它自己一次）。
+- 阶段三 `webhook`：`POST /on_fix_complete` → 增量选择出受影响场景 →
+  **在 `git worktree` 临时目录里复跑**（`node_modules` 用 junction 接入）→ 结果同步回传 +
+  可选 POST 回 `callbackUrl`；`finally` 无条件清理 worktree。只监听 `127.0.0.1`。
+- 纪律：不 import 对方代码、不共享数据库、不嵌入对方运行时、不做 API 稳定承诺。
+- 文档见 [docs/TOUCHSTONE.md](docs/TOUCHSTONE.md)（协议表 / 产物结构 / severity 规则 / 停止线）。
+
+### 十一、沙箱默认值：shell 默认只读 + 禁止任意网络（文档 §3.2.4 / §7.1）
+
+- `DEFAULT_POLICY.sandbox.denyWriteCommands` 默认 = `READ_ONLY_DENY_COMMANDS`：
+  删/移/拷/改权限/格式化/写块设备，以及**无法静态判定写什么**的解释器
+  （`sh` / `bash` / `cmd` / `powershell` / `wsl`）默认拒绝。
+- `sandbox.allowNetwork` 默认 `false`：`resource` 动作没有假 provider 时被拒
+  （场景自带 `setup.resource` = 网络已被替身接管，放行）。
+- `allowFileWrite` **仍默认 `true`**：`fs` driver 的存在意义就是驱动宿主文件服务、
+  观察**宿主自己**的沙箱语义（`TK-0030`/`0031` 测的正是它）；在闸门层默认拒绝写入
+  等于把这个 driver 变成哑巴。要收紧请显式关。
+
+### 十二、数据隐私：`--redact` + secret 扫描（文档 §7.1）
+
+- 新增 `src/report/redact.ts`：token / 私钥 / JWT / AWS key / 赋值式凭据 / 邮箱 / 家目录路径。
+  **默认关闭**（脱敏会改写取证原文，不该在没人要求时悄悄发生）；
+  开启后三份产物渲染同一份已脱敏 summary，并在报告头部写明"过滤了几处、哪些类型"。
+- **findings 只记位置与类型，绝不记原文**——否则报告自己又变成泄露源。
+- 新增 `scripts/check-secrets.mjs`（进 gate）：扫仓库里会入库或会进产物的文件；
+  只输出 `file:line [kind]`，**不打印命中原文**；误报用行内 `secrets-ok` 标注。
+  顺带修掉 `docs/DEVELOPMENT.md` 里的真实用户名路径与一处第三方邮箱。
+
+### 十三、包名改为 scoped（npm 名归属）
+
+- `package.json` 的 `name` 改为 **`@supengpeng/dsh-testkit`**：npm 上的 `dsh-testkit`
+  已被他人占用（实测 registry 200，latest `0.4.4`），发布到那个名字物理上不可能。
+- **client 模块 id 与包名解耦为"一处真源"**：`scripts/build-client.mjs` 不再硬编码 id，
+  改为从 `package.json` 读。证据：DSH 自己的客户端包正是用 scoped 包名做 module id
+  （发行体里可见 `__ModuleLoader__.load({ id: "@deepseek-ai/dsh-api-gateway" … })`）。
+- **插件身份不变**：`src/index.ts` 的 `name`、`dsh/cordis.patch.yml` 的 id、
+  client 半的 `name`、locale 命名空间仍是产品名 `dsh-testkit`。
+- **改名后必须重建 client 产物**（`node scripts/build-client.mjs`）：`lib/client.js` 是
+  共享构建产物，不重建会留下"源码已改名、产物还是旧 id"的分叉（本轮实测踩过一次，
+  表现为 `TK-0015` / `ui-driver` 突然变红）。gate 已保证 `build-client` 先跑。
+
 ### 迁移说明
 
 | 变化 | 对既有使用者的影响 | 要不要动手 |
 |---|---|---|
-| 新字段 `cost` | 不写 = 按参与 driver 的默认表取最高档，**既有 36 条场景行为完全不变** | 只有想让高成本 driver 的离线动作降档时才写（例：`cases/TK-0034.yaml` 标 `cost: none`） |
+| 新字段 `cost` | 不写 = 按参与 driver 的默认表取最高档，**既有场景行为完全不变** | 只有想让高成本 driver 的离线动作降档时才写（例：`cases/TK-0034.yaml` 标 `cost: none`） |
 | 新字段 `budget` | 不写 = 不限 | 可选 |
 | 闸门默认值 | `allowModel: false`（`high` 档**默认跳过**）、`allowLowCost: true` | 想跑 `agent` / `compaction` 真压缩时，显式 `--allow-model` |
-| 库调用方（直接 `RunRequest`） | `policy` 省略 = **不启用闸门**，既有语义与既有测试不变 | 不需要 |
+| **沙箱默认值（**行为变化**）** | **shell 默认只读**：`rm`/`mv`/`cp`/`chmod`/`dd`/`mkfs`… 与 `sh`/`bash`/`cmd`/`powershell` 这类解释器**默认被拒**，该场景记 **skipped 并给理由**（不是失败）；真实网络默认禁止 | 有 legit 写操作或需要 shell 特性的场景：放开 `sandboxDenyWriteCommands` / `sandboxAllowNetwork`（配置项），或改用不经 shell 的 argv 直调 |
+| 新字段 `owner` / `parallel` / `fixtures` | 不写 = 无归属、`exclusive`（串行）、不用夹具 | 可选 |
+| 步骤新字段 `use` / `with` / `id` / `cleanup` | 不写 = 既有 `act`/`expect` 写法原样可用（`schema` 仍为 `1`） | 可选；用组合时注意 `act` 与 `use` 互斥、片段名拼错会在校验期报错 |
+| **`enum` / `const` 保真（**行为变化**）** | 之前只保留 string 的 `enum`、完全丢弃 `const`（约束被静默放松）；现在按 DSH 支持集合（string/number/integer/boolean/null）忠实传递，**类型对不上的 schema 会在 `defineTool` 期抛 `JsonSchemaError`**（响亮的失败，而不是悄悄放宽） | 升级后若工具注册报 `JsonSchemaError: … .enum/.const must be …`：把该参数的 `enum`/`const` 值改成与声明的 `type` 一致（`integer` 只能整数、`boolean` 只能 `true`/`false`、`null` 只能 `null`），`enum` 必须非空，`enum` 与 `const` 同时声明时 `const` 必须取 enum 里的一个值；约束若写在 array/object 上，请移到 `items` / `properties.<key>` 的标量节点。**别改转换器——它现在不再替你丢约束了** |
+| 库调用方（直接 `RunRequest`） | `policy` 省略 = **不启用闸门**，既有语义与既有测试不变；`fixtures` 省略 = 不应用夹具 | 不需要 |
 | 新产物 `runs/<RUN-ID>/junit.xml` | 多一个文件；写失败不抛出 | 不需要 |
-| 报告新增字段 | `policy` / `usage` / `failureCategory` / `minimalRepro` / `rounds` / `cost` **只增不改**；`schema` 仍是 `1` | 解析方按可选字段处理 |
+| 报告新增字段 | `policy` / `usage` / `failureCategory` / `minimalRepro` / `rounds` / `owner` / `fixtures` / `cleanup` / `selection` / `execution` / `redaction` **只增不改**；`schema` 仍是 `1` | 解析方按可选字段处理 |
+| 包名 `dsh-testkit` → `@supengpeng/dsh-testkit` | 插件 id 与 locale 命名空间**不变**；client 模块 id 跟随包名变化（已重建产物） | 从 git / 本地路径安装的用法不变；**改名后的活宿主渲染仍需人工验一次**（见 [docs/PUBLISHING.md](docs/PUBLISHING.md) §5） |
+| 工具面新增 `testkit_expand`；`testkit_export` 增 `target: touchstone` | 注册面从 6 个工具变 7 个 | 断言"恰好 6 个工具"的调用方需要更新（本仓的 `host-apply` 已同步） |
 | `src/host-facade.ts` 的导入路径 | 内部实现，导出面不变 | 不需要 |
 
 ### 已知限界（本次交付的诚实边界）
@@ -96,24 +218,34 @@
    driver 不主动上报 token 就记 0。因此 `budget.maxModelCalls` 是**保守闸门**
    （超了必拦，但别拿它当账单），`maxTokens` 只在 driver 真的上报 token 时才真正强制。
    宁可如实说"没上报"，也不编一个看起来精确的数字。
-2. **「默认只读沙箱」本次是显式开关，不是默认行为。** 默认值只把**花钱**关掉
-   （`allowModel: false`）；沙箱收紧（`sandbox.allowShell` / `allowFileWrite` /
-   `denyWriteCommands`）默认保持放行，需显式打开。原因是本仓既有场景里有若干
-   `shell` / `fs` 类**本来就会写目录**，默认收紧会让既有基线平白多出一片 skipped——
-   那是自己制造的假红，会把真正的失败淹掉。**这是取舍，不是遗漏。**
-3. **输出脱敏（`--redact`）尚未实现。** 数据边界与约定见 [SECURITY.md](SECURITY.md)，
-   但"约定"目前靠使用纪律而不是机器强制——那一步是待实现项，不在本版。
+2. **沙箱默认值的取舍边界。** `shell` **默认只读**、真实网络**默认禁止**（见「十一」），
+   但 `allowFileWrite` 仍默认 `true`：`fs` driver 的存在意义就是驱动宿主文件服务、
+   观察**宿主自己**的沙箱语义（`TK-0030`/`0031` 测的正是它）——在闸门层默认拒绝写入
+   等于把这个 driver 变成哑巴。要收紧请显式关。
+3. **`--redact` 是"模式匹配"级，不是数据分级。** 它能挡住"不小心把 token 贴进日志"，
+   挡不住精心构造的泄露（比如把密钥拆成两半拼接）。用 `check-secrets` 做**闸门**、
+   用 `--redact` 做**兜底**，别把任一个当安全认证。默认关闭（脱敏会改写取证原文）。
 4. 模型相关的两个 driver（`agent` / `compaction` 真压缩）**未在本版做 CI 覆盖**：
    它们要么花钱、要么留痕，只按 id 单跑；这是成本闸门存在的直接后果，不是覆盖率疏漏。
+5. **增量选择的收益是"少跑"，不是"跑得快"**：API 口径改一个 kind 只命中 1–2/26 条，
+   但端到端口径被 `node --test` 的启动地板（约 1.1s）压住，只有约 2×。
+6. **`detectLeftovers` 的工具链只做 tmpdir 真检测**：Node 没有可靠的**同步**端口探测，
+   孤儿进程名要按平台给——所以端口/进程探针缺省**不探测**（不写假阴性），
+   要真检测得由调用方注入探针。
+7. **组合系统的参数校验是"简化 JSON Schema"级**：`string/number/integer/boolean/object/array`
+   + `enum` + `default`，不递归校验嵌套 `properties`；占位符**嵌入字符串**时要求标量，
+   对象/数组必须整串占位（`"{args}"`）。
+8. **`enum` 与 `const` 对"畸形输入"的处理风格略有差异**（畸形 `enum` 被丢弃、畸形 `const` 抛错）。
+   合法 schema 不受影响；若要统一成"键存在即忠实传递、由 DSH 裁决"，需另开一条并接受
+   "畸形 enum 从静默丢弃改为注册期抛"的行为变化。
 
 ### 明确推迟的项（连同理由与前置条件）
 
 | 推迟项 | 为什么现在不做 | 解除前置条件 |
 |---|---|---|
-| **npm scoped rename** | `dsh-testkit` 这个 npm 名**已被他人占用**（实测 registry `200`，maintainer `iiwish`，latest `0.4.4`），`npm publish dsh-testkit` 从物理上就不可能成功；而改名会改变 client bundle 的 module id，**必须**在活宿主里验证"标签仍然渲染、`__ModuleLoader__.load` 的 id 匹配"，本会话做不到 | ① 活宿主（web profile）验证 client 模块 id 与「测试」标签渲染；② 定下新名（scoped 或新名）并跑通 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的全量引用清单 |
-| **独立 CLI** | 本包**刻意没有 `bin`**（见「三」）：先证明"导出的 CI 用例能在真实 CI 里跑通"，再决定 CLI 该长什么样；反过来做会得到一套与场景数据重复的命令面 | ① 导出轨在至少一个真实仓库的 CI 上跑通；② 明确 CLI 只做 `run` / `list` 两个子命令（不做第二套引擎） |
-| **step registry + 参数化模板** | 现在只有 36 条场景，且没有出现"同一判据重复三遍、只有参数不同"的实例。此时抽象出来的模板是**猜的**，会把未来的场景塞进错误的形状里 | ① 出现 2–3 组真实的"同构不同参"场景；② 先写清模板与 `kind` 的关系（模板不能变成第 13 个 kind） |
-| **touchstone 适配器（方案里分三阶段：只读导入 → 双向同步 → 作为运行源）** | 跨项目的判据交换需要先有**数据流向与隐私约定**（见 [SECURITY.md](SECURITY.md)），且对方契约还在动；先接进来只会把不稳定的形状固化成本仓的接口 | ① touchstone 侧 schema 与版本策略稳定；② 数据流向 / 脱敏 / 保留策略定稿；③ 阶段一（只读导入）单独可验收 |
+| **独立 CLI（`bin`）** | 本包**刻意没有 `bin`**（见「三」）：命令行能力目前由 `/testkit` 人类命令 + `testkit_*` 工具 + 导出轨承担。先证明"导出的 CI 用例能在真实仓库的 CI 里跑通"，再决定 CLI 长什么样；反过来做会得到一套与场景数据重复的命令面 | ① 导出轨在至少一个真实仓库的 CI 上跑通；② 明确 CLI 只做 `run` / `list` 两个子命令（不做第二套引擎） |
+| **可观测性与 DX（trace / 趋势 / 覆盖矩阵 / `--watch` / `--smoke`）** | 它们的前提是"运行数据已经足够多、值得聚合"；本版先把**数据本身**做对（选择取证 / 执行取证 / 归因 / 夹具取证 / 清理取证都已在 `run.json` 里） | ① 真实运行次数上来（有可比的历史）；② 先定"趋势要回答什么问题"，否则做出来的是图表而不是决策依据 |
+| **供应链与治理（产物签名 / RFC / CODEOWNERS / 贡献指南 / good first issues）** | 这些是**发布之后**才有意义的机制（签名要签发布产物、RFC 要有外部参与者） | 先完成一次真实发布（含活宿主验证），再按 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的清单补齐 |
 
 ---
 

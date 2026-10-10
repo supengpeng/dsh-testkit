@@ -1,0 +1,41 @@
+# TK-0039 —— 组合场景（draft）：use: 片段拼出"接管模型流 + 输出包含断言"
+#
+# ⚠️ draft 且含 `use:`：执行前必须先 expandScenario() 展平（见 TK-0037 头注）。
+# 覆盖两个片段：invoke/llm → assert/output-contains。
+# 与 templates/llm-output.yaml 的差别：这条是**手写实例**，模板是它的参数化版本。
+schema: 1
+id: TK-0039
+title: 组合：被接管的模型流输出包含指定分块且零上游错误
+kind: llm
+severity: low
+status: draft
+tags: [registry, composed, llm, registry:v1]
+
+source:
+  issue: null
+  summary: |
+    用 invoke/llm + assert/output-contains 组合出的场景；零上游请求（listener 不调 next()）。
+
+runtime:
+  requires: [llm]
+
+setup:
+  llm:
+    respond:
+      chunks: [REGISTRY-ALPHA, -TAIL]
+      finishReason: stop
+
+steps:
+  - id: stream
+    use: invoke/llm
+    with: { prompt: 组合场景自检 }
+
+  - id: contains
+    use: assert/output-contains
+    with: { ref: fx.mockText, value: REGISTRY-ALPHA }
+
+  - id: finish
+    name: finish 声明应当被消费到
+    expect:
+      - { ref: fx.finishReason, is: stop }
+      - { ref: fx.chunkCount, atLeast: 4 }

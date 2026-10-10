@@ -21,6 +21,8 @@ export interface ExportToFileRequest {
   outDir: string
   /** 本包 lib 目录（用于推导 import 说明符）。 */
   libDir: string
+  /** 夹具目录；省略 = `<casesDir>/../fixtures`（与插件面同一条夹具链）。 */
+  fixturesDir?: string
   timeoutMs?: number
   generatedAt?: string
   /** 文件名，缺省 `scenarios.test.mjs`。 */
@@ -40,6 +42,7 @@ export async function exportScenariosToFile(
 
   const content = generateNodeTestFile(request.scenarios, {
     casesDir: request.casesDir,
+    ...(request.fixturesDir === undefined ? {} : { fixturesDir: request.fixturesDir }),
     libSpecifier: toLibSpecifier(request.outDir, request.libDir),
     ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
     ...(request.generatedAt === undefined ? {} : { generatedAt: request.generatedAt }),

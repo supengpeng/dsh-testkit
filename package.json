@@ -1,5 +1,5 @@
 {
-  "name": "dsh-testkit",
+  "name": "@supengpeng/dsh-testkit",
   "version": "0.1.0",
   "description": "DSH 测试插件：把 issue 提炼为可复现的测试场景数据（cases/*.yaml），按场景 kind 驱动宿主行为、出报告，并可导出为 CI 用例",
   "type": "module",
@@ -22,7 +22,10 @@
     "schemas",
     "dsh",
     "README.md",
-    "SECURITY.md"
+    "SECURITY.md",
+    "fixtures",
+    "registry",
+    "templates"
   ],
   "keywords": [
     "deepseek-harness",
@@ -108,8 +111,12 @@
     "verify:adapter": "node scripts/check-adapter-boundary.mjs",
     "verify:pack": "node scripts/check-pack-files.mjs",
     "verify:git-install": "node scripts/check-git-installable.mjs",
+    "verify:fixtures": "node scripts/verify-fixtures.mjs",
+    "verify:registry": "node scripts/verify-registry.mjs",
+    "verify:secrets": "node scripts/check-secrets.mjs",
     "export:ci": "node scripts/export-scenarios.mjs",
     "test": "node --test \"tests/*.test.mjs\"",
-    "gate": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\" && tsc -p tsconfig.json && node scripts/build-client.mjs && node scripts/verify-cases.mjs && node scripts/verify-docs.mjs && node scripts/check-adapter-boundary.mjs && node scripts/check-pack-files.mjs && node scripts/check-git-installable.mjs && node --test \"tests/*.test.mjs\" && node scripts/export-scenarios.mjs && node --test export/scenarios.test.mjs && tsc -p tsconfig.client.json --noEmit"
+    "test:contracts": "node --test \"tests/contracts/*.test.mjs\"",
+    "gate": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\" && tsc -p tsconfig.json && node scripts/build-client.mjs && node scripts/verify-cases.mjs && node scripts/verify-docs.mjs && node scripts/check-adapter-boundary.mjs && node scripts/check-pack-files.mjs && node scripts/check-git-installable.mjs && node scripts/verify-fixtures.mjs && node scripts/verify-registry.mjs && node scripts/check-secrets.mjs && node --test \"tests/contracts/*.test.mjs\" && node --test \"tests/*.test.mjs\" && node scripts/export-scenarios.mjs && node --test export/scenarios.test.mjs && tsc -p tsconfig.client.json --noEmit"
   }
 }

@@ -32,7 +32,12 @@ steps:
       - { ref: fx.uiBundleExists, is: true }
       - { ref: fx.uiError, exists: false }
       - { ref: fx.uiLoadCalls, is: 1 }
-      - { ref: fx.uiModuleId, is: dsh-testkit }
+      # 模块 id = **npm 包名**（build-client.mjs 从 package.json 读，不再硬编码）。
+      # 与插件身份（fx.uiName = dsh-testkit，见下一步）是**两件事**：
+      #   · 模块 id 决定 DSH 的 client 模块表怎么索引这个 bundle → 跟随包名；
+      #   · 插件身份是产品名 dsh-testkit → 不随 npm 名变化。
+      # 包名改成 scoped 是因为 npm 上的 `dsh-testkit` 已被别的项目占用（见 docs/PUBLISHING.md）。
+      - { ref: fx.uiModuleId, is: '@supengpeng/dsh-testkit' }
       - { ref: fx.uiHasApply, is: true }
 
   - name: 模块名与依赖声明正确

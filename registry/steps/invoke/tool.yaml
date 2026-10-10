@@ -1,0 +1,37 @@
+# invoke/tool —— 经真实工具管道调用一个工具并取证
+#
+# 用法：
+#   setup:
+#     tool:
+#       register: { name: probe, returns: BODY }
+#   steps:
+#     - use: invoke/tool
+#       with: { tool: probe, args: {} }
+#
+# 展开语义：`{args}` 是**整串占位**，原样替换成 with 里的对象（不是字符串化）。
+# 断言锁定"最后一次调用的是这个工具"，避免把别的工具调用误当成证据。
+name: invoke/tool
+version: "1"
+description: 调用一个已注册工具，并断言最后一次调用确实落在该工具上
+params:
+  type: object
+  properties:
+    tool:
+      type: string
+      description: 已注册的工具名（setup.tool.register.name）
+    args:
+      type: object
+      description: 传给工具的参数对象
+      default: {}
+  required: [tool]
+  additionalProperties: false
+dependencies: []
+cost: none
+sandbox:
+  mode: workspace-write
+act:
+  tool: "{tool}"
+  args: "{args}"
+expect:
+  - ref: fx.lastResult.name
+    is: "{tool}"

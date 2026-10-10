@@ -64,7 +64,7 @@
 ## 4. 场景数据
 
 - **一案一 YAML**（`cases/TK-XXXX.yaml`），加一条场景理想情况下**只加文件、不改代码**
-- **36 条场景**，分布：`shell=7` `tool=6` `session=4` `interaction=3` `file=3` `agent=3` `llm=2` `resource=2` `fs=2` `compaction=2` `prompt=1` `ui=1`
+- **39 条场景**，分布：`shell=7` `tool=8` `session=4` `interaction=3` `file=3` `agent=3` `llm=2` `resource=2` `fs=2` `compaction=2` `prompt=1` `ui=1`（含 3 条用 `use:` 组合的 draft）
 - **索引** `cases/index.yaml` 由守卫自动维护，禁止手工编辑
 - **溯源**：场景可带 `source.issue`（真实 issue 派生的场景必须带）
 
@@ -78,7 +78,7 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 ```
 
 - 取值路径前缀：`fx.*`（取证）/ `env.*`（场景变量）/ 容器
-- **约 238 个取证字段**（`fx.*`），由 `verify:docs` 守卫保证"文档里写的字段一定真实存在"
+- **约 241 个取证字段**（`fx.*`），由 `verify:docs` 守卫保证"文档里写的字段一定真实存在"
 
 ## 6. 执行引擎
 
@@ -175,7 +175,7 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 ## 实测验证状态
 
 ```
-gate            444 项单测 + 26 条导出场景          全绿
+gate            538 项单测 + 26 条导出场景          全绿
 真实 DSH 全量    27 条时点的读数：26 条 active → 25 通过 / 1 失败 / 0 跳过   见下
                 （TK-0027 是 draft：团队通道留痕不可逆，按需单跑）
 team 通道        TK-0027 在独立 headless 新进程 passed（703ms，真 spawnTeammate）

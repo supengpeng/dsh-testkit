@@ -1,14 +1,14 @@
 # dsh-testkit
 
 [![CI](https://github.com/supengpeng/dsh-testkit/actions/workflows/ci.yml/badge.svg)](https://github.com/supengpeng/dsh-testkit/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/dsh-testkit.svg)](https://www.npmjs.com/package/dsh-testkit)
+[![npm version](https://img.shields.io/npm/v/@supengpeng/dsh-testkit.svg)](https://www.npmjs.com/package/@supengpeng/dsh-testkit)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22.19-339933.svg)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> ⚠️ **npm 上的 `dsh-testkit` 现在不属于本仓。** 那个名字已被另一个项目占据
-> （`iiwish/dsh-testkit`，latest `0.4.4`，2026-09-10 发布），所以上面那个
-> **npm version 徽章显示的是别人的版本**——本包尚未发布，也**不能**用这个名字发布。
-> 改名是发布前的硬前提：依据、全量引用清单与活宿主验证步骤见 [docs/PUBLISHING.md](docs/PUBLISHING.md)。
+> **包名已改为 `@supengpeng/dsh-testkit`**（npm 上的 `dsh-testkit` 已被 `iiwish/dsh-testkit`
+> 占据，latest `0.4.4`，所以旧名字既不能用也不能发布）。改名依据、模块 id 耦合点与
+> **仍需在活宿主验证的最后一步**见 [docs/PUBLISHING.md](docs/PUBLISHING.md)。
+> 插件身份（profile roster 里的 id、client 半模块名、locale 命名空间）仍是产品名 `dsh-testkit`。
 
 > DSH（DeepSeek Harness）测试插件。**把 issue 提炼成可复现的测试场景，再让插件去造出那些场景。**
 > 提炼是**逐批、由人决定**的：人开批 → 模型只能提交提案 → 人批准才进 `cases/`（见[提炼闸门](docs/ISSUE-PIPELINE.md)）。
@@ -37,10 +37,10 @@ $DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 # 或从 git 装（注意：本包没有 bin，装的是插件本体）
 & $DSH plugin --profile desktop add git+ssh://git@github.com/supengpeng/dsh-testkit.git
 
-# ② 作为库 / CI 用例的依赖（⚠️ 只有"改名并发布之后"才成立）
-#    npm 上的 `dsh-testkit` 现在属于另一个项目——见文首提示。
+# ② 作为库 / CI 用例的依赖（⚠️ 尚未发布到 npm，见 docs/PUBLISHING.md）
+#    包名已改成 scoped（@supengpeng/dsh-testkit），但**还没有 publish**；
 #    在那之前请用 ① 的本地路径或 git 形式。
-npm install -D dsh-testkit
+npm install -D @supengpeng/dsh-testkit
 ```
 
 > 本包**刻意没有 `bin`**（不是 CLI）。"命令行可用"这件事由 DSH 的
@@ -74,7 +74,7 @@ npm install -D dsh-testkit
 | **报告标准化** | ✅ `runs/<RUN-ID>/junit.xml`（CI 消费）＋ `schemas/run-report.schema.json`（结构契约）＋ 失败归因与最小复现（`src/analysis/`）；md / json / junit 三种格式**同源** |
 | **CI 与自举契约** | ✅ `.github/workflows/ci.yml`：Node 22/24 × ubuntu/windows/macos 共 9 组，唯一入口 `pnpm run gate`（不另拼一套，避免假绿） |
 | **适配层守卫** | ✅ `src/adapters/dsh/` 是全仓**唯一**允许依赖 `@deepseek-ai/dsh-*` 的目录，由 `scripts/check-adapter-boundary.mjs` 机器守卫（注释里的包名不算） |
-| 验证 | ✅ `pnpm run gate`：**444 测试** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
+| 验证 | ✅ `pnpm run gate`：**538 测试** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
 
 > 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（6 个模型工具 / 6 个子命令 /
 > 12 个 kind / 17 个断言词 / 约 238 个取证字段 / 4 个质量守卫 / 4 个检查器），
@@ -116,7 +116,7 @@ node --test export/scenarios.test.mjs
 
 ### 已能跑通的场景
 
-[`cases/`](cases) 下 **36 条场景**（其中 7 条带 `source.issue` 溯源；`TK-0027` / `TK-0033` / `TK-0035` 为 `draft`）：
+[`cases/`](cases) 下 **39 条场景**（其中 7 条带 `source.issue` 溯源；`TK-0027` / `TK-0033` / `TK-0035` / `TK-0037`–`TK-0039` 为 `draft`）：
 
 | ID | kind | 测什么 |
 |---|---|---|

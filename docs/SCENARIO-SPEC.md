@@ -88,6 +88,9 @@ steps:
 | `tags` | string[] | 否 | 自由标签，便于筛选。见下面的**约定标签** |
 | `cost` | enum | 否 | `none` \| `low` \| `high`，**成本档位**；缺省按参与 driver 的默认表取最高档。详见 §2.2.1 |
 | `budget` | object | 否 | `{ maxModelCalls, maxTokens }`，`0`/缺省 = 不限；只在 `cost: low \| high` 时有意义。详见 §2.2.2 |
+| `owner` | string | 否 | 负责人（如 `@supengpeng`）。**机器可读**：覆盖矩阵与自动 triage 按它路由。详见 §2.2.3 |
+| `parallel` | enum | 否 | `safe` \| `exclusive`，**缺省 `exclusive`**（不认识的东西不并发）。详见 §2.2.3 |
+| `fixtures` | string[] | 否 | 引用的夹具名（`<kind>/<name>`）。详见 §2.2.4 |
 | `source` | object | 是 | 溯源，见下 |
 
 **约定标签**：
@@ -211,6 +214,38 @@ budget:
 > `maxTokens` 只在 driver 真的上报 token 时才真正强制。
 > 宁可如实说"没上报"，也不编一个看起来精确的数字。
 
+### 2.2.3 归属与并发：`owner` / `parallel`
+
+```yaml
+owner: '@supengpeng'     # 归属：失败归谁、覆盖缺口补谁
+parallel: safe           # 可与其它 safe 场景并发；缺省 exclusive
+```
+
+- **`owner` 不是礼貌署名**：覆盖矩阵、趋势、自动 triage 都按它路由。拼错了没人会发现，
+  所以 schema 只校验"非空字符串"（不强制 `@` 前缀——那是团队惯例，不是语法）。
+- **`parallel` 缺省是 `exclusive`**：默认串行是本仓的一贯取向
+  （活宿主状态共享，串行结果最可预测）。只有明确声明 `safe` 的场景才会被并发执行，
+  且并发度由配置 `parallelLimit` 限流；`exclusive` **永远独占**。
+- 声明 `safe` 的前提是场景**自带隔离**：命名空间、临时目录、端口、会话都不与别人共享
+  （见 §5.5 的隔离上下文）。拿不准就别写 `safe`——它买到的是速度，代价是偶发的假红。
+
+### 2.2.4 夹具引用：`fixtures`
+
+夹具是**入库的、声明式的**条件数据（区别于 `.fixtures/` 里下载来的被测对象）：
+
+```yaml
+fixtures: [llm/timeout]       # 名字形如 <kind>/<name>
+```
+
+- 文件在 `fixtures/<kind>/<name>.yaml`，字段固定为
+  `$schema` / `name` / `dsh_version` / `source: hand-written | record | generate` / `data`。
+- 采纳规则：`data` 的键是 **kind 名**，其内容会**合并进** `setup.<kind>`——
+  **场景显式写的字段优先**；多份夹具按 `fixtures:` 数组顺序依次合并（后者覆盖前者）。
+  深度合并时**数组整体替换**（元素级合并会让"夹具说 3 个分片、场景说 2 个"变成 5 个，语义不可预测）。
+- `dsh_version` 不匹配或夹具缺失/解析失败 → 场景 **skipped 并说明原因**，
+  绝不用一份错的夹具硬跑（那会把夹具问题伪装成产品问题）。
+- 采用情况进报告：`CaseOutcome.fixtures`（名字、来源、版本、未采用原因）。
+
 ### 2.3 条件段：`setup`
 
 `setup` 的字段集由 `kind` 决定（见 §3）。所有 kind 共享一个通用子结构：
@@ -273,6 +308,52 @@ act: { emit: { event: 'tools/change' } }             # 主动触发事件
 - **用增量而不是整份快照**——否则 `run.json` 会随步骤数线性膨胀。
 - **HTTP `/run` 有意只回精简 case**（不含 `steps`）。要步骤级细节请读 `run.json`，
   或用 `runScenarios` 的返回值。见 [`tests/step-notes.test.mjs`](../tests/step-notes.test.mjs)。
+
+### 2.4.2 步骤级组合：`use` / `with`（组合系统）
+
+重复的步骤序列可以抽成**注册表片段**（`registry/steps/<组>/<名>.yaml`），场景直接引用：
+
+```yaml
+steps:
+  - use: setup/no-session
+  - id: call                      # 步骤 ID，供后续步骤引用
+    use: invoke/tool
+    with:
+      tool: read_file
+      args: { path: /nope }
+  - use: assert/error
+    with: { from: call, code: ENOENT }
+```
+
+规则（硬约束，进 CI 守卫）：
+
+- `act` 与 `use` **互斥**：一步要么写字面动作，要么引用片段。
+- `with` 的值替换片段模板里的 `{占位}`（支持 `{a.b}` 点路径取值）；**只做替换，不做语义推断**：
+  给了片段没声明的参数、或漏了必填参数，都在**校验期**报错（挡住拼写错误），而不是跑起来才发现。
+- **片段不得 `use` 别的片段**（无环；只有场景能 use 片段）。
+- 展开结果必须能**一键展开成 flat 步骤**：展开后不残留 `use` / `with`，
+  且展开出的场景与手写等价场景在同一个宿主上跑出的判定必须一致（有用例守着）。
+- 跨步数据只能靠 `fx.*` 显式引用（**无隐式状态**）；场景锁 registry 版本。
+- **禁止**场景级 `include` / `extends`，**禁止**在 YAML 里写 `if` / `for` / `while`。
+
+同逻辑不同参数用**参数化模板**（`templates/*.yaml`：`template` / `id_pattern` / `title` / `matrix` / `steps`）
+批量实例化；展开出的每条都有自己的 TK 号与独立报告节点，且默认 `status: draft`（走人工闸门才进回归集）。
+
+### 2.4.3 步骤级清理：`cleanup`
+
+```yaml
+- name: 造一个临时注册
+  act: { tool: { ... } }
+  cleanup: { releaseNotes: [tempToolDisposer], note: '这一步的注册用完即弃' }
+```
+
+- `releaseNotes` 里的取证键对应的 disposer 会在**本步结束后**释放（不必等整条场景结束）；
+  适合"后一步不该再看到前一步的干预"的场景。
+- **幂等**：键不存在、已释放过、disposer 抛错都不中断场景；抛错按既有机制收集进
+  `releaseFailures`（报告里可见），而不是把一次跑完的运行变成 errored。
+- 整条场景结束时的兜底释放不受影响——`cleanup` 是**提前**释放，不是唯一释放点。
+- 场景跑完会做残留检测（临时目录 / 端口 / 孤儿进程），结果记进 `CaseOutcome.cleanup.leftovers`；
+  非空即说明"清理不干净"，需要按报告里的条目排查。
 
 ### 2.5 断言语法
 

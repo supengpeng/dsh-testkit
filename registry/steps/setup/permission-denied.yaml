@@ -1,0 +1,46 @@
+# setup/permission-denied —— 前置：一次审批请求被拒
+#
+# 用法（场景侧要先注册答者，片段不负责制造它）：
+#   setup:
+#     interaction:
+#       approval: { decision: rejected }
+#   steps:
+#     - use: setup/permission-denied
+#       with: { tool: probe, decision: rejected }
+#
+# 取值来自 interaction driver：act 会经过完整的 `approval/request` listener 链，
+# 把结果写进 `fx.approvalOutcome`（`allowed-once` | `rejected` | `cancelled` | `unavailable`）。
+name: setup/permission-denied
+version: "1"
+description: 前置：发一次 approval/request 并断言被判为 rejected（答者由场景 setup 注册）
+params:
+  type: object
+  properties:
+    tool:
+      type: string
+      description: 触发审批的工具名
+    decision:
+      type: string
+      description: setup.interaction.approval.decision 声明的结果
+      enum: [rejected, cancelled, unavailable, allowed-once]
+      default: rejected
+    reason:
+      type: string
+      description: 审批请求上展示的理由（只记进取证）
+      default: dsh-testkit 前置：审批被拒
+  required: [tool]
+  additionalProperties: false
+dependencies: []
+cost: none
+sandbox:
+  mode: read-only
+act:
+  interaction:
+    approval:
+      toolName: "{tool}"
+      reason: "{reason}"
+expect:
+  - ref: fx.approvalOutcome
+    is: "{decision}"
+  - ref: fx.approvalError
+    exists: false

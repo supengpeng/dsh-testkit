@@ -1,0 +1,22 @@
+# tool/read-file-enoent —— 「读文件时文件不存在」的固定失败条件
+#
+# 为什么需要它：ENOENT 是工具层最常见、也最容易被静默吞掉的一类失败。
+# 把"注册一个必然 ENOENT 的读文件工具"固化成夹具，任何需要验证下游
+# 「错误是否被如实上报 / 是否被伪装成成功」的场景都可以直接引用，
+# 不必各自编一份错误文本。
+$schema: 1
+name: tool/read-file-enoent
+dsh_version: ">=0.2.0-rc.2"
+source: hand-written
+data:
+  tool:
+    register:
+      name: testkit_read_file
+      description: 读一个文件；文件不存在时抛出 ENOENT
+      parameters:
+        type: object
+        properties:
+          path: { type: string, description: 要读的文件路径 }
+        required: [path]
+        additionalProperties: false
+      throws: "ENOENT: no such file or directory, open 'missing-input.txt'"

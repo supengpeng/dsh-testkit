@@ -45,6 +45,15 @@
     },
     "policySnapshot": {
       "$ref": "#/$defs/policySnapshot"
+    },
+    "selection": {
+      "$ref": "#/$defs/selectionRecord"
+    },
+    "execution": {
+      "$ref": "#/$defs/executionRecord"
+    },
+    "redaction": {
+      "$ref": "#/$defs/redactionRecord"
     }
   },
   "$defs": {
@@ -146,6 +155,20 @@
         },
         "minimalRepro": {
           "type": "string"
+        },
+        "owner": {
+          "description": "负责人（来源 scenario.owner）；覆盖矩阵与 triage 按它路由。",
+          "type": "string"
+        },
+        "fixtures": {
+          "description": "本场景引用的 fixture 及其采用情况。",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fixtureRef"
+          }
+        },
+        "cleanup": {
+          "$ref": "#/$defs/cleanupRecord"
         }
       }
     },
@@ -324,6 +347,113 @@
         "sandbox": {
           "description": "沙箱策略快照；键集由 ExecutionPolicy.sandbox 决定。",
           "type": "object"
+        }
+      }
+    },
+    "selectionRecord": {
+      "description": "SelectionRecord：增量测试选择为什么只跑了这些。",
+      "type": "object",
+      "required": ["mode", "detail", "matched"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "matched": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "executionRecord": {
+      "description": "ExecutionRecord：这次是串行还是并发、并发度多少。",
+      "type": "object",
+      "required": ["parallel", "limit", "safe", "exclusive"],
+      "additionalProperties": false,
+      "properties": {
+        "parallel": {
+          "enum": ["off", "limited"]
+        },
+        "limit": {
+          "type": "number"
+        },
+        "safe": {
+          "type": "integer"
+        },
+        "exclusive": {
+          "type": "integer"
+        }
+      }
+    },
+    "fixtureRef": {
+      "description": "FixtureRef：引用了哪份夹具、来自哪里、为什么没用上。",
+      "type": "object",
+      "required": ["name", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "dshVersion": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "cleanupRecord": {
+      "description": "CleanupRecord：释放了什么、有没有残留。",
+      "type": "object",
+      "required": ["released", "leftovers"],
+      "additionalProperties": false,
+      "properties": {
+        "released": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "leftovers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "redactionRecord": {
+      "description": "RedactionRecord：脱敏了几处、分布在哪（只记位置与类型，绝不记原文）。",
+      "type": "object",
+      "required": ["count", "findings"],
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "kind"],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     }

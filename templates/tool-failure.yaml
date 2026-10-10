@@ -1,0 +1,39 @@
+# 参数化模板：tool-failure
+#
+# 一条"工具抛错 → 错误码可断言"的同构场景，只有参数不同：
+#   · tool      —— 注册哪两个临时工具（都会被 register.throws 变成抛错工具）
+#   · condition —— 用哪个 setup/* 前置片段（矩阵值直接拼进 use: setup/{condition}）
+#   · code      —— 抛出的错误码，同时用于 throws 与错误断言
+#
+# 展开产物一律 status: draft：默认回归集不会跑它们，需要人工确认后才落地。
+# 生成结果仍带 use:，要执行还需 expandScenario() 展平（见 src/registry/templates.ts 头注）。
+template: tool-failure
+id_pattern: TK-01xx
+title: "模板：{tool} 抛错且错误码 {code} 可断言"
+kind: tool
+severity: medium
+description: 工具抛错路径的参数化模板（矩阵：tool × condition × code）
+tags: [registry, template, tool, registry:v1]
+source:
+  issue: null
+  summary: 参数化模板 tool-failure 展开出的 draft 场景（工具抛错路径）
+matrix:
+  tool: [probe_read, probe_write]
+  condition: [no-session]
+  code: [ENOENT]
+setup:
+  tool:
+    register:
+      name: "{tool}"
+      description: 模板注册的会抛错工具
+      throws: "{code}"
+steps:
+  - id: arrange
+    use: setup/{condition}
+    with: { settleMs: 0 }
+  - id: call
+    use: invoke/tool
+    with: { tool: "{tool}", args: {} }
+  - id: check
+    use: assert/error
+    with: { ref: fx.callError, pattern: "{code}" }

@@ -1,0 +1,51 @@
+# setup/with-session —— 前置：在一个可用会话上跑一条已注册命令
+#
+# ⚠️ 用它的场景 `kind` 必须是 `session`（或 `setup` 里出现 `session` 键）：
+# 命令是由 session driver 的 **setup** 注册的（`setup.session.command`），
+# 片段只负责"驱动它一次"。kind 不匹配时命令根本没注册，act 会明确报错。
+#
+# 用法（场景侧要先声明命令，片段不负责制造它）：
+#   setup:
+#     session:
+#       command: { name: probe-cmd, returns: OK }
+#   steps:
+#     - use: setup/with-session
+#       with: { command: probe-cmd, kind: success }
+#
+# 展开语义：片段只做纯文本替换；`{command}` / `{input}` / `{kind}` 覆盖 with 的值。
+# 这里**不**断言 `fx.sessionTargetId`：headless 最小宿主没有 agents 服务，
+# 会话 id 允许为空——断言它存在会让片段在 CI 轨上假红。
+name: setup/with-session
+version: "1"
+description: 前置：在会话上执行一条 setup.session.command 声明的命令，并断言返回形态
+params:
+  type: object
+  properties:
+    command:
+      type: string
+      description: setup.session.command.name 声明的命令名
+    input:
+      type: string
+      description: 传给命令的原始输入
+      default: ""
+    kind:
+      type: string
+      description: 期望的返回形态（success / error）
+      enum: [success, error]
+      default: success
+  required: [command]
+  additionalProperties: false
+dependencies: []
+cost: none
+sandbox:
+  mode: read-only
+act:
+  session:
+    command:
+      name: "{command}"
+      input: "{input}"
+expect:
+  - ref: fx.commandKind
+    is: "{kind}"
+  - ref: fx.commandError
+    exists: false

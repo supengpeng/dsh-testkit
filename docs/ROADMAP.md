@@ -442,14 +442,58 @@ CLI 侧另观察到 teammate 用 `send_message` 把结果回传给 Lead——说
 
 ### 未做 / 推迟（连同**前置条件**，不是"没时间"）
 
+> 本表随 Phase 12 更新：原先挂在这里的 **scoped rename / step registry + 参数化模板 /
+> touchstone 三阶段 / `--redact` / 默认只读沙箱** 五项**已全部落地**（见 Phase 12），
+> 所以只剩下面三条。
+
 | 未做 | 为什么现在不做 | 前置条件 |
 |---|---|---|
-| **npm scoped rename** | `dsh-testkit` 已被他人占用（registry `200`，maintainer `iiwish`，latest `0.4.4`）——`npm publish` 物理上不可能成功；而改名会改 client bundle 的 module id，**失效方式是静默的** | ① 活宿主（web profile）按 [PUBLISHING.md §5](PUBLISHING.md) 验完四步：V1「测试」标签渲染 / V2 combo URL 出现新名 / V3 `__ModuleLoader__.load` 的 `id` 匹配 / V4 bridge 路由通；② 定下新名 |
-| **独立 CLI** | 本包**刻意没有 `bin`**（已由自举契约守住）。先证明"导出的 CI 用例能在真实 CI 跑通"，再决定 CLI 形状——反过来做会得到第二套与场景数据重复的命令面 | ① 导出轨在至少一个真实仓库的 CI 上跑通；② 明确 CLI **只做 `run` / `list`** 两个子命令，不造第二套引擎 |
-| **step registry + 参数化模板** | 现在（36 条场景）没有出现"同一判据重复三遍、只有参数不同"的实例，此时抽象出来的是**猜的模板**，会把未来场景塞进错误形状 | ① 出现 2–3 组真实的同构不同参场景；② 先写清模板与 `kind` 的关系（模板不能变成第 13 个 kind） |
-| **touchstone 适配器（三阶段）** | 跨项目判据交换要先有**数据流向与隐私约定**（见 [SECURITY.md](../SECURITY.md) §4.4），且对方契约还在动；现在接进来只会把不稳定的形状固化成接口 | ① 对方 schema 与版本策略稳定；② 数据流向 / 脱敏 / 保留策略定稿；③ 阶段一（只读导入）能单独验收 |
-| **输出脱敏 `--redact`** | 本次只写清了数据边界与使用约定（[SECURITY.md](../SECURITY.md) §4.2），**没有实现**——把不存在的保护说成存在比没有保护更危险 | ① 脱敏规则（token/凭据/私钥/用户目录路径形态）与「命中计数进报告」的实现；② 把 SECURITY §4.2 从"待实现"改为"已支持" |
-| **「默认只读沙箱」** | 本次只把**花钱**默认关掉（`allowModel: false`）；沙箱收紧做成**显式开关**。原因：既有场景里有若干 `shell` / `fs` 类本来就会写目录，默认收紧会让基线平白多出一片 skipped（自己制造的假红） | ① 把依赖写目录的既有场景改造成不依赖写权限，或明确把它们归入"需要显式放权"的类别；② 在报告里用 `skipped + reason` 说明为什么没跑 |
+| **独立 CLI** | 本包**刻意没有 `bin`**（已由自举契约守住）。命令行能力目前由 `/testkit` 人类命令 + `testkit_*` 工具 + 导出轨承担。先证明"导出的 CI 用例能在真实仓库的 CI 跑通"，再决定 CLI 形状——反过来做会得到第二套与场景数据重复的命令面 | ① 导出轨在至少一个真实仓库的 CI 上跑通；② 明确 CLI **只做 `run` / `list`** 两个子命令，不造第二套引擎 |
+| **可观测性与 DX**（trace / 趋势 / 覆盖矩阵 / `--watch` / `--smoke`） | 前提是"运行数据已经足够多、值得聚合"。本版先把**数据本身**做对：选择取证 / 执行取证 / 归因 / 最小复现 / 夹具取证 / 清理取证都已进 `run.json` | ① 真实运行次数上来（有可比历史）；② 先定"趋势要回答什么问题"，否则做出来是图表不是决策依据 |
+| **供应链与治理**（产物签名 / RFC / CODEOWNERS / 贡献指南 / good first issues） | 这些机制在**发布之后**才有意义（签名要签发布产物、RFC 要有外部参与者） | 先完成一次真实发布（含活宿主验证），再按 [PUBLISHING.md](PUBLISHING.md) 的清单补齐 |
+
+---
+
+## Phase 12 · 0.2.0 第二批：把"推迟项"全部落地
+
+**目标**：把 Phase 11 表里挂着前置条件的五项**一次性做完**，并把 P0 剩下的三条
+（增量选择 / 契约测试 / 并发隔离）补上。本阶段**仍不新增 kind**（12 个不变）；
+新增的是"场景怎么组合、条件从哪来、跑哪些、能不能并发、结果给谁"。
+
+| # | 交付物 | 状态 |
+|---|---|---|
+| 12.1 | **增量测试选择**：`src/selection/**`（`git diff` + `ls-files --others`，**非 git/坏 ref 退回全量**）＋ `RunSummary.selection` 取证 | ✅ |
+| 12.2 | **fixture 治理**：`fixtures/**`（schema / `dsh_version` / `source` / `data`）＋ `applyScenarioFixtures` ＋ `verify:fixtures`；**CI 轨与插件面同一条夹具链** | ✅ |
+| 12.3 | **契约测试**：`src/contracts/**` + `tests/contracts/**`（4 个 adapter，65 条），**先于场景测试跑**，每条契约配反安慰剂 | ✅ |
+| 12.4 | **并发隔离 + 幂等/清理**：`src/isolation/**`（context / pool / leaks / cleanup）＋ 场景 `parallel` ＋ `RunSummary.execution`；并发 vs 串行**逐条**比对 | ✅ |
+| 12.5 | **组合系统**：`registry/steps/**`（9 片段）＋ `src/registry/**`（加载 / DAG / 展开 / 模板）＋ `verify:registry`；3 条 `use:` draft＋等价性证明 | ✅ |
+| 12.6 | **touchstone 三阶段**：`src/touchstone/**`（export / import / webhook）＋ `docs/TOUCHSTONE.md`；webhook 用 `git worktree` 隔离复跑且主仓保持干净 | ✅ |
+| 12.7 | **shell 默认只读 + 禁止任意网络**：`READ_ONLY_DENY_COMMANDS` 成为默认；`allowNetwork` 默认 false（假 provider 例外） | ✅ |
+| 12.8 | **`--redact` + secret 扫描**：`src/report/redact.ts` + `scripts/check-secrets.mjs`（进 gate，**只报位置不打印原文**） | ✅ |
+| 12.9 | **npm scoped rename**：包名 `@supengpeng/dsh-testkit`；client 模块 id 从 `package.json` 读（不再硬编码）；插件身份保持 `dsh-testkit` | ✅ |
+| 12.10 | **工具/命令面扩展**：`testkit_expand`、`testkit_export --format touchstone`、`/testkit import|expand|registry|fixtures`、`--changed/--since/--affected-by/--dsh-version/--parallel/--redact` | ✅ |
+| 12.11 | **三处实现漂移被契约测试揪出并修掉**：headless `dispose()` 是静默 no-op；`enum` 只保留 string；根级 `additionalProperties` 被丢弃（后者确认 DSH 不支持，改为显式说明） | ✅ |
+
+### 验收
+
+`pnpm run gate` 全链绿（含新增的 `verify:fixtures` / `verify:registry` / `verify:secrets`
+与 contracts 轨），且**在 `git worktree` 出来的全新 checkout 上复跑一遍**（Phase 11 的教训：
+`.gitignore` 曾把 `src/export/**` 一起忽略，本地绿、新克隆必挂）。
+
+| 验收点 | 证据（可复跑的命令/用例） |
+|---|---|
+| 增量选择不静默跑 0 条 | `tests/selection.test.mjs`：非 git 目录 / 坏 ref → `ok:false`；`tests/` 改动不影响任何场景（反例） |
+| 夹具是等价的条件来源 | `tests/fixture-governance.test.mjs`：夹具展开 vs 把条件写回场景，verdict / 断言指纹 / 取证 deepEqual |
+| CI 轨与插件面不分叉 | `tests/export-track.test.mjs`：生成物里断言 `fixtures: { fixturesDir: FIXTURES_DIR, … }` 存在，并按同一套语义批量跑真实 `cases/` |
+| 契约不是安慰剂 | `tests/contracts/runner.test.mjs` 的反安慰剂 ①–⑥：把实现打回旧行为，契约必须**变红并点名** |
+| 并发与串行等价 | `tests/isolation.test.mjs`：逐条比 verdict + 断言 ok 矩阵，并用探针证明并发真的发生（maxActive 4 vs 1） |
+| 组合可一键展开 | `tests/registry.test.mjs`：展开 flat 与等价手写场景 **deepEqual**，且 headless 上判定一致 |
+| 回环不污染主仓 | `tests/touchstone.test.mjs`：真起服务 + 真复跑，断言 `git status --porcelain` 在前后都为空、worktree 已清理 |
+| 脱敏不泄露原文 | `tests/redact.test.mjs`：三份产物都不含原文；**findings 自己也不含原文** |
+
+> **它证明了什么**：把"条件从哪来（fixture）""场景怎么组合（registry）""这次该跑哪些（selection）"
+> "能不能并发（isolation）""结果给谁（touchstone）"这五件事从**自由发挥**变成**有守卫的形状**；
+> 并且把守 DSH 依赖形状的**契约**独立成一条先跑的轨——替身漂移了就不该继续跑场景。
 
 ---
 
