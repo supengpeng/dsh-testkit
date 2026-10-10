@@ -73,7 +73,8 @@ async function acquire() {
   let waited = false
   for (;;) {
     if (tryAcquire()) {
-      if (waited) console.log('[build-lock] 已取到锁，开始编译')
+      // 诊断走 stderr：本脚本是 `prepare` 的一部分，stdout 要留给调用方的机器可读数据。
+      if (waited) console.error('[build-lock] 已取到锁，开始编译')
       return
     }
     if (Date.now() > deadline) {
@@ -84,7 +85,7 @@ async function acquire() {
     }
     if (!waited) {
       waited = true
-      console.log(`[build-lock] 另一个编译在进行中（${lockPath}），等待…`)
+      console.error(`[build-lock] 另一个编译在进行中（${lockPath}），等待…`)
     }
     await sleep(POLL_MS)
   }

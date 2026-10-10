@@ -58,4 +58,7 @@ await build({
   legalComments: 'none',
 })
 
-console.log(`[build-client] → lib/client.js (id=${PKG_ID})`)
+// 诊断信息走 **stderr**：本脚本是 `prepare` 的一部分，`npm pack --json` / `npm install`
+// 会通过 stdout 传机器可读数据；往 stdout 打日志会把 JSON 污染成非 JSON
+// （真踩过：发布工作流的 `npm pack --dry-run --json > pack.json` 直接 JSON.parse 失败）。
+console.error(`[build-client] → lib/client.js (id=${PKG_ID})`)

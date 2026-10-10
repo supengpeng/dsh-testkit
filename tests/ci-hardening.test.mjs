@@ -390,9 +390,14 @@ test('真实 release.yml：provenance + OIDC 权限 + 发布清单关键目录�
   assert.match(release.source, /pnpm install --frozen-lockfile/)
   assert.match(release.source, /npm publish --provenance --access public/)
   assert.match(release.source, /tags: \['v\*'\]/)
-  // 发布清单断言必须覆盖这些目录（缺一件就是"装出来才报错"）
+  // 发布清单断言：判据本身搬进了**可单测**的脚本（第一次上发布流就因为
+  // `prepare` 往 stdout 打日志把 pack.json 污染成非 JSON 而红）。
+  assert.match(release.source, /npm pack --dry-run --json/)
+  assert.match(release.source, /scripts\/check-pack-manifest\.mjs/)
+  // 该脚本必须覆盖这些目录（缺一件就是"装出来才报错"）
+  const manifest = readFileSync(join(root, 'scripts', 'check-pack-manifest.mjs'), 'utf8')
   for (const dir of ['bin/', 'lib/cli/', 'schemas/', 'cases/', 'fixtures/', 'registry/', 'templates/', 'dsh/']) {
-    assert.ok(release.source.includes(`'${dir}'`), `release.yml 的清单断言缺少 ${dir}`)
+    assert.ok(manifest.includes(`'${dir}'`), `check-pack-manifest 缺少 ${dir}`)
   }
   // 风险声明必须在（打 tag 即发布 / 先做活宿主验证）
   assert.match(release.source, /打 tag 即发布/)
