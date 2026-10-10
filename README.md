@@ -91,11 +91,13 @@ npm install -D @supengpeng/dsh-testkit
 | **组合系统** | ✅ `registry/steps/**` 片段 + `use:`/`with:` 展开 + `templates/**` 参数化（一键展平成 flat 步骤，禁控制流与场景级 include） |
 | **沙箱与隐私** | ✅ **shell 默认只读**（写命令与解释器默认拒）+ 禁止任意网络 + `--redact` 脱敏（findings 只记位置不记原文）+ `check-secrets` 门禁 |
 | **可观测性（0.2.0 第三批）** | ✅ 步骤级 **trace**（真实偏移；`trace.json` + 时间线 / Chrome Trace / OTLP 三种导出）· 结果**趋势**（kind/tag/owner/DSH 版本）· **覆盖矩阵**与可行动缺口 · 全文**搜索**（0 条时解释为什么）· 失败**原因分级**（有据才说） |
-| **独立 CLI** | ✅ `dsh-testkit <子命令>`（`bin/`）：14 个子命令 + 全部选择/闸门开关；退出码冻结 `0/1/2/3`；与 `/testkit`、`testkit_*` **共用同一套引擎** |
-| 验证 | ✅ `pnpm run gate`：**630 测试**（含契约轨 65）＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
+| **独立 CLI** | ✅ `dsh-testkit <子命令>`（`bin/`）：15 个子命令 + 全部选择/闸门开关；退出码冻结 `0/1/2/3`；与 `/testkit`、`testkit_*` **共用同一套引擎** |
+| **供应链与治理（0.2.0 第四批）** | ✅ CI 硬化守卫（最小权限 / 禁止 `pull_request_target` / Action **钉 SHA**）+ 锁文件守卫 + secret 扫描 + `pnpm audit` 独立步骤 + **带 provenance 的发布工作流**；`CODEOWNERS` / 贡献指南 / 行为准则 / PR 与 issue 模板 / RFC 模板 / 迁移指南 |
+| **自动 triage 与体检** | ✅ 生成 issue 草稿与 PR 评论（归因标签 + owner 路由，**只出文本不发请求、不含取证原文**）；`dsh-testkit doctor` 报告能力矩阵 / 哪些场景会 skip / 残留（临时目录、端口、进程） |
+| 验证 | ✅ `pnpm run gate`：**701 测试**（含契约轨 65）＋ **10 个守卫** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
 
-> 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（11 个模型工具 / 14 个 CLI 子命令 /
-> 12 个 kind / 17 个断言词 / 约 241 个取证字段 / 8 个质量守卫），只列**已实现并实测**的能力。
+> 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（13 个模型工具 / 15 个 CLI 子命令 /
+> 12 个 kind / 17 个断言词 / 约 241 个取证字段 / 10 个质量守卫），只列**已实现并实测**的能力。
 | **真实 DSH 验证（host 半）** | ✅ **14 通过 / 0 失败 / 2 跳过 / 0 错误**——独立 headless profile 实测，未改动 desktop profile |
 | **真实 DSH 验证（client 半 + HTTP bridge）** | ✅ 独立 web profile 实测：「测试」标签渲染、控制台显示 16 条场景 |
 
@@ -277,10 +279,16 @@ dsh-testkit/
 | [开发文档](docs/DEVELOPMENT.md) | 环境、构建、安装、调试、HMR、真实验证流程、排障、代码约定 |
 | [场景数据规范](docs/SCENARIO-SPEC.md) | `cases/*.yaml` 的完整字段规范（含组合场景、`cost` / `budget` 两个成本字段） |
 | [issue 提炼流程](docs/ISSUE-PIPELINE.md) | 从一个 issue 到一条可复现场景的五步法 ＋ **提炼闸门**（要不要提炼 / 要不要落地，由人按批决定） |
-| [迭代计划](docs/ROADMAP.md) | Phase 0–11 的目标、交付物与验收标准 |
+| [迭代计划](docs/ROADMAP.md) | Phase 0–14 的目标、交付物与验收标准（含剩下的三件"必须由真实环境给证据"的事） |
 | [发布与改名清单](docs/PUBLISHING.md) | 0.2.0 发布清单、npm scoped rename 的全量引用与耦合点、活宿主验证步骤 |
+| [迁移指南](docs/MIGRATION.md) | 0.1.0 → 0.2.0：默认值变化、新增字段、`enum`/`const` 保真的恢复路径、包名与形态变化 |
+| [DSH 官方工具链集成](docs/DSH-INTEGRATION.md) | 与 DSH 的声明式契约、对外四类产物、与 doctor / composition / 单元测试框架的分工 |
+| [供应链与合规](docs/SUPPLY-CHAIN.md) | 依赖锁定与审计、场景禁网、secret 扫描、发布 provenance、Actions 硬化，以及**我们做不到的** |
+| [治理与 RFC](docs/GOVERNANCE.md) | 版本与弃用策略、RFC 流程、release cadence、**good first issues 候选**（[RFC 模板](docs/rfc/0000-template.md)） |
 | [安全策略与数据隐私](SECURITY.md) | 漏洞报告渠道与范围、响应承诺；report / fixture 的数据边界与保留策略 |
 | [变更日志](CHANGELOG.md) | 每个版本改了什么、怎么迁移、明确推迟了什么以及为什么 |
+| [贡献指南](CONTRIBUTING.md) | 环境、怎么加一条场景 / 一个 driver（12 kind 的纪律）、质量门与不要做的事 |
+| [行为准则](CODE_OF_CONDUCT.md) | 参与本项目的社区约定 |
 
 ---
 

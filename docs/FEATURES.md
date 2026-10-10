@@ -5,29 +5,52 @@
 
 ---
 
-## 1. 模型工具（6 个）
+## 1. 模型工具（13 个）
 
 装进 profile 后由模型直接调用。**本机实测：`dsh plugin add` 后当场出现，无需重启。**
 
 | 工具 | 作用 | 参数 |
 |---|---|---|
 | `testkit_list` | 列出场景，可按 kind / tag / status 过滤，同时回显无法解析的文件 | `kinds?` `tags?` `status?` `includeInvalid?` |
-| `testkit_run` | 运行场景（省略选择器 = 跑全部 active），返回摘要并写出报告 | `ids?` `kinds?` `tags?` `timeoutMs?` |
+| `testkit_run` | 运行场景（省略选择器 = 跑全部 active），返回摘要并写出报告；**总是带成本闸门** | `ids?` `only?` `kinds?` `tags?` `owner?` `cost?` `smoke?` `changed?` `since?` `affectedBy?` `dshVersion?` `parallelLimit?` `redact?` `allowModel?` `allowLowCost?` `maxModelCalls?` `allowFileWrite?` `timeoutMs?` |
 | `testkit_report` | 读取最近一次或指定 Run ID 的报告 | `runId?` `full?` |
-| `testkit_export` | 导出为可脱离活宿主运行的 CI 用例 | `target` `ids?` `outDir?` |
+| `testkit_export` | 导出为可脱离活宿主运行的 CI 用例，或把失败项导成 `bug_report/`（touchstone） | `target` `ids?` `outDir?` `runId?` |
+| `testkit_expand` | 把 `use:` 步骤展开成 flat 步骤（组合系统自证） | `id` |
+| `testkit_trace` | 步骤级 trace：`timeline` / `json` / `chrome` / `otel` | `runId?` `format?` `top?` `full?` |
+| `testkit_trend` | 历史趋势（kind / tag / owner / dshVersion 四维） | `dimension?` `limit?` |
+| `testkit_coverage` | 覆盖矩阵 + 可行动的缺口清单 | — |
+| `testkit_search` | 场景全文搜索 + 过滤（0 条时解释为什么） | `text?` `kinds?` `tags?` `owner?` `cost?` `status?` |
+| `testkit_triage` | 生成 PR 评论或 issue 草稿（**只出文本，不发请求**） | `runId?` `format?` |
+| `testkit_doctor` | 宿主体检：能力矩阵 / 哪些场景会 skip / 残留 / 最近读数 | `maxGaps?` |
 | `testkit_propose` | 提交一条提炼提案：**只写 `pipeline/proposals/`**，质量预检不过不落盘；没有 open 批次会被拒绝 | `yaml` `notes?` |
 | `testkit_pipeline` | 只读查看提炼台账（当前批次 / 提案裁决状态 / 历史） | `proposalId?` |
 
 > 模型**没有** `approve`：落地能力只挂在人类命令面。这是提炼闸门成立的前提。
+> 工具面的权限也只**收**不放：`allowModel: true` 只在配置已允许时才有效（放权只有 `/testkit run --allow-model`）。
 
-## 2. 人类命令（1 个命令 + 6 个子命令）
+## 2. 人类命令与独立 CLI
+
+**DSH 命令面**（`/testkit`，14 个子命令）：
 
 ```
-/testkit list      /testkit run      /testkit report
-/testkit export    /testkit reload
+/testkit list  run  report  expand  export  import  trace  trend  coverage  search  triage  doctor  reload  issue
 ```
 
-提炼闸门挂在同一个命令下的 `issue` 子命令里——**要不要提炼、要不要落地，只有这里能决定**：
+`run` 的开关：`--kind --tag --owner --cost --smoke --smoke-budget --changed --since --affected-by
+--dsh-version --parallel --redact --allow-model --allow-low-cost`。
+
+**独立 CLI**（`bin/dsh-testkit.mjs`，与命令面**共用同一套引擎**）：
+
+```bash
+dsh-testkit run --changed --parallel 4      # 增量 + 并发
+dsh-testkit doctor                          # 宿主体检
+dsh-testkit triage --format issue           # 生成 issue 草稿（不发请求）
+dsh-testkit coverage / trend / trace --format chrome / search <词> / export / import
+```
+
+退出码：`0` 全部通过（含 skipped）· `1` 有 failed/errored · `2` 用法错误或选中 0 条 · `3` 基础设施错误。
+
+提炼闸门挂在 `issue` 子命令里——**要不要提炼、要不要落地，只有这里能决定**：
 
 ```
 /testkit issue open <范围说明>          开启本轮提炼（模型此后才能提交提案）
@@ -119,23 +142,33 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 |---|---|
 | `verify:cases` | **架构一致性**：每个 kind 必须有 driver、索引自洽、`setup` 键合法（能抓 `setup.tolls` 这类笔误）、无孤儿场景 |
 | `verify:docs` | **文档漂移**：链接存在、`fx.*` 字段存在、`pnpm run <script>` 存在、`scripts/*.mjs` 存在、`cases/` 场景计数一致 |
-| `verify:adapter` | **适配层边界**：`@deepseek-ai/dsh-*` 的静态 import / `import()` / `require()` 只允许出现在 `src/adapters/dsh/` 下（`@deepseek-ai/cordis`、`@deepseek-ai/schemastery` 不算；**注释里的包名不算**） |
-| `verify:pack` | **打包面**：`files` 白名单是否覆盖 `main` / `types` / `exports` / `dsh.bundle.patch` 声明的路径（入口一改，检查自动跟着变）。它就是 §10 的 `check-pack-files.mjs`，本版才接进 gate |
+| `verify:adapter` | **适配层边界**：`@deepseek-ai/dsh-*` 的静态 import / `import()` / `require()` 只允许出现在 `src/adapters/dsh/` 下（注释里的包名不算） |
+| `verify:pack` | **打包面**：`files` 白名单覆盖 `main` / `types` / `exports` / `dsh.bundle.patch` / **`bin`** 声明的路径 |
+| `verify:git-install` | **git 安装形态**：从 git 装出来不能是没有入口的空壳（`prepare` 是否存在） |
+| `verify:fixtures` | **夹具**：schema、`name` ↔ 路径一致、`dsh_version` 可解析、敏感扫描，以及"场景声明的夹具必须存在" |
+| `verify:registry` | **组合系统**：片段无环、`act`/`use` 互斥、禁 YAML 控制流与场景级 include、展开不残留 `use`/`with` |
+| `verify:secrets` | **敏感数据**：会入库或进产物的文件里不许有 token / 私钥 / 邮箱 / 家目录路径（**只报位置不打印原文**） |
+| `verify:lock` | **供应链**：`package.json` 的依赖逐项能在 `pnpm-lock.yaml` 找到，`packageManager` 与 CI 声明一致 |
+| `verify:ci` | **Actions 硬化**：显式最小 `permissions`、禁 `pull_request_target` / secrets 取值 / `continue-on-error`、每个 `uses:` 钉 40 位 SHA |
 
-> 这四个守卫都是**踩坑之后加的**——文档与实现静默漂移过一次，
-> "DSH 依赖散落各处"只有机器查得出来，"装出来缺件"更是只有发包面才看得见。
+> 这十个守卫都是**踩坑之后加的**——文档与实现静默漂移过一次，
+> "DSH 依赖散落各处""装出来缺件""临时目录堆成垃圾""假 token 混进测试"
+> 这些形态，只有机器查得出来。
 
-## 10. 四个检查器
+## 10. 检查器（通用判据 + 本仓结构）
 
-三个是**从真实 issue 形态提炼、任何 npm 包都能用**的通用判据，
-第四个是**本仓自己的结构守卫**；退出码统一 0/1：
+前三个是**从真实 issue 形态提炼、任何 npm 包都能用**的通用判据，
+其余是本仓的结构守卫；退出码统一 0/1：
 
 | 脚本 | 抓什么 | 源自 |
 |---|---|---|
-| `check-pack-files.mjs <包目录>` | `files` 白名单是否覆盖入口声明的文件 | #48 |
+| `check-pack-files.mjs <包目录>` | `files` 白名单是否覆盖入口声明的文件（含 `bin`） | #48 |
 | `check-python-topimports.mjs <包目录>` | 包内**非相对顶层导入**是否被打进包（"装机后才炸"） | #12 / #48 |
 | `check-git-installable.mjs <包目录>` | 从 git 安装会不会得到没有入口文件的**空壳** | #2 |
-| `check-adapter-boundary.mjs <包目录>` | DSH 内部包依赖是否越出 `src/adapters/dsh/` | 本仓架构承诺 |
+| `check-adapter-boundary.mjs` | DSH 内部包依赖是否越出 `src/adapters/dsh/` | 本仓架构承诺 |
+| `check-secrets.mjs` | 敏感数据（见 §9） | 数据隐私 |
+| `check-ci-hardening.mjs` | Actions 权限与 SHA 钉（见 §9） | 供应链 |
+| `check-lockfile.mjs` | 依赖与锁文件一致性 | 供应链 |
 
 ## 11. 提炼工具链
 
@@ -175,7 +208,7 @@ length  lengthAtLeast  lengthAtMost  atLeast  atMost  throws
 ## 实测验证状态
 
 ```
-gate            630 项单测（含契约轨 65）+ 26 条导出场景          全绿
+gate            701 项单测（含契约轨 65）+ 26 条导出场景          全绿
 真实 DSH 全量    27 条时点的读数：26 条 active → 25 通过 / 1 失败 / 0 跳过   见下
                 （TK-0027 是 draft：团队通道留痕不可逆，按需单跑）
 team 通道        TK-0027 在独立 headless 新进程 passed（703ms，真 spawnTeammate）

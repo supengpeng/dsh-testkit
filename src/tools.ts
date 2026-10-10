@@ -5,6 +5,7 @@
  * 越窄越不容易与宿主既有工具冲突，也越好向模型解释。
  */
 
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { FAILURE_CATEGORY_LABEL } from './analysis/classify.js'
@@ -33,6 +34,19 @@ import {
   renderTraceJson,
 } from './trace/index.js'
 import { exportBugReports } from './touchstone/index.js'
+import { buildIssueDraft, buildPrComment } from './triage/index.js'
+
+/** 从包根读 `package.json` 的 scripts（doctor 的守卫清单来源）；读不到就返回空表。 */
+function readPackageScripts(): Record<string, string> {
+  try {
+    const pkg = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')) as {
+      scripts?: Record<string, string>
+    }
+    return pkg.scripts ?? {}
+  } catch {
+    return {}
+  }
+}
 
 export interface ToolDeps {
   registry: CaseRegistry
@@ -639,6 +653,85 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
             ...(status === undefined ? {} : { status }),
           }),
         )
+      },
+    },
+
+    {
+      name: 'testkit_triage',
+      description:
+        '把最近一次（或指定）运行的失败项生成"给外部系统看的文本"：PR 评论或 issue 草稿（含归因标签、owner 指派、最小复现）。只出文本，**不发任何请求**。',
+      parameters: {
+        type: 'object',
+        properties: {
+          runId: { type: 'string', description: '省略 = 最近一次运行' },
+          format: { type: 'string', enum: ['pr', 'issue'], description: '缺省 pr（PR 评论）；issue = 开 issue 的草稿' },
+        },
+        additionalProperties: false,
+      },
+      execute: async (args) => {
+        const runId = typeof args.runId === 'string' && args.runId.trim() !== '' ? args.runId.trim() : undefined
+        const located = latestRunJson(deps.runsDir(), runId)
+        if (!located.ok || located.path === undefined) {
+          return `无法定位运行记录：${located.reason ?? '未知原因'}`
+        }
+        const { readFile } = await import('node:fs/promises')
+        let summary: RunSummary
+        try {
+          summary = JSON.parse(await readFile(located.path, 'utf8')) as RunSummary
+        } catch (error) {
+          return `读取 ${located.path} 失败：${error instanceof Error ? error.message : String(error)}`
+        }
+        const format = typeof args.format === 'string' ? args.format : 'pr'
+        if (format === 'issue') {
+          const draft = buildIssueDraft(summary)
+          if (draft.title === '') return '没有 failed / errored 的用例：无需开 issue。'
+          return [
+            `标题：${draft.title}`,
+            `标签：${draft.labels.join(', ') || '（无）'}`,
+            `指派：${draft.assignees.join(', ') || '（无 owner）'}`,
+            '',
+            draft.body,
+          ].join('\n')
+        }
+        if (format !== 'pr') return `不支持的 format：${format}（pr | issue）`
+        return buildPrComment(summary)
+      },
+    },
+
+    {
+      name: 'testkit_doctor',
+      description:
+        '宿主体检：能力矩阵（哪些 kind 会因缺能力被跳过、为什么）、守卫清单、残留探测、最近一次运行读数与覆盖缺口。',
+      parameters: {
+        type: 'object',
+        properties: {
+          maxGaps: { type: 'number', description: '覆盖缺口最多列几条（缺省 5）' },
+        },
+        additionalProperties: false,
+      },
+      execute: async (args) => {
+        try {
+          const { renderDoctor, runDoctor } = await import('./doctor/index.js')
+          const report = await runDoctor({
+            registry,
+            host: {
+              capabilities: host.capabilities,
+              env: {
+                dshVersion: host.env.dshVersion,
+                platform: host.env.platform,
+                nodeVersion: host.env.nodeVersion,
+              },
+            },
+            scripts: readPackageScripts(),
+            runsDir: deps.runsDir(),
+            casesDir: registry.dir,
+            drivers,
+            ...(typeof args.maxGaps === 'number' ? { maxGaps: args.maxGaps } : {}),
+          })
+          return renderDoctor(report)
+        } catch (error) {
+          return `体检失败：${error instanceof Error ? error.message : String(error)}`
+        }
       },
     },
 

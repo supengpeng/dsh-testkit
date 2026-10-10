@@ -40,6 +40,7 @@
     "regression"
   ],
   "license": "MIT",
+  "packageManager": "pnpm@11.7.0",
   "bin": {
     "dsh-testkit": "./bin/dsh-testkit.mjs"
   },
@@ -118,9 +119,11 @@
     "verify:fixtures": "node scripts/verify-fixtures.mjs",
     "verify:registry": "node scripts/verify-registry.mjs",
     "verify:secrets": "node scripts/check-secrets.mjs",
+    "verify:lock": "node scripts/check-lockfile.mjs",
+    "verify:ci": "node scripts/check-ci-hardening.mjs",
     "export:ci": "node scripts/export-scenarios.mjs",
     "test": "node --test \"tests/*.test.mjs\"",
     "test:contracts": "node --test \"tests/contracts/*.test.mjs\"",
-    "gate": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\" && tsc -p tsconfig.json && node scripts/build-client.mjs && node scripts/verify-cases.mjs && node scripts/verify-docs.mjs && node scripts/check-adapter-boundary.mjs && node scripts/check-pack-files.mjs && node scripts/check-git-installable.mjs && node scripts/verify-fixtures.mjs && node scripts/verify-registry.mjs && node scripts/check-secrets.mjs && node --test \"tests/contracts/*.test.mjs\" && node --test \"tests/*.test.mjs\" && node scripts/export-scenarios.mjs && node --test export/scenarios.test.mjs && tsc -p tsconfig.client.json --noEmit"
+    "gate": "node -e \"require('node:fs').rmSync('lib',{recursive:true,force:true})\" && tsc -p tsconfig.json && node scripts/build-client.mjs && node scripts/verify-cases.mjs && node scripts/verify-docs.mjs && node scripts/check-adapter-boundary.mjs && node scripts/check-pack-files.mjs && node scripts/check-git-installable.mjs && node scripts/verify-fixtures.mjs && node scripts/verify-registry.mjs && node scripts/check-secrets.mjs && node scripts/check-lockfile.mjs && node scripts/check-ci-hardening.mjs && node --test \"tests/contracts/*.test.mjs\" && node --test \"tests/*.test.mjs\" && node scripts/export-scenarios.mjs && node --test export/scenarios.test.mjs && tsc -p tsconfig.client.json --noEmit"
   }
 }

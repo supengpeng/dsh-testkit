@@ -6,14 +6,25 @@
  *   ② findings 本身**也不能出现原文**——否则报告又变成泄露源。
  */
 
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { redactSummary, redactText, redactValue, scanFindings } from '../lib/report/redact.js'
 import { writeRunArtifacts } from '../lib/report/json.js'
+
+/**
+ * 本文件建的临时目录统一登记，跑完一次性删除。
+ *
+ * 教训：漏清理会在 `%TEMP%` 里堆出成百上千个 `dsh-testkit-redact-*`
+ * （实测 92 个），是 `dsh-testkit doctor` 的残留探测先发现的。
+ */
+const TEMP_DIRS = []
+after(() => {
+  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true })
+})
 
 // 说明：本文件本身在 scripts/check-secrets.mjs 的 SKIP_FILES 里——
 // 它**必须**包含构造出来的假凭据，否则测不出脱敏。假值一律用明显可辨识的形态。
@@ -127,6 +138,7 @@ test('redactSummary：改写取证，不改结构字段，并记录 redaction', 
 
 test('writeRunArtifacts：--redact 时三份产物同一份已脱敏 summary，报告里写明脱敏', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-testkit-redact-'))
+  TEMP_DIRS.push(dir)
   const summary = makeSummary({ stdout: FAKE_GITHUB })
 
   const result = await writeRunArtifacts(summary, dir, { redact: true })
@@ -143,6 +155,7 @@ test('writeRunArtifacts：--redact 时三份产物同一份已脱敏 summary，�
 
 test('writeRunArtifacts：不开 --redact 时原样保留（默认不悄悄改写取证）', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-testkit-redact-off-'))
+  TEMP_DIRS.push(dir)
   const summary = makeSummary({ stdout: FAKE_GITHUB })
   const result = await writeRunArtifacts(summary, dir)
   assert.ok(result.artifacts)

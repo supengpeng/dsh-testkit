@@ -245,7 +245,14 @@ test('ci.yml：pnpm/action-setup + setup-node 缓存 + frozen-lockfile + gate', 
 
   const pnpmSetup = steps.find((s) => String(s.uses ?? '').startsWith('pnpm/action-setup@'))
   assert.ok(pnpmSetup, '必须用 pnpm/action-setup')
-  assert.match(String(pnpmSetup.uses), /@v4$/, '版本钉在 v4')
+  // Action 的引用形态：**钉到不可变 commit SHA** 是更强的约束（供应链加固，见
+  // scripts/check-ci-hardening.mjs）；`@v4` 这类滚动 tag 也算"钉了"，但可被上游改指向。
+  // 这里只要求"钉住"，不强制某一种写法——否则两套守卫会互相打架。
+  assert.match(
+    String(pnpmSetup.uses),
+    /@(?:v\d+|[0-9a-f]{40})\b/,
+    'Action 必须钉住（滚动的 tag 或 commit SHA，不能是 @main / 不写版本）',
+  )
   assert.equal(pnpmSetup.with?.version, '11.7.0', 'pnpm 版本固定，避免 CI 与本地漂移')
 
   const nodeSetup = steps.find((s) => String(s.uses ?? '').startsWith('actions/setup-node@'))
@@ -267,7 +274,12 @@ test('ci.yml：pnpm/action-setup + setup-node 缓存 + frozen-lockfile + gate', 
     !runs.some((r) => /\btsc\b|node --test/.test(r)),
     'CI 不应绕过 gate 自己拼命令（那会产生"CI 绿但本地红"的双标准）',
   )
-  assert.ok(!/secrets\./.test(text), 'gate 不需要任何 secret；出现 secrets 说明设计跑偏了')
+  // 只查**非注释行**：加固说明里会写着"禁 `secrets.`"（那是文档，不是用法）。
+  const codeLines = text
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n')
+  assert.ok(!/\bsecrets\./.test(codeLines), 'gate 不需要任何 secret；出现 secrets. 说明设计跑偏了')
 })
 
 test('ci.yml：权限最小化，且并发去重', () => {

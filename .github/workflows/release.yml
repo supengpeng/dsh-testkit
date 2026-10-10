@@ -1,0 +1,101 @@
+# dsh-testkit 发布工作流：**打 tag 即发布**。
+#
+# ## ⚠️ 风险声明（先读再改）
+#
+# 本工作流的触发条件是 `push` 一个 `v*` 标签——也就是说：
+#
+#   **谁有权限往这个仓库推 tag，谁就能发一个版本到 npm。**
+#
+# 没有人工确认环节，没有"再点一次按钮"。这是刻意的（发布必须可复现、可审计），
+# 代价是：**打 tag 之前必须自己确认过**。发布出错无法撤回（npm 只允许 72h 内
+# unpublish，且会污染下游 lockfile），所以纪律是：
+#
+#   1. **发之前必须先做活宿主验证**：本仓的 headless 宿主是测试替身，
+#      "headless 绿"不等于"在真实 DSH 里能用"。完整清单见
+#      `docs/PUBLISHING.md`（活宿主安装 → `testkit_list` / `testkit_run` 跑通 →
+#      client 半在 Web 里能加载 → 卸载干净）。
+#   2. 版本号先落 `package.json` 与 `CHANGELOG.md`，**再**打 tag（本工作流会断言
+#      `v<version>` 与 tag 名一致，不一致直接失败）。
+#   3. 发布面（`files` 白名单）由下面的 pack 断言守住：缺件在这里红，
+#      而不是等用户装上才 `command not found`。
+#
+# ## 为什么不需要任何 secret（OIDC trusted publishing）
+#
+# 用 GitHub 的 OIDC 身份换 npm 的发布授权：工作流申请 `id-token: write`，
+# npm 侧配置 trusted publisher（仓库 + 工作流文件名），发布时 npm CLI 自动换取
+# 短期凭据。所以这里**没有 NPM_TOKEN**，也不需要任何 secrets 取值表达式——
+# 一个长期 token 会随仓库权限漂移、且无法自动轮换。
+#
+# 配套注意：`actions/setup-node` **故意不写 `registry-url`**。写了它会往
+# `.npmrc` 注入 `_authToken=${NODE_AUTH_TOKEN}`，而我们恰恰没有这个 env，
+# npm 会因"环境变量替换失败"报错——反而逼人加回一个 secret。
+# npm 的默认 registry 就是 registry.npmjs.org，不需要额外配置。
+#
+# ## 本文件也被守卫
+#
+# `node scripts/check-ci-hardening.mjs` 要求：顶层 `permissions:` 只允许
+# `contents: read` + `id-token: write`、`uses:` 钉 40 位 SHA、安装
+# `--frozen-lockfile`、禁 `secrets.` / `continue-on-error`。
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+# 发布不做并发去重：两次 tag 推送本就该各自有结论（且 cancel 掉一次半途的
+# publish 会留下"部分发布"的更糟状态）。
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read # 只要读代码
+  id-token: write # OIDC：npm provenance / trusted publishing
+
+jobs:
+  publish:
+    name: 校验并发布到 npm（provenance）
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # 与 ci.yml 同一个 pnpm 版本：必须与 package.json 的 `packageManager` 一致
+      # （`node scripts/check-lockfile.mjs` 会跨文件比对）。
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.7.0
+
+      # Node 24 = package.json 的 engines 上界档；同时在 registry 上取 npm（>=11.5 支持 trusted publishing）。
+      - name: 安装 Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - name: 安装依赖（严格按 lockfile）
+        run: pnpm install --frozen-lockfile
+
+      # 发布前跑**与本机完全相同**的门：发布物必须至少通过它自己声明的全部判据。
+      - name: 质量门（pnpm run gate）
+        run: pnpm run gate
+
+      # tag 与版本必须一致：`v0.2.0` 只能发 package.json 里写着 0.2.0 的代码。
+      # 这条防的是"打完 tag 才发现忘了改版本号"——那时已经发出去了。
+      - name: 断言 tag 与 package.json 版本一致
+        run: |
+          node -e "const pkg=require('./package.json');const tag=process.env.GITHUB_REF_NAME||'';const want='v'+pkg.version;if(tag!==want){console.error('✗ tag '+tag+' 与 package.json version '+pkg.version+' 不一致（期望 '+want+'）');process.exit(1)}console.log('tag 与版本一致：'+tag)"
+
+      # 发布清单断言：`files` 白名单漏件是"本地能跑、装出来就挂"的经典形态
+      # （dsh-memory #48）。这里直接对 `npm pack` 的真实清单判，不再手抄一遍。
+      - name: 断言发布清单含关键目录
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e "const fs=require('node:fs');const list=JSON.parse(fs.readFileSync('pack.json','utf8'))[0].files.map(f=>f.path);const need=['bin/','lib/cli/','schemas/','cases/','fixtures/','registry/','templates/','dsh/'];const miss=need.filter(p=>!list.some(x=>x===p||x.startsWith(p)));if(miss.length){console.error('✗ 发布清单缺件：'+miss.join(', '));process.exit(1)}console.log('✓ 发布清单 OK，共 '+list.length+' 项')"
+
+      # `--provenance` 会把"这份包由哪个仓库、哪个 commit、哪条工作流构建"写进
+      # npm 的 attestation；`--access public` 是 scoped 包公开发布的必需项。
+      - name: 发布到 npm（provenance）
+        run: npm publish --provenance --access public

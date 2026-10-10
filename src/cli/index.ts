@@ -53,6 +53,7 @@ import {
   versionCommand,
 } from './commands/inspect.js'
 import { runCommand, RUN_OPTIONS } from './commands/run.js'
+import { DOCTOR_OPTIONS, doctorCommand, TRIAGE_OPTIONS, triageCommand } from './commands/integrate.js'
 import { EXPORT_OPTIONS, exportCommand, IMPORT_OPTIONS, importCommand } from './commands/transfer.js'
 import { resolveCliDirs, type CliContext, type DirOverrides } from './context.js'
 import { EXIT, EXIT_DOC, type ExitCode } from './exit.js'
@@ -86,6 +87,8 @@ const COMMANDS: readonly CommandSpec[] = [
   { name: 'trend', summary: '历史趋势（按 kind / tag / owner / dshVersion 维度）', options: TREND_OPTIONS, available: false },
   { name: 'coverage', summary: '覆盖矩阵与缺口报告', options: COVERAGE_OPTIONS, available: false },
   { name: 'search', summary: '场景全文搜索（id / 标题 / 标签 / 步骤文本）', args: '<关键词>', options: SEARCH_OPTIONS, available: false },
+  { name: 'triage', summary: '生成 PR 评论或 issue 草稿（只出文本，不发请求）', args: '[runId]', options: TRIAGE_OPTIONS, available: true },
+  { name: 'doctor', summary: '宿主体检：能力矩阵 / 哪些场景会 skip / 残留探测 / 最近读数', options: DOCTOR_OPTIONS, available: true },
   { name: 'registry', summary: '列出 step 片段注册表', options: REGISTRY_OPTIONS, available: true },
   { name: 'fixtures', summary: '列出夹具与其 DSH 版本绑定', options: FIXTURES_OPTIONS, available: true },
   { name: 'version', summary: '版本与环境（含"这是 headless 轨"的声明）', options: VERSION_OPTIONS, available: true },
@@ -298,6 +301,10 @@ async function dispatch(ctx: CliContext, command: string, parsed: ParsedOptions)
       return await coverageCommand(ctx, parsed)
     case 'search':
       return await searchCommand(ctx, parsed)
+    case 'triage':
+      return await triageCommand(ctx, parsed)
+    case 'doctor':
+      return await doctorCommand(ctx, parsed)
     case 'help': {
       const target = parsed.positionals[0]
       const text = renderHelp(target)

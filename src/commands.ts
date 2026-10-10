@@ -11,6 +11,7 @@
 import { FAILURE_CATEGORY_LABEL } from './analysis/classify.js'
 import { probableCauses, renderCauses } from './analysis/causes.js'
 import { packageRoot } from './config.js'
+import { readFileSync } from 'node:fs'
 import type { CaseRegistry } from './cases/registry.js'
 import type { ScenarioKind } from './cases/types.js'
 import { applyDxFilter, type DxFilterOptions } from './dx/select.js'
@@ -18,6 +19,8 @@ import { resolvePolicy, type PolicyOptions } from './executor/policy.js'
 import { buildCoverage, renderCoverage } from './insight/coverage.js'
 import { renderSearchResult, searchScenarios } from './insight/search.js'
 import { buildTrend, collectRuns, renderTrend } from './insight/trend.js'
+import { renderDoctor, runDoctor } from './doctor/index.js'
+import { buildIssueDraft, buildPrComment } from './triage/index.js'
 import type { CommandDefinition, CommandResultLike, DriverRegistry, HostFacade } from './kinds/types.js'
 import type { PipelineStore } from './pipeline/index.js'
 import { expandScenario, loadRegistry } from './registry/index.js'
@@ -80,6 +83,8 @@ const USAGE = [
   '  /testkit trend [dimension]       按 kind / tag / owner / dshVersion 聚合历史运行',
   '  /testkit coverage                覆盖矩阵 + 缺口报告',
   '  /testkit search <关键词>          全文搜索场景（0 条时解释为什么是空的）',
+  '  /testkit triage [--format issue] 生成 PR 评论或 issue 草稿（只出文本，不发请求）',
+  '  /testkit doctor                  宿主体检：能力矩阵 / 哪些场景会 skip / 残留探测 / 最近读数',
   '  /testkit run --allow-model       本次放行 high 档（**真实模型调用**，默认拒绝）',
   '  /testkit run --allow-low-cost    本次放行 low 档（起进程 / 写文件）',
   '  /testkit expand TK-0100          把 use: 步骤展开成 flat 步骤',
@@ -447,6 +452,65 @@ export function defineTestkitCommands(deps: CommandDeps): CommandDefinition[] {
           case 'coverage':
             return { kind: 'success', text: renderCoverage(buildCoverage(deps.registry.all)) }
 
+          case 'triage': {
+            const format = argv.includes('--format') ? argv[argv.indexOf('--format') + 1] : 'pr'
+            const runId = argv.find((a, i) => !a.startsWith('-') && i !== argv.indexOf('--format') + 1)
+            const located = latestRunJson(deps.runsDir(), runId)
+            if (!located.ok || located.path === undefined) {
+              return { kind: 'error', text: `无法定位运行记录：${located.reason ?? '未知原因'}` }
+            }
+            const { readFile } = await import('node:fs/promises')
+            let summary: RunSummary
+            try {
+              summary = JSON.parse(await readFile(located.path, 'utf8')) as RunSummary
+            } catch (error) {
+              return { kind: 'error', text: `读取失败：${error instanceof Error ? error.message : String(error)}` }
+            }
+            if (format === 'issue') {
+              const draft = buildIssueDraft(summary)
+              if (draft.title === '') {
+                return { kind: 'success', text: '没有 failed / errored 的用例：无需开 issue。' }
+              }
+              return {
+                kind: 'success',
+                text: [
+                  `标题：${draft.title}`,
+                  `标签：${draft.labels.join(', ') || '（无）'}`,
+                  `指派：${draft.assignees.join(', ') || '（无 owner）'}`,
+                  '',
+                  draft.body,
+                ].join('\n'),
+              }
+            }
+            if (format !== 'pr') {
+              return { kind: 'error', text: `不支持的 --format：${format}（pr | issue）` }
+            }
+            return { kind: 'success', text: buildPrComment(summary) }
+          }
+
+          case 'doctor': {
+            try {
+              const report = await runDoctor({
+                registry: deps.registry,
+                host: {
+                  capabilities: deps.host.capabilities,
+                  env: {
+                    dshVersion: deps.host.env.dshVersion,
+                    platform: deps.host.env.platform,
+                    nodeVersion: deps.host.env.nodeVersion,
+                  },
+                },
+                scripts: readPackageScripts(),
+                runsDir: deps.runsDir(),
+                casesDir: deps.registry.dir,
+                drivers: deps.drivers,
+              })
+              return { kind: 'success', text: renderDoctor(report) }
+            } catch (error) {
+              return { kind: 'error', text: `体检失败：${error instanceof Error ? error.message : String(error)}` }
+            }
+          }
+
           case 'search': {
             const text = argv.filter((a) => !a.startsWith('-')).join(' ').trim()
             return {
@@ -789,6 +853,18 @@ function describePolicy(summary: {
   const snapshot = summary.policySnapshot
   if (snapshot === undefined) return '成本闸门：未启用'
   return `成本闸门：allowModel=${snapshot.allowModel} · allowLowCost=${snapshot.allowLowCost}`
+}
+
+/** 从包根读 `package.json` 的 scripts（doctor 的守卫清单来源）；读不到就返回空表。 */
+function readPackageScripts(): Record<string, string> {
+  try {
+    const pkg = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')) as {
+      scripts?: Record<string, string>
+    }
+    return pkg.scripts ?? {}
+  } catch {
+    return {}
+  }
 }
 
 /** 按空格切分，支持单/双引号包裹。 */

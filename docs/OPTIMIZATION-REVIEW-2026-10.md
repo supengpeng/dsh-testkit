@@ -1,10 +1,8 @@
 # 优化执行报告（对照《dsh-testkit 完整优化与生态融合方案》）
 
-> 执行日期：2026-10-10（三批：第一批 3 名队友；第二批 5 名队友 + 1 个后续修复任务；
-> 第三批复用 4 名队友，Lead 冻结接口、裁决跨域问题、做最终验收）
-> 执行方式：Agent Teams —— 写域互不重叠，共享 `scripts/build-lock.mjs` 串行化编译
+> 执行日期：2026-10-10（四批：Lead + 7 名队友按写域分工，共享 `scripts/build-lock.mjs` 串行化编译）
 > 基线：[baseline/README.md](../baseline/README.md)（内置套件 **386 passed / 0 failed**；CI 轨 **26 tests：18 pass / 8 skip / 0 fail**）
-> 结论读数：**`pnpm run gate` 退出码 0 · 内置套件 630 passed / 0 failed · 契约轨 65/65 · 场景 39 条 · CLI 14 个子命令 · CI 轨 26 tests：18 pass / 8 skip / 0 fail**
+> 结论读数：**`pnpm run gate` 退出码 0 · 10 个守卫全绿 · 内置套件 701 passed / 0 failed · 契约轨 65/65 · CLI 15 个子命令 · 场景 39 条 · CI 轨 26 tests：18 pass / 8 skip / 0 fail**
 > 并且每一批都在 **`git worktree` 出来的全新 checkout** 上复跑过（第一批的教训：`.gitignore` 曾把 `src/export/**` 一起忽略，本地绿、新克隆必挂）
 
 ---
@@ -37,6 +35,11 @@
 | 第五部分 §5.2–5.5 | 增量选择 / fixture 治理 / 契约测试 / 并发隔离 | ✅ 第二批 | `src/selection/**`、`fixtures/**`、`src/contracts/**`、`src/isolation/**`；`verify:fixtures` 进 gate |
 | 第四部分 + 第 5 步 | 组合系统（step registry + 参数化模板 + 一键展开） | ✅ 第二批（**加法式**，保留既有 YAML 形状） | `registry/steps/**`（9 片段）、`templates/**`（2 模板 → 6 draft）、`src/registry/**`、`scripts/verify-registry.mjs`；3 条 `use:` draft + 等价性证明 |
 | 第七部分 §7.1 | 禁止任意网络请求 + shell 默认只读 | ✅ 第二批 | `READ_ONLY_DENY_COMMANDS` 成为默认；`sandbox.allowNetwork` 默认 false（场景自带假 provider 例外） |
+| 第七部分 §7.1 | 供应链安全（依赖锁定 / 审计 / Actions 硬化 / 发布 provenance） | ✅ 第四批 | `verify:lock` + `verify:ci` 进 gate；`.github/workflows/release.yml`（OIDC，零 secret）；`docs/SUPPLY-CHAIN.md` |
+| 第七部分 §7.2 | 发布与治理机制（CHANGELOG / 迁移指南 / RFC / CODEOWNERS / 贡献指南 / 行为准则 / good first issues） | ✅ 第四批 | `CODEOWNERS`、`CONTRIBUTING.md`、`CODE_OF_CONDUCT.md`、`.github/**` 模板、`docs/GOVERNANCE.md`（含 8 条 GFI）、`docs/rfc/**`、`docs/MIGRATION.md` |
+| 第七部分 §7.3 | DSH 官方工具链集成 | ✅ 第四批 | `docs/DSH-INTEGRATION.md` + 根目录 `action.yml` + `scripts/action-entry.mjs`；doctor 入口 |
+| 第七部分 §7.4 | 幂等 / 可重入 / 清理残留检测 | ✅ 第四批 | `src/isolation/probes.ts`（端口/进程异步探针，探不到标 `unknown`）+ 步骤级 cleanup + 残留检测（dispose 之前） |
+| 第七部分 §7.5 | 自动 triage（issue 草稿 / PR 评论 / owner 路由） | ✅ 第四批（生成侧） | `src/triage/**`；`tests/triage.test.mjs`（含"正文不含取证原文"的负向断言）；真发请求需真实仓库与 token |
 | 第六部分 §6.1 | trace / 可观测性（步骤级偏移 + 三导出） | ✅ 第三批 | `src/trace/**`；`runs/<id>/trace.json`；`tests/trace.test.mjs`（live/reconstructed 两条路径 + 三格式结构断言） |
 | 第六部分 §6.5 | 结果趋势 | ✅ 第三批 | `src/insight/trend.ts`；`tests/trend.test.mjs`（坏产物跳过并计数、样本不足明说、历史逐字节不被改） |
 | 第六部分 §6.4 | 场景发现与覆盖矩阵 | ✅ 第三批 | `src/insight/coverage.ts` + `src/insight/search.ts`；`tests/coverage.test.mjs`、`tests/search.test.mjs` |
@@ -72,6 +75,9 @@
 | 7 | **`enum` / `const` 被静默丢弃**（契约测试揪出，`enum` 只保留 `string`） | 参数约束被无声放松：作者写了 `enum`/`const`，运行期却没人校验——"写了但没生效"比没写更危险 | 按 DSH 支持集合（标量 5 类）忠实传递；`const` 用 `Object.hasOwn` 判存在（否则 `false`/`null` 被真值判断丢掉）；配反安慰剂④⑤⑥ |
 | 8 | **形态决定翻转后的契约必须跟着翻**（第三批加 CLI 时暴露） | `tests/self-bootstrap.test.mjs` 当时断言"本包不得有 `bin`"——留着旧断言只会逼后来者**删测试**；而 README/CHANGELOG 里同样的表述会变成错的文档 | 断言改守**新形态**（bin 存在、指向真实文件、带 shebang、且在 `files` 白名单里），并在 CHANGELOG 的旧条目上标注"已在十四翻转" |
 | 9 | **一行语法错误阻塞全队验证**（第三批实际发生） | `src/cli/commands/run.ts` 两条 import 挤在同一行 → 全员 `tsc` 红、`lib/` 停在上一次成功编译的产物上，其他队友连"我的改动有没有回归"都测不出来 | 拆行修复；并把纪律写进协作约定：**每次改动后立刻 `node scripts/build-lock.mjs`，让树始终可编译**（构建锁本身已能串行化并发 tsc） |
+| 10 | **测试自己泄漏临时目录**（第四批由 `doctor` 的残留探测发现） | 三处测试每用例 `mkdtempSync` 却不清理，`%TEMP%` 里累计 **1715 个**陈旧 `dsh-testkit-*` 目录（runs 1481 / report 128 / redact 106）。测试制造的环境垃圾会污染后续排查——`doctor` 的"残留"报告也跟着失真 | 三处补 `TEMP_DIRS` 登记 + 模块级 `after()` 统一删除；复跑完整套件确认**零新增**；把"环境垃圾"纳入 `doctor` 的常规体检项 |
+| 11 | **文档里的能力计数会静默过期**（第四批由队友交叉发现） | `docs/FEATURES.md` 仍写"模型工具（6 个）"（实际 13）、"四个检查器"（实际 7）、README 写"8 个质量守卫"（实际 10）。能力增长时**手写计数**没人提醒 | 以真源为准重写（工具数 ← `src/tools.ts`；守卫数 ← `package.json` 的 `verify:*`）；PR 模板里加"注册面核对"一栏，注明每个数字的权威来源 |
+| 12 | **假凭据字面量让全队 gate 变红**（第四批） | `tests/triage.test.mjs` 写了字面量假 token，`check-secrets` 扫到就报——守卫没错，是夹具写法错 | 改成运行时拼接（`'ghp_' + 'A'.repeat(36)`)：既不留字面量，又顺带证明"扫描器认的是形态" |
 
 ---
 
@@ -79,12 +85,16 @@
 
 | 项 | 为什么还没做 | 前置条件 |
 |---|---|---|
-| 供应链与治理（产物签名 / RFC / CODEOWNERS / 贡献指南 / 行为准则 / good first issues） | 这些机制在**发布之后**才有意义（签名要签发布产物、RFC 要有外部参与者、CODEOWNERS 要有第二个维护者） | 先完成一次真实发布（含**活宿主渲染验证**），再按 [PUBLISHING.md](PUBLISHING.md) 的清单补齐 |
-| 自动 triage（失败关联 issue / 贴 PR / 按 owner 路由） | 前置是"有真实的 issue 与 PR 流"；现在接上只会产生空草稿。**数据面已就绪**（`owner` / `failureCategory` / `minimalRepro` / `selection` 都在 `run.json` 里） | ① 至少一个真实仓库在用本包的 CI 轨；② 定下"什么条件下自动开 issue" |
+| **实际发布 0.2.0**（`npm publish`） | 准备已就绪（provenance 工作流 + 清单断言 + 迁移指南 + 治理文件），但发布前必须在**活宿主**里确认改名后的 client 模块 id 与「测试」标签渲染——在看不到结果的情况下发布等于把静默失败发出去。版本号因此仍是 `0.1.0`（CHANGELOG 的 `0.2.0` 标"未发布"） | 按 [PUBLISHING.md](PUBLISHING.md) §5 跑完 V1–V4，再把版本号提到 `0.2.0` 并打 tag |
+| **自动 triage 的"发布侧"**（真开 issue / 真贴评论） | **生成侧已完整**（issue 草稿 / PR 评论 / owner 路由 + `action.yml` 入口）；真发请求需要 `GITHUB_TOKEN` 与真实仓库的 PR 流，本机无网也无此场景 | ① 至少一个真实仓库接了本包的 CI 轨；② 定下"什么条件下自动开 issue"（否则就是刷屏） |
+| **产物签名 / SBOM / CODEOWNERS 真正生效** | 签名要签**发布产物**（还没有发布产物）、CODEOWNERS 要托管方与第二位维护者、SBOM 需要额外工具链。`docs/SUPPLY-CHAIN.md` 已写明"我们做不到的" | 完成一次真实发布后再补 |
 
-> **已消掉的推迟项（三批累计）**：npm scoped rename、step registry + 参数化模板、
+> **已消掉的推迟项（四批累计）**：npm scoped rename、step registry + 参数化模板、
 > touchstone 三阶段、`--redact`、默认只读沙箱、增量测试选择、**独立 CLI**、
-> **可观测性与 DX（trace / 趋势 / 覆盖矩阵 / 搜索 / 原因分级）**。
+> **可观测性与 DX（trace / 趋势 / 覆盖矩阵 / 搜索 / 原因分级）**、
+> **供应链与治理（CI 硬化 / 锁文件 / SHA 钉 / provenance / CODEOWNERS / 贡献指南 / 行为准则 /
+> RFC / 迁移指南 / good first issues）**、**DSH 官方集成文档与 Action**、
+> **端口/进程残留检测与 doctor**、**自动 triage 生成侧**。
 
 ---
 
@@ -105,6 +115,14 @@
 - **`--smoke` 的耗时是静态估算**（按 kind 量级 + 成本档附加），用于**排序与裁预算**，不是实测；要精确耗时请用 `src/selection/bench.ts` 的实测基准。
 - **CLI 走 headless 宿主**：需要 `subprocess` / `fs` / `sessions` 的场景会如实 skip（输出里标注）。CLI 是**同一套引擎的入口**，不重造 runner / 选择器；退出码冻结为 `0/1/2/3`。
 - **趋势在样本不足时只给"别据此下结论"**：这不是保守，而是"用 2 次运行画出的趋势线"必然误导。同理缺失数据显示"未知"而不是 0。
+- **端口探针只探 `127.0.0.1`（IPv4 回环）**：只绑在别的网卡或纯 IPv6 `::1` 上的占用会返回 `busy: false`。这是刻意收窄（被测服务都在本机回环），但要更严就得同时探 `::1`。
+- **进程探针内部是同步 `spawnSync`**（一次 `tasklist` 约 300ms）：对一次性体检可接受，**不要放进每步善后的热路径**。
+- **`unknown:` 既不是"干净"也不是"残留"**：探针探不到（权限/超时/端口越界）时如实标 `unknown:`，`doctor` 的 `residue-found` 只统计非 `unknown:` 项，另单列一条 warn。下游若把 `leftovers.length > 0` 直接当"有残留"会误判，要按前缀分流。
+- **`doctor` 的 `ok` 只看 error 级**：缺能力（会 skip）与陈旧残留都是 warn 级——否则正常机器常年报红，体检就没人看了。要当门禁请用 `findings.some(f => f.level === 'error')`。
+- **CLI 与 `doctor` 都是 headless 轨**：需要 `subprocess` / `fs` / `sessions` 的场景如实 skip；`doctor` 的矩阵是按 `driver.requires` **推导**的，不是实测这一台的每一条。
+- **`action.yml` 的"真贴评论"路径没有真跑过**：本机无网、无 `GITHUB_TOKEN`。已干跑验证的是"生成正文 + 无 token 时非 0 且打印正文供人工贴"。
+- **治理文件里有占位**：`CODEOWNERS` 只有一位 owner（**不构成评审流程**，文件头注已写明）、行为准则与安全策略的联系邮箱是 `.invalid` 占位——对外前必须替换。
+- **Action 的 SHA 钉来自 GitHub API**（3 个 action，已用 `/git/refs/tags` 与 `/commits` 两个端点交叉核对）：升级版本时要重新取，不能凭印象改。
 
 ---
 
@@ -112,13 +130,15 @@
 
 | 项 | 读数 |
 |---|---|
-| 内置套件 | **630 passed / 0 failed**（第二批 538；第一批 444；基线 386） |
+| 内置套件 | **701 passed / 0 failed**（第三批 630；第二批 538；第一批 444；基线 386） |
+| 守卫 | **10 个全部退出码 0**：`verify:cases` / `docs` / `adapter` / `pack` / `git-install` / `fixtures` / `registry` / `secrets` / `lock` / `ci` |
 | 契约轨 | `node --test "tests/contracts/*.test.mjs"` → **65 / 65**（含 6 条反安慰剂） |
 | CLI 轨 | `node --test tests/cli.test.mjs` → **22 / 22**（真实子进程 + 冻结退出码） |
+| 供应链守卫 | `check-ci-hardening` → 2 份工作流、**6** 个外部 action 全部钉 40 位 SHA；`check-lockfile` → lockfileVersion 9.0、声明依赖 **17** 项逐项比对 |
 | 场景 | `cases/` **39 条**（含 3 条 `use:` draft、7 条 `fixture` 标签）；CI 轨 26 条 → 18 passed / 8 skipped / 0 failed |
-| 守卫 | `verify:cases` / `docs` / `adapter` / `pack` / `git-install` / `fixtures` / `registry` / `secrets` **全部退出码 0** |
 | 增量加速 | API 口径：改 `src/kinds/llm.ts` → 2/26 条（**140×**）；改 `src/kinds/compaction.ts` → 1/26 条（**2864×**）；端到端口径约 **2×** |
 | trace 规模 | 单条普通场景 6 个跨度（setup / act / assert×2 / cleanup / case），全部是**真实偏移** |
+| 环境卫生 | 修掉三处测试临时目录泄漏后，跑完整套件 `%TEMP%` 里 `dsh-testkit-*` **零新增**（此前累计 1715 个陈旧目录，实测由 `doctor` 的残留探测发现） |
 
 ---
 

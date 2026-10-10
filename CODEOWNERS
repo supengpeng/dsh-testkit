@@ -1,0 +1,48 @@
+# 代码归属（GitHub CODEOWNERS）
+#
+# 语法：`<路径模式> <@用户 | @组织/团队 | 邮箱>`；**后出现的模式优先**（GitHub 用最后匹配的规则）。
+# 参考：https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# ## 现状必须说清楚（别让这个文件看起来比实际更可靠）
+#
+# 本仓目前**只有一位维护者**（`@supengpeng`），所以下面每条都指向他。
+# 它现在能提供两件事，也只有这两件：
+#   ① 把"谁来合并"写成文件，而不是靠记忆；
+#   ② 给第二位维护者留好**明确的挂载点**——加人时只需要改这个文件与
+#      [docs/GOVERNANCE.md](docs/GOVERNANCE.md) 的"角色"一节。
+#
+# 它**不提供**"多人交叉 review"这种保证：单人项目里没有什么机制能提供那个。
+# 把 CODEOWNERS 当作"已经有评审流程"的证据，是过度解读。
+
+# ---- 默认：一切改动都归维护者 ----
+*                               @supengpeng
+
+# ---- 高风险路径：显式列出 ----
+#
+# 为什么这几条要单独写（它们坏掉的代价最高，加人时也最该先分派出去）：
+#   · `cases/`      —— 场景数据是**真源**，改判据等于改"什么算对"；
+#   · `src/kinds/`  —— 干预点实现，直接影响真实宿主行为；
+#   · `src/runtime/`—— 执行引擎（闸门 / 夹具 / 断言），错一次全仓结论都不可信；
+#   · `src/executor/` —— 成本与沙箱策略，属于安全边界（见 SECURITY.md）；
+#   · `schemas/`    —— 对外结构契约（run.json），改了就是破坏性变更；
+#   · `registry/` / `templates/` —— 组合系统的语义版本源；
+#   · `fixtures/`   —— 混合了外部合约与数据（来源、版本范围、敏感数据扫描）；
+#   · `docs/`       —— 本仓文档是说明书性质，漂移会直接误导使用者；
+#   · `.github/`    —— CI 与发布路径（权限、Action 钉版、发布清单）。
+/cases/                         @supengpeng
+/src/kinds/                     @supengpeng
+/src/runtime/                   @supengpeng
+/src/executor/                  @supengpeng
+/src/report/                    @supengpeng
+/src/adapters/                  @supengpeng
+/schemas/                       @supengpeng
+/registry/                      @supengpeng
+/templates/                     @supengpeng
+/fixtures/                      @supengpeng
+/docs/                          @supengpeng
+/.github/                       @supengpeng
+
+# ---- 形态与依赖：改了要连带验活宿主 / 重装（见 docs/PUBLISHING.md）----
+/package.json                   @supengpeng
+/pnpm-lock.yaml                 @supengpeng
+/CODEOWNERS                     @supengpeng

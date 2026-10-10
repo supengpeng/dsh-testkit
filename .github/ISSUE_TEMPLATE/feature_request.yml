@@ -1,0 +1,98 @@
+# GitHub issue 表单：功能建议
+#
+# 设计取向：本仓**克制加能力**（12 个 kind 是刻意的边界，见 CONTRIBUTING §4.1）。
+# 所以这里不只要"你想要什么"，还要"它落在现有哪一层 / 影响什么"——
+# 满足不了的请求，我们更愿意说清**为什么**，而不是养一个永远不做的 backlog。
+name: 功能建议
+description: 希望支持的新能力、新场景类型或新入口
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提之前建议先看一眼 **CONTRIBUTING §4.1「先问"这能不能落进现有 12 个 kind"」**：
+        很多需求其实是"扩某个 driver 的参数"或"已有 kind 的组合场景"，
+        而这一类**不需要**新 kind，落地快得多。
+
+        也请先看 [docs/GOVERNANCE.md](https://github.com/supengpeng/dsh-testkit/blob/main/docs/GOVERNANCE.md)
+        里的"什么时候需要 RFC"——涉及场景 schema / 新 kind / 退出码 / 包名这类改动，
+        会先走 [RFC](https://github.com/supengpeng/dsh-testkit/blob/main/docs/rfc/README.md)。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你要解决的问题
+      description: 描述**问题**，不要一上来就是方案。最好给一个真实场景：你现在必须怎么绕，绕得多难受。
+      placeholder: 例如：每次排查都要人工比对两次 run.json，才知道是哪条场景开始抖
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你期望的行为
+      description: 如果已经有想法，写清"输入 → 输出"。命令行长什么样、报告里多什么字段都行。
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 你试过的替代方案
+      description: 现在是怎么解决的（手写脚本 / 别的工具 / 忍着）？为什么不够用？
+    validations:
+      required: true
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: 它最可能落在哪一层
+      description: 不确定就选"说不清"——分类由维护者在分诊时确定
+      options:
+        - 场景数据（新字段 / 新断言词 / 组合方式）
+        - driver（扩某个 kind 的参数或动作）
+        - 新 kind（全新干预点——**请先读 CONTRIBUTING §4.1**）
+        - 执行 / 闸门 / 隔离（成本、沙箱、并发、清理）
+        - 报告与产物（markdown / json / junit / trace）
+        - CLI / 工具面 / 命令面（入口）
+        - client 半（界面）
+        - 治理 / 发布 / CI
+        - 说不清
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: 你预计它会动到哪些「对外可见的东西」
+      description: 勾中任何一项都意味着这个需求更可能需要 RFC——不是拒绝，是要先对齐
+      options:
+        - label: 场景 schema（`cases/*.yaml` 的字段/语义）
+        - label: 注册面（模型工具数 / kind 数 / 子命令数）
+        - label: 形态（包名 / `bin` / client 模块 id / `exports`）
+        - label: 退出码或报告产物结构
+        - label: 新增依赖
+        - label: 以上都不涉及（纯增量、向后兼容）
+
+  - type: dropdown
+    id: willingness
+    attributes:
+      label: 你愿意提 PR 吗
+      options:
+        - 愿意，已经大致知道改哪里
+        - 愿意，但需要有人指一下从哪读起
+        - 暂时不能，只是提个建议
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 怎么算做完了（验收判据）
+      description: |
+        本仓要求"结论可复跑"。请写一条**可执行的判据**，例如：
+        `node bin/dsh-testkit.mjs trend --dimension owner --json` 输出里出现 owner 维度，
+        且 `tests/cli.test.mjs` 有一条断言钉住它。
+    validations:
+      required: true

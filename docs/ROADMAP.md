@@ -442,13 +442,14 @@ CLI 侧另观察到 teammate 用 `send_message` 把结果回传给 Lead——说
 
 ### 未做 / 推迟（连同**前置条件**，不是"没时间"）
 
-> 本表随 Phase 13 再次更新：**独立 CLI** 与**可观测性与 DX** 也已在 Phase 13 落地，
-> 因此这里只剩"发布之后才有意义"的两类。
+> 本表随 Phase 14 更新：**供应链守卫 / 发布工作流 / 治理文件 / 官方集成 / 自动 triage（生成侧）/
+> 残留检测扩展**都已在 Phase 14 落地。唯一剩下的不是"没做"，而是**必须由真实环境给出证据**的两件事。
 
-| 未做 | 为什么现在不做 | 前置条件 |
+| 未做 | 为什么还没做 | 前置条件 |
 |---|---|---|
-| **供应链与治理**（产物签名 / RFC / CODEOWNERS / 贡献指南 / 行为准则 / good first issues） | 这些机制在**发布之后**才有意义（签名要签发布产物、RFC 要有外部参与者、CODEOWNERS 要有第二个维护者） | 先完成一次真实发布（含活宿主验证），再按 [PUBLISHING.md](PUBLISHING.md) 的清单补齐 |
-| **自动 triage**（失败关联 issue / 贴 PR / 按 owner 路由） | 前置是"有真实的 issue 与 PR 流"；现在接上只会产生空草稿。**数据面已就绪**：`owner` / `failureCategory` / `minimalRepro` / `selection` 都在 `run.json` 里 | ① 至少一个真实仓库在用本包的 CI 轨；② 定下"什么条件下自动开 issue"（否则就是刷屏） |
+| **实际发布 0.2.0**（`npm publish`） | 准备已就绪（provenance 工作流 + 清单断言 + 迁移指南），但发布前必须在**活宿主**里确认改名后的 client 模块 id 与「测试」标签渲染——**在看不到结果的情况下发布，等于把静默失败发出去** | 按 [PUBLISHING.md](PUBLISHING.md) §5 跑完 V1–V4，并把版本号从 `0.1.0` 提到 `0.2.0` |
+| **自动 triage 的"发布侧"**（真开 issue / 真贴评论） | **生成侧已完整**（issue 草稿 / PR 评论 / owner 路由 + Action 入口）；真发请求需要 `GITHUB_TOKEN` 与一个真实仓库的 PR 流，本机无网也无此场景 | ① 至少一个真实仓库接了本包的 CI 轨；② 定下"什么条件下自动开 issue"（否则就是刷屏） |
+| **产物签名 / SBOM / CODEOWNERS 生效** | 签名要签**发布产物**（还没有发布产物）、CODEOWNERS 要仓库托管方启用、SBOM 需要额外工具链 | 完成一次真实发布后再补（[SUPPLY-CHAIN.md](SUPPLY-CHAIN.md) 已写明"我们做不到的"） |
 
 ---
 
@@ -527,6 +528,39 @@ CLI 侧另观察到 teammate 用 `send_message` 把结果回传给 Lead——说
 > **它证明了什么**：把"跑完怎么看"从**翻日志**变成**有坐标轴的数据**（trace 有真实偏移、
 > 趋势只读历史、矩阵能指出缺口、搜索能解释为什么是空的、失败能指回证据）；
 > 同时把"命令行可用"从**口头承诺**变成 `bin` + 冻结退出码 + 真实子进程测试。
+
+---
+
+## Phase 14 · 0.2.0 第四批：供应链、治理、官方集成与自动 triage
+
+**目标**：把"发布与协作"这条线补齐到**可执行**：供应链守卫进 gate、发布走 provenance 工作流、
+治理与协作文件齐备、失败能自动生成 issue 草稿与 PR 评论、残留检测扩到端口与进程。
+本阶段**仍不新增 kind**；也**不执行真实 npm publish**（那要等活宿主验证）。
+
+| # | 交付物 | 状态 |
+|---|---|---|
+| 14.1 | **供应链守卫**：`check-ci-hardening`（显式最小权限 / 禁 `pull_request_target` / 禁 `secrets.` / Action 钉 SHA / 禁 `continue-on-error` / `--frozen-lockfile`）+ `check-lockfile`（依赖逐项对锁） | ✅ |
+| 14.2 | **发布工作流**：`release.yml`（tag → gate → `npm pack --dry-run` 清单断言 → `npm publish --provenance`，OIDC trusted publishing，无需 secret） | ✅ |
+| 14.3 | **依赖审计**：CI 里独立的 `pnpm audit --prod --audit-level=high`（**不进 gate**，因为它要网络） | ✅ |
+| 14.4 | **治理**：`CODEOWNERS` / `CONTRIBUTING` / `CODE_OF_CONDUCT` / PR 与 issue 模板 / `docs/GOVERNANCE.md`（含 good first issues 候选）/ `docs/rfc/**` | ✅ |
+| 14.5 | **迁移指南**：`docs/MIGRATION.md`（0.1.0 → 0.2.0，写成"我要做什么"） | ✅ |
+| 14.6 | **官方集成**：`docs/DSH-INTEGRATION.md` + `action.yml` + `scripts/action-entry.mjs` | ✅ |
+| 14.7 | **自动 triage（生成侧）**：`src/triage/**`（issue 草稿 / PR 评论 / owner 路由，**不发请求、不含取证原文**） | ✅ |
+| 14.8 | **残留检测扩到端口/进程** + **宿主体检**：`src/isolation/probes.ts`、`src/doctor/**`、`dsh-testkit doctor` | ✅ |
+
+### 验收
+
+| 验收点 | 证据（可复跑的命令/用例） |
+|---|---|
+| 守卫不是摆设 | 两个守卫各有一条**负向证明**（人为违规 → 必须红）；`verify:ci` / `verify:lock` 在 gate 链上 |
+| 钉的是真 SHA | 回报里附 GitHub API 响应（tag → commit SHA），不是凭印象写的 |
+| triage 不泄露 | `tests/triage.test.mjs`：用带假 token 的 summary，断言输出里扫不到敏感项；owner 路由含"未指派"分支 |
+| 残留检测有两侧证据 | `tests/probes.test.mjs`：自己占用端口 → 必须 busy；空闲端口 → `busy:false`；命令不可用 → `available:false` 而非静默为空 |
+| doctor 不硬编码 | `tests/doctor.test.mjs`：skip 预测按 `driver.requires` 与 `HEADLESS_CAPABILITIES` **推导**，与真实 registry 一致 |
+
+> **它证明了什么**：把"能不能发、谁来维护、失败之后谁看"这三件事从**口头约定**变成
+> **文件 + 守卫 + 工作流**：供应链有了离线可判的硬门槛，发布有了带 provenance 的自动化路径，
+> 协作有了模板与归属，失败有了可路由的草稿与评论。
 
 ---
 

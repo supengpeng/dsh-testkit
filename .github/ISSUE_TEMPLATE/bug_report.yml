@@ -1,0 +1,131 @@
+# GitHub issue 表单：Bug 报告
+#
+# 设计取向：**宁可多要一份能复跑的复现，也不要一段"我这里不行"的描述。**
+# 本仓的所有结论都要求可复跑，所以复现与环境是必填项，证据（已脱敏）是可选项。
+#
+# 字段类型参考：https://docs.github.com/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-githubs-form-schema
+name: Bug 报告
+description: 插件行为不对，或它给出的结论不对（含"报告写错""退出码不对""标签不出现"）
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请先确认三件事（能省掉一轮往返）：
+
+        1. **这不是"宿主缺能力导致的 skipped"**——跳过不是 bug。报告里会写清缺什么能力
+           （CLI 每次 `run` 都会打印"缺口 ← 影响哪些 kind"）。
+        2. **证据已脱敏**：不要贴 token、私有绝对路径、用户数据。`runs/` 是**未脱敏**产物，
+           贴之前请自己过一遍（见 SECURITY.md §4.2）。
+        3. **安全漏洞请勿开公开 issue**：走仓库的 Security 页（见 SECURITY.md）。
+
+  - type: textarea
+    id: phenomenon
+    attributes:
+      label: 现象
+      description: 一句话说清"哪里不对"。如果有预期外的退出码 / 报告字段，直接写出来。
+      placeholder: 例如：`dsh-testkit run --only TK-0001` 退出码是 1，但报告里这条是 passed
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 最小复现
+      description: 逐条命令（或场景 id + 调用参数）。**能直接粘贴执行**最好——这是本模板最重要的字段。
+      placeholder: |
+        1. node scripts/build-lock.mjs
+        2. node bin/dsh-testkit.mjs run --only TK-0001 --json
+        3. 观察退出码与 stdout
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望
+      description: 你认为应该发生什么？依据是什么（规范 / 文档 / 常识）？
+      placeholder: 例如：SCENARIO-SPEC §2.2.1 说 high 档默认跳过，所以这里应该 skipped 而不是 failed
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际
+      description: 实际输出（去掉敏感信息的片段）。有报错原文就原样贴，不要转述。
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node 版本
+      description: 命令：`node --version`
+      placeholder: v24.21.0
+    validations:
+      required: true
+
+  - type: input
+    id: dsh-version
+    attributes:
+      label: DSH 版本
+      description: 活宿主里是 `0.2.0-rc.2` 这类版本号；CLI 轨可写 `headless`（它自带最小宿主）
+      placeholder: 0.2.0-rc.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: track
+    attributes:
+      label: 你在哪条轨上遇到的
+      description: 三条入口共用同一套引擎与选择器，但宿主不同——定位方式也不同
+      options:
+        - CLI（headless 轨：bin/dsh-testkit.mjs）
+        - /testkit 命令（活宿主）
+        - testkit_* 工具（活宿主）
+        - 导出的 CI 用例（node --test export/scenarios.test.mjs）
+        - 不确定 / 都试过
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 最接近哪个面
+      options:
+        - 场景数据 / 断言判定
+        - driver（某个 kind 的行为）
+        - 成本闸门 / 沙箱（skipped、预算、放权）
+        - 报告产物（report.md / run.json / junit.xml / trace.json）
+        - CLI（子命令、退出码、输出格式）
+        - client 半（界面里的「测试」标签）
+        - 安装 / 打包（装不上、装出来缺件）
+        - 其他 / 说不清
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 证据（已脱敏，可选但强烈建议）
+      description: |
+        `runs/<RUN-ID>/` 下的片段。通常 `run.json` 的 `env` / `policy` / `selection` / 失败 case 的
+        `steps[].assertions` 就足够定位；`junit.xml` 便于贴给 CI。
+        记得先去掉真实凭据与私有路径。
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我贴出的内容已**脱敏**（没有 token / 私有绝对路径 / 用户数据）
+          required: true
+        - label: 我确认这不是"宿主缺能力导致的 skipped"（跳过会在报告里写清原因）
+          required: true
+        - label: 我读过 CONTRIBUTING 的「不要做的事」，本 issue 不属于其中任何一条
+          required: false

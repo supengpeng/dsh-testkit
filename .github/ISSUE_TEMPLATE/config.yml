@@ -1,0 +1,19 @@
+# GitHub issue 模板配置
+#
+# `blank_issues_enabled: true` 是**刻意的**：结构化模板适合绝大多数报告，
+# 但总会有"说不清归哪一类"的东西——把入口彻底关掉，只会把人推到 issue 区之外
+# （私聊 / 沉默），反而更糟。所以保留空白入口，用下面的 contact_links 做分流。
+blank_issues_enabled: true
+contact_links:
+  - name: 🔒 安全漏洞（请**不要**开公开 issue）
+    url: https://github.com/supengpeng/dsh-testkit/security/advisories/new
+    about: 私密报告渠道、范围与响应承诺见 SECURITY.md
+  - name: 🤝 贡献指南（环境 / 加场景 / 加 driver / 质量门）
+    url: https://github.com/supengpeng/dsh-testkit/blob/main/CONTRIBUTING.md
+    about: 动手之前先读这份；尤其是"不要做的事"与编译纪律（build-lock）
+  - name: 📋 治理与 RFC（版本语义 / 弃用 / 什么改动要先写 RFC）
+    url: https://github.com/supengpeng/dsh-testkit/blob/main/docs/GOVERNANCE.md
+    about: 涉及场景 schema、新 kind、退出码、包名这类改动，先在这里对齐
+  - name: 🗺️ 迭代计划与推迟项（含各自的**前置条件**）
+    url: https://github.com/supengpeng/dsh-testkit/blob/main/docs/ROADMAP.md
+    about: 想知道"为什么这个还没做"——大概率写着前置条件，而不是"没时间"

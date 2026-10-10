@@ -16,10 +16,21 @@
  */
 
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { test } from 'node:test'
+import { after, test } from 'node:test'
+
+/**
+ * 本文件建的临时目录统一登记，跑完一次性删除。
+ *
+ * 教训：漏清理会在 `%TEMP%` 里堆出成百上千个 `dsh-testkit-report-*`
+ * （实测 118 个），是 `dsh-testkit doctor` 的残留探测先发现的。
+ */
+const TEMP_DIRS = []
+after(() => {
+  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true })
+})
 
 import { classifyCase, FAILURE_CATEGORY_LABEL } from '../lib/analysis/classify.js'
 import { buildMinimalRepro, buildMinimalReproForScenario } from '../lib/analysis/repro.js'
@@ -534,6 +545,7 @@ test('校验器不是安慰剂：故意破坏的 run.json 必须被报出来', (
 
 test('writeRunArtifacts：写出 run.json / report.md / junit.xml，且不抛出', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-testkit-report-'))
+  TEMP_DIRS.push(dir)
   const { artifacts, error } = await writeRunArtifacts(SUMMARY, dir)
 
   assert.equal(error, undefined)
@@ -550,6 +562,7 @@ test('writeRunArtifacts：写出 run.json / report.md / junit.xml，且不抛出
 
 test('writeRunArtifacts：写入失败只回报 error，不抛出', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-testkit-report-'))
+  TEMP_DIRS.push(dir)
   const notADir = join(dir, 'not-a-dir')
   writeFileSync(notADir, 'x')
 

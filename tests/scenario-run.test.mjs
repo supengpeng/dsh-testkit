@@ -12,14 +12,26 @@
  */
 
 import assert from 'node:assert/strict'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 
 import { createHeadlessHost } from '../lib/headless/index.js'
 import * as plugin from '../lib/index.js'
+
+/**
+ * 本文件建的临时目录统一登记，跑完一次性删掉。
+ *
+ * 为什么必须做：`boot()` 每个用例调一次，漏清理会在 `%TEMP%` 里堆出成百上千个
+ * `dsh-testkit-runs-*`——实测堆了 **1427 个**（`dsh-testkit doctor` 的残留探测
+ * 就是这么发现的）。测试自己制造的环境垃圾，测试自己收。
+ */
+const TEMP_DIRS = []
+after(() => {
+  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true })
+})
 
 function makeReq(method, body = '') {
   return Object.assign(Readable.from([Buffer.from(body, 'utf8')]), { method })
@@ -44,6 +56,7 @@ function makeRes() {
 async function boot() {
   const headless = await createHeadlessHost()
   const runsDir = mkdtempSync(join(tmpdir(), 'dsh-testkit-runs-'))
+  TEMP_DIRS.push(runsDir)
 
   await headless.ctx.plugin(plugin, {
     casesDir: 'cases',

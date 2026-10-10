@@ -224,6 +224,49 @@
 > 早加会得到第二套与场景数据重复的命令面。现在导出轨已经进 gate 并在全新 checkout 上验证过，
 > 且 CLI 只做**同一套引擎的入口**（不重造 runner / 不重造选择器）。
 
+### 十五、供应链、治理、官方集成与自动 triage（文档 §7.1–§7.5）
+
+- **供应链守卫（进 gate，离线可判）**：`scripts/check-ci-hardening.mjs`（workflows 必须有显式
+  `permissions:`、禁 `pull_request_target`、禁 `secrets.`、**每个 `uses:` 钉 40 位 SHA**、
+  禁 `continue-on-error: true`、必须 `--frozen-lockfile`）与 `scripts/check-lockfile.mjs`
+  （`package.json` 的依赖逐项能在 `pnpm-lock.yaml` 里找到，`packageManager` 与 lockfile 一致）。
+- **发布工作流**：`.github/workflows/release.yml` —— 打 `v*` tag 才触发；frozen 安装 → `gate` →
+  断言 `npm pack --dry-run` 清单含 `bin/`、`lib/cli/`、`schemas/`、`cases/`、`fixtures/`、
+  `registry/`、`templates/`、`dsh/` → `npm publish --provenance --access public`
+  （走 GitHub OIDC trusted publishing：`contents: read` + `id-token: write`，**不需要任何 secret**）。
+  文件头写明"打 tag 即发布"的风险。
+- **CI 里的 `pnpm audit --prod --audit-level=high` 是独立步骤、不进 gate**：它需要网络，
+  而 gate 必须能在**离线**机器上跑通——分工写在工作流注释里。
+- **治理机制**：`CODEOWNERS`、`CONTRIBUTING.md`（含"怎么加一条场景 / 怎么加一个 driver"与
+  12 kind 的纪律）、`CODE_OF_CONDUCT.md`、`.github/PULL_REQUEST_TEMPLATE.md`、
+  `.github/ISSUE_TEMPLATE/*`（bug 模板强制要求最小复现 + 期望/实际 + 环境）、
+  `docs/GOVERNANCE.md`（版本与弃用策略 / RFC 流程 / release cadence / **good first issues 候选**）、
+  [`docs/rfc/`](docs/rfc/README.md) 模板与流程。
+- **迁移指南**：[docs/MIGRATION.md](docs/MIGRATION.md) —— 0.1.0 → 0.2.0，写成"我要做什么"
+  （默认值变化 / 新增可选字段 / `enum`·`const` 保真的恢复路径 / 包名与形态变化 / 工具面 6→11）。
+- **官方工具链集成**：[docs/DSH-INTEGRATION.md](docs/DSH-INTEGRATION.md) —— 本包与 DSH 的
+  声明式契约（`dsh` 段）、对外的四类产物（JUnit / JSON+schema / trace / Markdown）、
+  与 doctor / composition / 单元测试框架的**分工**、对 DSH 内部约定的依赖表，
+  以及"仍然需要活宿主验证"的三项。
+- **GitHub Action**：根目录 `action.yml` + `scripts/action-entry.mjs` —— 读 `run.json` 生成
+  PR 评论正文（写 `$GITHUB_STEP_SUMMARY` 或 stdout）；`comment: true` 且有 token 时 POST，
+  **失败不静默**并把正文打印出来供人工贴。
+- **自动 triage（生成侧完整，发布侧需真实仓库）**：`src/triage/**` —— `buildIssueDraft`
+  （labels 由归因推导、assignees 由 `owner` 推导）、`buildPrComment`（全绿时也有内容）、
+  `routeByOwner`（无 owner 归 `(未指派)` 并提示该补）。**只生成文本、不发请求**；
+  正文**不含完整取证原文**（issue 是公开面）。
+- **残留检测扩到端口与进程**：`src/isolation/probes.ts` —— `probePorts`（探不到标 `unknown`，
+  绝不当作干净）、`probeProcesses`（命令不可用 → `available: false` + 说明）、
+  `detectResidue`（同步 tmpdir + 异步探针合成）。
+- **宿主体检入口**：`src/doctor/**` + `dsh-testkit doctor` / `testkit_doctor` —— 宿主能力矩阵
+  （按 `driver.requires` **推导**哪些场景会 skip 及原因）、守卫清单、残留探测、版本与平台、
+  最近一次运行读数、覆盖矩阵前几条缺口。
+
+> **版本号仍是 `0.1.0`，CHANGELOG 的 `0.2.0` 仍标"未发布"**——这是刻意的：
+> 发布前必须先在**活宿主**里跑完 [PUBLISHING.md](docs/PUBLISHING.md) §5 的 V1–V4
+> （改名后的 client 模块 id 与「测试」标签渲染）。**准备已就绪（含 provenance 工作流），
+> 但发布与否要等那一步的证据。**
+
 ### 迁移说明
 
 | 变化 | 对既有使用者的影响 | 要不要动手 |

@@ -1,0 +1,46 @@
+name: 'dsh-testkit 报告评论'
+description: >-
+  读取 dsh-testkit 的 run.json，渲染成 Markdown 评论正文，写入 Job Summary 与 stdout；
+  comment=true 时再 POST 到当前 PR/issue。只读报告，不做任何场景执行。
+
+# 说明：渲染逻辑全在 `src/triage/`（单一措辞来源），本 action 只做 I/O 编排。
+# 正文有任何长度上限、脱敏与"不带取证原文"的纪律都在那一层；这里不重复实现，
+# 否则两处措辞必然漂移。见 docs/SUPPLY-CHAIN.md 与 docs/FEATURES.md。
+
+inputs:
+  report:
+    description: 'run.json 路径（dsh-testkit 运行产物；默认取工作目录下的 run.json）'
+    required: false
+    default: 'run.json'
+  comment:
+    description: "是否把正文 POST 到当前 PR/issue：'true' | 'false'（默认 false = 只写 Job Summary）"
+    required: false
+    default: 'false'
+  token:
+    description: 'GitHub token；comment=true 时必需（建议 ${{ github.token }}，只给 repo 权限）'
+    required: false
+    default: ''
+  fail-on:
+    description: "这一步何时失败：'failed'（默认，有失败/错误用例即失败）| 'never'（只出报告）"
+    required: false
+    default: 'failed'
+
+outputs:
+  body:
+    description: '渲染出的 Markdown 正文（供后续步骤复用）'
+    value: ${{ steps.render.outputs.body }}
+
+runs:
+  using: composite
+  steps:
+    # composite action 不会自动拿到 INPUT_* 环境变量，所以这里显式传：
+    # 输入端名字与脚本里的 DSH_TESTKIT_* 一一对应（脚本也兼容 INPUT_*，便于本地跑）。
+    - id: render
+      name: 渲染并（可选）发布评论
+      shell: bash
+      env:
+        DSH_TESTKIT_REPORT: ${{ inputs.report }}
+        DSH_TESTKIT_COMMENT: ${{ inputs.comment }}
+        DSH_TESTKIT_TOKEN: ${{ inputs.token }}
+        DSH_TESTKIT_FAIL_ON: ${{ inputs.fail-on }}
+      run: node "${{ github.action_path }}/scripts/action-entry.mjs"
