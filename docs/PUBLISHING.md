@@ -49,7 +49,7 @@
 | 3 | 本机 `pnpm run gate` 全绿 | ✅ 每次改动都在跑（当前 538 单测 + 契约轨 65 + CI 轨 26 条场景） |
 | 4 | CI 9 个组合全绿（`.github/workflows/ci.yml`） | ⏳ 待首次 push 后观察 |
 | 5 | `npm run verify:pack` 退出码 0（`files` 白名单覆盖全部入口声明的路径） | ✅ 已接进 gate（`scripts/check-pack-files.mjs`） |
-| 6 | `npm pack --dry-run` 人工核一遍清单（尤其 `schemas/`、`cases/`、`fixtures/`、`registry/`、`templates/`、`dsh/`） | ⏳ 待做 |
+| 6 | `npm pack --dry-run` 人工核一遍清单（尤其 `bin/`、`lib/cli/`、`schemas/`、`cases/`、`fixtures/`、`registry/`、`templates/`、`dsh/`） | ⏳ 待做（本机运行时没有 npm；`verify:pack` 已把 `bin` 纳入必需路径推导，但 tarball 最终形态仍需人工核一眼） |
 | 7 | `SECURITY.md` 里的邮箱占位换成真实可达地址 | ⏳ 待做（现在是 `security@dsh-testkit.invalid`） |
 | 8 | README 的 npm badge 指向自己的包名 | ✅ 已指向 `@supengpeng/dsh-testkit`（该包尚未发布，badge 会显示 not found，属预期） |
 | 9 | 从 registry 装进一个**隔离 profile** 做安装验证（`dsh plugin --profile tk add @supengpeng/dsh-testkit` → `/testkit list` 有输出） | ⏳ 待做（**这一步同时覆盖 §5 的 V1/V4**） |
