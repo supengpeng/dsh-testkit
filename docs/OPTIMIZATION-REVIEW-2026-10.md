@@ -2,7 +2,7 @@
 
 > 执行日期：2026-10-10（四批：Lead + 7 名队友按写域分工，共享 `scripts/build-lock.mjs` 串行化编译）
 > 基线：[baseline/README.md](../baseline/README.md)（内置套件 **386 passed / 0 failed**；CI 轨 **26 tests：18 pass / 8 skip / 0 fail**）
-> 结论读数：**`pnpm run gate` 退出码 0 · 10 个守卫全绿 · 内置套件 701 passed / 0 failed · 契约轨 65/65 · CLI 15 个子命令 · 场景 39 条 · CI 轨 26 tests：18 pass / 8 skip / 0 fail**
+> 结论读数：**`pnpm run gate` 退出码 0 · 10 个守卫全绿 · 内置套件 704 passed / 0 failed · 契约轨 65/65 · CLI 15 个子命令 · 场景 39 条 · CI 轨 26 tests：18 pass / 8 skip / 0 fail**
 > 并且每一批都在 **`git worktree` 出来的全新 checkout** 上复跑过（第一批的教训：`.gitignore` 曾把 `src/export/**` 一起忽略，本地绿、新克隆必挂）
 
 ---
@@ -78,6 +78,8 @@
 | 10 | **测试自己泄漏临时目录**（第四批由 `doctor` 的残留探测发现） | 三处测试每用例 `mkdtempSync` 却不清理，`%TEMP%` 里累计 **1715 个**陈旧 `dsh-testkit-*` 目录（runs 1481 / report 128 / redact 106）。测试制造的环境垃圾会污染后续排查——`doctor` 的"残留"报告也跟着失真 | 三处补 `TEMP_DIRS` 登记 + 模块级 `after()` 统一删除；复跑完整套件确认**零新增**；把"环境垃圾"纳入 `doctor` 的常规体检项 |
 | 11 | **文档里的能力计数会静默过期**（第四批由队友交叉发现） | `docs/FEATURES.md` 仍写"模型工具（6 个）"（实际 13）、"四个检查器"（实际 7）、README 写"8 个质量守卫"（实际 10）。能力增长时**手写计数**没人提醒 | 以真源为准重写（工具数 ← `src/tools.ts`；守卫数 ← `package.json` 的 `verify:*`）；PR 模板里加"注册面核对"一栏，注明每个数字的权威来源 |
 | 12 | **假凭据字面量让全队 gate 变红**（第四批） | `tests/triage.test.mjs` 写了字面量假 token，`check-secrets` 扫到就报——守卫没错，是夹具写法错 | 改成运行时拼接（`'ghp_' + 'A'.repeat(36)`)：既不留字面量，又顺带证明"扫描器认的是形态" |
+| 13 | **`act` 阶段的 `SkipCase` 被当成"这一步失败"→ 整条场景判 failed**（**首次推送后 CI 6 个矩阵任务全红才暴露**） | 7 条场景依赖下载来的外部 fixture（`$FIXTURES/dsh-memory-0.8.1`，gitignore）。`file` driver 只在 `act` 里校验 root，而 runner 只把 **setup** 阶段的 `SkipCase` 当跳过 → **本地（有 `.fixtures`）绿、全新检出（CI）全红**。这不是被测对象坏了，是"环境没准备好"被报成了失败 | ① runner 统一口径：`act` 阶段的 `SkipCase` 也判 skipped（且不把这一轮记进 `rounds`，否则 flaky 会误判），并**保留已跑过的步骤取证**；② `file` driver 的 root 校验前移到 `setup`（与 shell 的 cwd 同口径）；③ `tests/skip-semantics.test.mjs` 三条用例（两条正例 + 一条"普通异常仍判 failed"的反例），**修复前 2 红 / 修复后 3 绿**已实测 |
+| 14 | **本地"全新 checkout"验证被 junction 掩盖**（同一次事故的根因） | 我此前的验证配方把 `.fixtures` junction 进全新工作树——而那正是 CI 缺失的目录。于是"全新 checkout 全绿"这个结论**只在本地成立**，CI 一推就红 | 验证配方改为**不 junction 任何被 gitignore 的目录**；并新增"移走 `.fixtures` 跑完整 gate"这条本地 CI 模拟（`baseline/gate-no-fixtures2.log`，退出码 0） |
 
 ---
 
@@ -123,6 +125,8 @@
 - **`action.yml` 的"真贴评论"路径没有真跑过**：本机无网、无 `GITHUB_TOKEN`。已干跑验证的是"生成正文 + 无 token 时非 0 且打印正文供人工贴"。
 - **治理文件里有占位**：`CODEOWNERS` 只有一位 owner（**不构成评审流程**，文件头注已写明）、行为准则与安全策略的联系邮箱是 `.invalid` 占位——对外前必须替换。
 - **Action 的 SHA 钉来自 GitHub API**（3 个 action，已用 `/git/refs/tags` 与 `/commits` 两个端点交叉核对）：升级版本时要重新取，不能凭印象改。
+- **外部 fixture 场景在"没下载 fixture"的机器上是 `skipped`（不是 failed）**：`$FIXTURES/<name>` 不存在时 `file`/`shell` driver 在 setup 就抛出 `SkipCase`，理由里给出 `scripts/fetch-fixtures.mjs`。`tests/scenario-run.test.mjs` 因此把"一定跳过"（缺宿主能力）与"视环境而定"（缺夹具）**分成两组**断言。
+- **本地复现 CI 时必须按 CI 的文件集**：`.fixtures/`、`cases-draft/`、`runs/`、`export/`、`lib/` 都是 gitignore 的，本地存在不代表 CI 存在。最直接的模拟是 `Rename-Item .fixtures .fixtures-off` 后跑一遍完整 gate。
 
 ---
 
@@ -130,7 +134,7 @@
 
 | 项 | 读数 |
 |---|---|
-| 内置套件 | **701 passed / 0 failed**（第三批 630；第二批 538；第一批 444；基线 386） |
+| 内置套件 | **704 passed / 0 failed**（第三批 630；第二批 538；第一批 444；基线 386） |
 | 守卫 | **10 个全部退出码 0**：`verify:cases` / `docs` / `adapter` / `pack` / `git-install` / `fixtures` / `registry` / `secrets` / `lock` / `ci` |
 | 契约轨 | `node --test "tests/contracts/*.test.mjs"` → **65 / 65**（含 6 条反安慰剂） |
 | CLI 轨 | `node --test tests/cli.test.mjs` → **22 / 22**（真实子进程 + 冻结退出码） |

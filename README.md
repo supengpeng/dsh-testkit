@@ -94,7 +94,7 @@ npm install -D @supengpeng/dsh-testkit
 | **独立 CLI** | ✅ `dsh-testkit <子命令>`（`bin/`）：15 个子命令 + 全部选择/闸门开关；退出码冻结 `0/1/2/3`；与 `/testkit`、`testkit_*` **共用同一套引擎** |
 | **供应链与治理（0.2.0 第四批）** | ✅ CI 硬化守卫（最小权限 / 禁止 `pull_request_target` / Action **钉 SHA**）+ 锁文件守卫 + secret 扫描 + `pnpm audit` 独立步骤 + **带 provenance 的发布工作流**；`CODEOWNERS` / 贡献指南 / 行为准则 / PR 与 issue 模板 / RFC 模板 / 迁移指南 |
 | **自动 triage 与体检** | ✅ 生成 issue 草稿与 PR 评论（归因标签 + owner 路由，**只出文本不发请求、不含取证原文**）；`dsh-testkit doctor` 报告能力矩阵 / 哪些场景会 skip / 残留（临时目录、端口、进程） |
-| 验证 | ✅ `pnpm run gate`：**701 测试**（含契约轨 65）＋ **10 个守卫** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
+| 验证 | ✅ `pnpm run gate`：**704 测试**（含契约轨 65）＋ **10 个守卫** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
 
 > 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（13 个模型工具 / 15 个 CLI 子命令 /
 > 12 个 kind / 17 个断言词 / 约 241 个取证字段 / 10 个质量守卫），只列**已实现并实测**的能力。

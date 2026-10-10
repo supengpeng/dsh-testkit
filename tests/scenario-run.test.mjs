@@ -107,21 +107,13 @@ test('端到端：cases/ 下的全部场景在 headless 宿主里按要求通过
     '总数应等于通过 + 跳过（无错误、无失败）',
   )
 
-  // headless 宿主缺 subprocess / subagents / webServer，所以这几条会被跳过。
-  // 新增"依赖这些能力"的场景时，把 ID 加进这个集合。
-  const skippedIds = value.cases
-    .filter((c) => c.verdict === 'skipped')
-    .map((c) => c.id)
-    .sort()
-  assert.deepEqual(skippedIds, [
+  // ① **一定**被跳过：headless 宿主缺 subprocess / subagents / fs / sessions / compaction，
+  //    与"本机有没有下载外部 fixture"无关。新增"依赖这些能力"的场景时，把 ID 加进来。
+  const alwaysSkipped = [
     'TK-0014',
     'TK-0016',
     'TK-0018',
     'TK-0019',
-    'TK-0022',
-    'TK-0024',
-    'TK-0025',
-    'TK-0026',
     // fs 类：headless 最小宿主不提供 fs 能力（沙箱与版本语义只能在活宿主验证）
     'TK-0030',
     'TK-0031',
@@ -129,12 +121,48 @@ test('端到端：cases/ 下的全部场景在 headless 宿主里按要求通过
     'TK-0032',
     // compaction 面：headless 最小宿主不提供 sessions / compaction 能力
     'TK-0034',
-    // 外部被测对象的 shell 场景（fixture）：headless 最小宿主不提供 subprocess 能力
-    'TK-0036',
     // 注意：TK-0033（goals）是 draft，默认全量集里本来就不会出现
-  ])
+  ]
+
+  // ② **视环境而定**：依赖下载来的外部 fixture（`.fixtures/dsh-memory-0.8.1`，git 忽略）。
+  //
+  //    准备过 → 这些场景真的能跑（`passed`）；全新检出（CI 的 6 个矩阵任务）→ `skipped`，
+  //    且理由必须说清"缺什么、怎么补"。**允许两种结果，但不允许 failed**——
+  //    "环境没准备好"与"被测对象坏了"是两件事，混在一起就会出现"本地绿、CI 全红"。
+  //    这也正是 `tests/skip-semantics.test.mjs` 钉住的语义。
+  const fixtureDependent = [
+    'TK-0021',
+    'TK-0022',
+    'TK-0023',
+    'TK-0024',
+    'TK-0025',
+    'TK-0026',
+    'TK-0036',
+  ]
+
+  const skippedIds = value.cases
+    .filter((c) => c.verdict === 'skipped')
+    .map((c) => c.id)
+    .filter((id) => !fixtureDependent.includes(id))
+    .sort()
+  assert.deepEqual(skippedIds, alwaysSkipped)
   for (const c of value.cases.filter((c) => c.verdict === 'skipped')) {
     assert.ok(String(c.skipReason).length > 0, '跳过必须给出原因')
+  }
+  for (const c of value.cases.filter((x) => fixtureDependent.includes(x.id))) {
+    assert.ok(
+      c.verdict === 'passed' || c.verdict === 'skipped',
+      `${c.id} 只允许 passed / skipped（实际 ${c.verdict}）：外部 fixture 缺失是环境问题，不是失败`,
+    )
+    if (c.verdict === 'skipped') {
+      // 跳过理由必须**指明是哪一类缺失**：缺宿主能力（headless 跑不了），
+      // 还是缺外部夹具（本机没准备）——两者都要能一眼看出"下一步该做什么"。
+      const reason = String(c.skipReason)
+      assert.ok(
+        /宿主缺少能力/.test(reason) || /fetch-fixtures|夹具|不存在/.test(reason),
+        `${c.id} 跳过时必须说清是缺宿主能力还是缺夹具（理由：${reason}）`,
+      )
+    }
   }
 
   const uiCase = value.cases.find((c) => c.id === 'TK-0015')

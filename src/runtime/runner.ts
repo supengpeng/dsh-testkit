@@ -438,6 +438,15 @@ async function runOne(scenarioInput: Scenario, deps: RunOneDeps): Promise<CaseOu
       rounds.push(!timedOut && !hasHardFailure(roundSteps))
       steps = round === 1 ? roundSteps : mergeSteps(steps, roundSteps)
 
+      // 动作阶段的 SkipCase：整条场景跳过。这一轮**不记进 rounds**——
+      // "跳过"不是"这一轮没通过"，混进去会让 flaky 判定把环境缺失当成抖动。
+      if (roundResult.skip !== undefined) {
+        rounds.pop()
+        verdict = 'skipped'
+        skipReason = roundResult.skip
+        break
+      }
+
       // 每轮结束即拆夹具，保证下一轮环境干净
       const roundRelease = await fixture.release()
       if (roundRelease.failures.length > 0) releaseFailures = releaseFailures.concat(roundRelease.failures)
@@ -449,7 +458,10 @@ async function runOne(scenarioInput: Scenario, deps: RunOneDeps): Promise<CaseOu
       }
     }
 
-    if (budgetError !== undefined) {
+    if (verdict === 'skipped') {
+      // 已经因 SkipCase 判定跳过：**不要**再被"这一步失败"的取证覆盖成 failed。
+      // （跳过的场景里，触发跳过的那一步 action.ok 必然是 false，这是取证而非结论。）
+    } else if (budgetError !== undefined) {
       verdict = 'failed'
       error = `${budgetError.name}: ${budgetError.message}`
     } else if (timedOut) {
@@ -643,6 +655,16 @@ interface RoundSteps {
   steps: StepOutcome[]
   /** 超限时带出：已经跑过的步骤原样保留，不因为对账失败就丢掉证据。 */
   budgetError?: BudgetExceeded
+  /**
+   * 某一步的动作抛了 `SkipCase`：这一轮**不是失败，是没法评估**。
+   *
+   * 为什么必须区分：`SkipCase` 的语义是"前置条件不满足"，与"断言没通过"完全不同。
+   * 早先只有 **setup** 阶段的 `SkipCase` 被当成跳过，动作阶段抛出的会被记成
+   * "这一步失败"→ 整条场景判 failed：于是"外部 fixture 没下载"在本地（有 fixture）
+   * 绿、在全新检出（没有 fixture）红 —— 这不是被测对象坏了，是环境没准备好。
+   * 现在两个阶段同口径：都是 skipped + 一条说清"缺什么、怎么补"的理由。
+   */
+  skip?: string
 }
 
 async function runSteps(
@@ -677,6 +699,10 @@ async function runSteps(
     // 步骤开始前的取证快照——用来算"这一步改了什么"
     const notesBefore = { ...ctx.fixture.snapshot() }
 
+    // **先入列再执行**：这个对象之后被就地改写（断言、notes、耗时），所以提前入列
+    // 不影响最终内容；但一旦中途 `SkipCase` 跳出，已经跑过的证据不会丢。
+    out.push(outcome)
+
     if (step.act) {
       const tAct = Date.now()
       try {
@@ -688,8 +714,15 @@ async function runSteps(
           ok: false,
           detail: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
         }
+        markSpan('act', actionKind(step.act), tAct, false)
+        if (err instanceof SkipCase) {
+          // 动作阶段发现前置条件不满足 → 记下动作失败取证（上面已写），
+          // 然后把**整条场景**标成跳过：这不是"这一步没通过"。
+          outcome.durationMs = Date.now() - t0
+          return { steps: out, skip: err.message }
+        }
       }
-      markSpan('act', actionKind(step.act), tAct, outcome.action.ok)
+      if (outcome.action.ok) markSpan('act', actionKind(step.act), tAct, true)
     }
 
     const tAssert = Date.now()
@@ -731,7 +764,6 @@ async function runSteps(
     if (Object.keys(delta).length > 0) outcome.notes = delta
 
     outcome.durationMs = Date.now() - t0
-    out.push(outcome)
 
     // ---- 步骤级 cleanup ----
     //

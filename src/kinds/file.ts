@@ -143,6 +143,22 @@ export const fileDriver: Driver = {
   async setup(ctx: DriverContext, scenario: Scenario): Promise<void> {
     const setup = (scenario.setup as { file?: FileSetup }).file
     if (!setup) return
+
+    // 显式给了 root 却不存在 → **在 setup 阶段**就跳过（口径与 shell driver 的 cwd 一致）。
+    //
+    // 为什么位置很关键：runner 把 **setup** 阶段抛出的 SkipCase 当"整条场景跳过"，
+    // 而动作阶段抛出的会被记成"这一步失败"。早先这个判断只在 `act` 里，
+    // 于是"外部 fixture 没下载"在本地（`.fixtures` 在）绿、在全新检出（CI）红——
+    // 环境没准备好被报成了被测对象坏了。
+    if (setup.root !== undefined && setup.root !== '') {
+      const root = resolve(expandPathTokens(setup.root as string))
+      if (!existsSync(root)) {
+        throw new SkipCase(
+          `file.root 不存在：${root}（若是外部 fixture，见 scripts/fetch-fixtures.mjs）`,
+        )
+      }
+    }
+
     fileConfigs.set(ctx.fixture, setup)
   },
 
