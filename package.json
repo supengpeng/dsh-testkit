@@ -1,6 +1,6 @@
 {
   "name": "@supengpeng/dsh-testkit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DSH 测试插件：把 issue 提炼为可复现的测试场景数据（cases/*.yaml），按场景 kind 驱动宿主行为、出报告，并可导出为 CI 用例",
   "type": "module",
   "main": "lib/index.js",

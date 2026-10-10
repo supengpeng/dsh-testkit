@@ -44,17 +44,17 @@
 
 | # | 步骤 | 状态 |
 |---|---|---|
-| 1 | **改名**（scoped 或新名）并跑通 §4 的全量清单 | ✅ **已改名**（`@supengpeng/dsh-testkit`）：`package.json` / client 模块 id（改为从 `package.json` 读）/ `TK-0015` / `ui-driver` / README / CHANGELOG 全部同步；**唯一未做的是 §5 的活宿主四步验证** |
-| 2 | 版本号 `0.1.0` → `0.2.0`，`CHANGELOG.md` 里去掉「未发布」 | ⏳ 待做（等 §5 验完再动版本号：没验完就发，等于把静默失败发出去） |
-| 3 | 本机 `pnpm run gate` 全绿 | ✅ 每次改动都在跑（当前 538 单测 + 契约轨 65 + CI 轨 26 条场景） |
-| 4 | CI 9 个组合全绿（`.github/workflows/ci.yml`） | ⏳ 待首次 push 后观察 |
+| 1 | **改名**（scoped 或新名）并跑通 §4 的全量清单 | ✅ **已改名**（`@supengpeng/dsh-testkit`）且 **§5 四步已验完**（见 §5.1）——验证当场抓到 A6 的漏改（patch 的 `name` 写旧名 → client 半静默不进启动图），已修并加守卫 `verify:bundle` |
+| 2 | 版本号 `0.1.0` → `0.2.0`，`CHANGELOG.md` 里去掉「未发布」 | ✅ 已做（2026-10-10，随 `v0.2.0` tag 发布） |
+| 3 | 本机 `pnpm run gate` 全绿 | ✅ 每次改动都在跑（当前 **710 单测** + 契约轨 65 + CI 轨 26 条场景 + **11 个守卫**） |
+| 4 | CI 组合全绿（`.github/workflows/ci.yml`） | ✅ **6/6 全绿**（Node 22/24 × ubuntu/windows/macos，实测 run #5/#6） |
 | 5 | `npm run verify:pack` 退出码 0（`files` 白名单覆盖全部入口声明的路径） | ✅ 已接进 gate（`scripts/check-pack-files.mjs`） |
 | 6 | `npm pack --dry-run` 人工核一遍清单（尤其 `bin/`、`lib/cli/`、`schemas/`、`cases/`、`fixtures/`、`registry/`、`templates/`、`dsh/`） | ⏳ 待做（本机运行时没有 npm；`verify:pack` 已把 `bin` 纳入必需路径推导，但 tarball 最终形态仍需人工核一眼） |
 | 7 | `SECURITY.md` 里的邮箱占位换成真实可达地址 | ⏳ 待做（现在是 `security@dsh-testkit.invalid`） |
 | 8 | README 的 npm badge 指向自己的包名 | ✅ 已指向 `@supengpeng/dsh-testkit`（该包尚未发布，badge 会显示 not found，属预期） |
-| 9 | 从 registry 装进一个**隔离 profile** 做安装验证（`dsh plugin --profile tk add @supengpeng/dsh-testkit` → `/testkit list` 有输出） | ⏳ 待做（**这一步同时覆盖 §5 的 V1/V4**） |
+| 9 | 从 registry 装进一个**隔离 profile** 做安装验证（`dsh plugin --profile tk add @supengpeng/dsh-testkit` → `/testkit list` 有输出） | ⏳ 待做（**发布成功后**才有意义；**发布前**已用 `link:` 形式在隔离 profile 上做完 §5 四步，覆盖 V1/V4） |
 | 10 | 打 tag + GitHub Release（附 `CHANGELOG` 段落与 `junit.xml` 样例） | ⏳ 待做 |
-| 11 | 带 provenance 发布（`npm publish --provenance`，由 GitHub Actions 的 OIDC 身份签发） | ⏳ 待做；**当前 CI 刻意不发布、不需要任何 secret** |
+| 11 | 带 provenance 发布（`npm publish --provenance`，由 GitHub Actions 的 OIDC 身份签发） | ✅ 工作流已就绪（`release.yml`：tag → gate → 清单断言 → `npm publish --provenance --access public`，**不需要任何 secret**）。⚠️ **npm 侧的 trusted publisher 必须先配好**（package settings → Trusted Publisher：仓库 + 工作流文件名）；首次发布若报 `ENEEDAUTH/404`，就是这个没配 |
 
 > **改名后必须重建 client 产物**：`lib/client.js` 是共享构建产物，源码改名而产物没重建会留下
 > "旧 module id"的分叉（本轮实测踩过一次，表现为 `TK-0015` / `ui-driver` 突然变红）。

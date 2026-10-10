@@ -37,7 +37,7 @@ $DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 # 或从 git 装（注意：本包没有 bin，装的是插件本体）
 & $DSH plugin --profile desktop add git+ssh://git@github.com/supengpeng/dsh-testkit.git
 
-# ② 作为库 / CI 用例的依赖（⚠️ 尚未发布到 npm，见 docs/PUBLISHING.md）
+# ② 作为库 / CI 用例的依赖（0.2.0 起从 @supengpeng/dsh-testkit 发布）
 #    包名已改成 scoped（@supengpeng/dsh-testkit），但**还没有 publish**；
 #    在那之前请用 ① 的本地路径或 git 形式。
 npm install -D @supengpeng/dsh-testkit
