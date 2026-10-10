@@ -267,6 +267,23 @@
 > （改名后的 client 模块 id 与「测试」标签渲染）。**准备已就绪（含 provenance 工作流），
 > 但发布与否要等那一步的证据。**
 
+### 十六、首次推到 GitHub 后，远端 CI 暴露并修掉的六类问题
+
+本地 `pnpm run gate` 全绿**不等于**远端绿。第一次推送后 6 个矩阵任务全红，逐轮修完
+（每一轮都把 CI 日志里的真因写进提交信息，并把结论回填到
+[OPTIMIZATION-REVIEW](docs/OPTIMIZATION-REVIEW-2026-10.md) 的真问题 #13–#18）：
+
+| # | 现象 | 真因 | 修复 |
+|---|---|---|---|
+| 13 | 6 个任务全红，本地绿 | `act` 阶段的 `SkipCase` 被当成"这一步失败"→ 缺外部 fixture 的场景判 failed（本地有 `.fixtures`，CI 没有） | runner 统一口径：`act` 阶段的 `SkipCase` 也判 skipped（保留已跑取证、不记进 `rounds`）；`file` driver 的 root 校验前移到 `setup`；新增 `tests/skip-semantics.test.mjs`（修复前 2 红 / 修复后 3 绿） |
+| 14 | 我自己的"全新 checkout 验证"没发现 #13 | 验证配方把 `.fixtures` junction 进了全新工作树——那正是 CI 缺失的目录 | 验证配方改为不 junction 任何被 gitignore 的目录；补一条"移走 `.fixtures` 跑完整 gate"的本地 CI 模拟 |
+| 15 | macOS：`ERR_MODULE_NOT_FOUND`（指向不存在的 `private/` 前缀） | `toLibSpecifier` 把 realpath 与非 realpath 混算（macOS 的 `/var` ↔ `/private/var`） | realpath 两边 + **往返校验**，解不回去退回绝对 `file://` URL；顺带让 **Windows 跨盘符**从"报错"变成"可用" |
+| 16 | macOS：`watchCases` 把被监听目录自身当变更文件 | FSEvents 会上报目录自身的事件 | 过滤 `filename === basename(dir)` 与 `..` 开头的条目 |
+| 17 | Windows：shebang 断言红 | 缺 `.gitattributes`，`core.autocrlf=true` 把 `bin/dsh-testkit.mjs` 首行变成 `...node\r`——**这在 POSIX 上是真实发包缺陷**（`bad interpreter`） | 新增 `.gitattributes`（`eol=lf` + 二进制显式 `binary`）；断言比较前去掉 `\r` |
+| 18 | ubuntu/macOS：我新加的断言红 | 断言盯的是**形态**（"必须出现 `file://`"），而 POSIX 上跨树的相对形态本来合法 | 改为盯**性质**：说明符解出来必须还是 libDir |
+
+最终 **run #5：6/6 全绿**（Node 22/24 × ubuntu/windows/macos）。
+
 ### 迁移说明
 
 | 变化 | 对既有使用者的影响 | 要不要动手 |

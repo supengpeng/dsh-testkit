@@ -2,7 +2,7 @@
 
 > 执行日期：2026-10-10（四批：Lead + 7 名队友按写域分工，共享 `scripts/build-lock.mjs` 串行化编译）
 > 基线：[baseline/README.md](../baseline/README.md)（内置套件 **386 passed / 0 failed**；CI 轨 **26 tests：18 pass / 8 skip / 0 fail**）
-> 结论读数：**`pnpm run gate` 退出码 0 · 10 个守卫全绿 · 内置套件 704 passed / 0 failed · 契约轨 65/65 · CLI 15 个子命令 · 场景 39 条 · CI 轨 26 tests：18 pass / 8 skip / 0 fail**
+> 结论读数：**`pnpm run gate` 退出码 0 · 10 个守卫全绿 · 内置套件 705 passed / 0 failed · 契约轨 65/65 · CLI 15 个子命令 · 场景 39 条 · CI 轨 26 tests：18 pass / 8 skip / 0 fail · GitHub Actions 三平台矩阵 6/6 全绿（run #5）**
 > 并且每一批都在 **`git worktree` 出来的全新 checkout** 上复跑过（第一批的教训：`.gitignore` 曾把 `src/export/**` 一起忽略，本地绿、新克隆必挂）
 
 ---
@@ -80,6 +80,10 @@
 | 12 | **假凭据字面量让全队 gate 变红**（第四批） | `tests/triage.test.mjs` 写了字面量假 token，`check-secrets` 扫到就报——守卫没错，是夹具写法错 | 改成运行时拼接（`'ghp_' + 'A'.repeat(36)`)：既不留字面量，又顺带证明"扫描器认的是形态" |
 | 13 | **`act` 阶段的 `SkipCase` 被当成"这一步失败"→ 整条场景判 failed**（**首次推送后 CI 6 个矩阵任务全红才暴露**） | 7 条场景依赖下载来的外部 fixture（`$FIXTURES/dsh-memory-0.8.1`，gitignore）。`file` driver 只在 `act` 里校验 root，而 runner 只把 **setup** 阶段的 `SkipCase` 当跳过 → **本地（有 `.fixtures`）绿、全新检出（CI）全红**。这不是被测对象坏了，是"环境没准备好"被报成了失败 | ① runner 统一口径：`act` 阶段的 `SkipCase` 也判 skipped（且不把这一轮记进 `rounds`，否则 flaky 会误判），并**保留已跑过的步骤取证**；② `file` driver 的 root 校验前移到 `setup`（与 shell 的 cwd 同口径）；③ `tests/skip-semantics.test.mjs` 三条用例（两条正例 + 一条"普通异常仍判 failed"的反例），**修复前 2 红 / 修复后 3 绿**已实测 |
 | 14 | **本地"全新 checkout"验证被 junction 掩盖**（同一次事故的根因） | 我此前的验证配方把 `.fixtures` junction 进全新工作树——而那正是 CI 缺失的目录。于是"全新 checkout 全绿"这个结论**只在本地成立**，CI 一推就红 | 验证配方改为**不 junction 任何被 gitignore 的目录**；并新增"移走 `.fixtures` 跑完整 gate"这条本地 CI 模拟（`baseline/gate-no-fixtures2.log`，退出码 0） |
+| 15 | **`toLibSpecifier` 把 realpath 与非 realpath 混算**（macOS CI：`ERR_MODULE_NOT_FOUND`） | `relative()` 假设两边同一套命名。macOS 的 `os.tmpdir()` 是 `/var/folders/...`、真实路径是 `/private/var/folders/...`；只 realpath 一边，算出的相对路径会解析到一个**不存在的 `private/` 前缀**。同一个逻辑错误在 Windows 上表现为"跨盘符直接报错" | `toLibSpecifier` 改为「realpath 两边 → 算相对 → **往返校验**（解回去必须还是 libDir）」，解不回去退回绝对 `file://` URL；`webhook` 里靠"说明符含没含 `:`"挡跨盘符的旧检查删掉（既漏 macOS，又误伤回退）。**跨盘符从"明确报错"变成"正常工作"** |
+| 16 | **`watchCases` 把被监听目录自身当成变更文件**（macOS CI） | macOS 的 FSEvents 会把目录自身的事件报上来（`filename` = 目录名）；调用方拿到它就会去"解析一个目录" | 过滤 `filename === basename(dir)` 与 `..` 开头的条目（事件数照记，只是不进 `files`）；测试断言信息写明这条真踩过 |
+| 17 | **缺 `.gitattributes` 导致 Windows runner 上 shebang 变 CRLF**（同时是**真实发包缺陷**） | Git for Windows 默认 `core.autocrlf=true`，checkout 出来的 `bin/dsh-testkit.mjs` 首行是 `...node\r`——在 POSIX 上直接执行会 `bad interpreter`，npm 的 shim 也可能因此不可用。本地从没暴露，因为我们一直用 `node bin/dsh-testkit.mjs` 而不是直接执行它 | 新增 `.gitattributes`（`* text=auto eol=lf` + 二进制显式 `binary`）；测试比较前去掉 `\r`（断言不该依赖 checkout 设置） |
+| 18 | **我自己写的断言把"合法形态"当成错误**（ubuntu/macOS CI 双双红） | 修 #15 时顺手加了"必须出现 `file://`"的断言。但 POSIX 上完全不同的绝对树**本来就能**表示成相对路径且解得回去——断言盯的是**形态**，不是**性质** | 改成断言不变量（解出来必须还是 libDir，相对或 `file://` 都行）：Windows 跨盘符仍只会是 `file://`，macOS 的 realpath 不一致仍会被拦下。**教训：断言要盯性质，不要盯实现形态** |
 
 ---
 
@@ -134,7 +138,8 @@
 
 | 项 | 读数 |
 |---|---|
-| 内置套件 | **704 passed / 0 failed**（第三批 630；第二批 538；第一批 444；基线 386） |
+| **GitHub Actions 三平台矩阵** | **run #5：6/6 全绿**（Node 22/24 × ubuntu/windows/macos-latest，唯一入口 `pnpm run gate`）。这是本仓**第一次真的在远端 CI 上跑通**——本地绿 ≠ 远端绿，前 4 次运行逐轮暴露出 #13–#18 六类问题 |
+| 内置套件 | **705 passed / 0 failed**（第三批 630；第二批 538；第一批 444；基线 386） |
 | 守卫 | **10 个全部退出码 0**：`verify:cases` / `docs` / `adapter` / `pack` / `git-install` / `fixtures` / `registry` / `secrets` / `lock` / `ci` |
 | 契约轨 | `node --test "tests/contracts/*.test.mjs"` → **65 / 65**（含 6 条反安慰剂） |
 | CLI 轨 | `node --test tests/cli.test.mjs` → **22 / 22**（真实子进程 + 冻结退出码） |

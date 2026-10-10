@@ -85,7 +85,7 @@ npm install -D @supengpeng/dsh-testkit
 | **issue 提炼闸门** | ✅ **要不要提炼、要不要落地都由人定**：人开批次 → 模型只提交提案（质量预检不过不落盘）→ 人批准才进 `cases/`；未结案不允许开下一批（三个闸门都有回归测试，见 `tests/pipeline-gate.test.mjs`） |
 | **成本闸门（0.2.0 第一批）** | ✅ 场景可声明 `cost`（`none`/`low`/`high`）与 `budget`；`high`（**真调模型**）默认拒绝，被拒记为 **skipped + 理由**；预算超限判 failed 并归因 `env`。默认档位表在 `src/kinds/index.ts` 的 `DRIVER_COST` |
 | **报告标准化** | ✅ `runs/<RUN-ID>/junit.xml`（CI 消费）＋ `schemas/run-report.schema.json`（结构契约）＋ 失败归因与最小复现（`src/analysis/`）；md / json / junit 三种格式**同源** |
-| **CI 与自举契约** | ✅ `.github/workflows/ci.yml`：Node 22/24 × ubuntu/windows/macos 共 9 组，唯一入口 `pnpm run gate`（不另拼一套，避免假绿） |
+| **CI 与自举契约** | ✅ `.github/workflows/ci.yml`：Node 22/24 × ubuntu/windows/macos **共 6 组，实测全绿**，唯一入口 `pnpm run gate`（不另拼一套，避免假绿） |
 | **适配层守卫** | ✅ `src/adapters/dsh/` 是全仓**唯一**允许依赖 `@deepseek-ai/dsh-*` 的目录，由 `scripts/check-adapter-boundary.mjs` 机器守卫（注释里的包名不算） |
 | **增量选择 / 夹具 / 契约 / 并发（0.2.0 第二批）** | ✅ `--changed`/`--since`/`--affected-by`（git 不可用则**退回全量**）· `fixtures/` 声明式夹具（CI 轨与插件面**同一条链**）· `tests/contracts/**` 65 条契约（含反安慰剂）· `parallel: safe` 并发隔离 + 残留检测 |
 | **组合系统** | ✅ `registry/steps/**` 片段 + `use:`/`with:` 展开 + `templates/**` 参数化（一键展平成 flat 步骤，禁控制流与场景级 include） |
@@ -94,7 +94,7 @@ npm install -D @supengpeng/dsh-testkit
 | **独立 CLI** | ✅ `dsh-testkit <子命令>`（`bin/`）：15 个子命令 + 全部选择/闸门开关；退出码冻结 `0/1/2/3`；与 `/testkit`、`testkit_*` **共用同一套引擎** |
 | **供应链与治理（0.2.0 第四批）** | ✅ CI 硬化守卫（最小权限 / 禁止 `pull_request_target` / Action **钉 SHA**）+ 锁文件守卫 + secret 扫描 + `pnpm audit` 独立步骤 + **带 provenance 的发布工作流**；`CODEOWNERS` / 贡献指南 / 行为准则 / PR 与 issue 模板 / RFC 模板 / 迁移指南 |
 | **自动 triage 与体检** | ✅ 生成 issue 草稿与 PR 评论（归因标签 + owner 路由，**只出文本不发请求、不含取证原文**）；`dsh-testkit doctor` 报告能力矩阵 / 哪些场景会 skip / 残留（临时目录、端口、进程） |
-| 验证 | ✅ `pnpm run gate`：**704 测试**（含契约轨 65）＋ **10 个守卫** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
+| 验证 | ✅ `pnpm run gate`：**705 测试**（含契约轨 65）＋ **10 个守卫** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象）；同一入口在 **GitHub Actions 三平台 6 组矩阵**上全绿 |
 
 > 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（13 个模型工具 / 15 个 CLI 子命令 /
 > 12 个 kind / 17 个断言词 / 约 241 个取证字段 / 10 个质量守卫），只列**已实现并实测**的能力。
