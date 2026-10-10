@@ -49,12 +49,40 @@
 | 3 | 本机 `pnpm run gate` 全绿 | ✅ 每次改动都在跑（当前 **710 单测** + 契约轨 65 + CI 轨 26 条场景 + **11 个守卫**） |
 | 4 | CI 组合全绿（`.github/workflows/ci.yml`） | ✅ **6/6 全绿**（Node 22/24 × ubuntu/windows/macos，实测 run #5/#6） |
 | 5 | `npm run verify:pack` 退出码 0（`files` 白名单覆盖全部入口声明的路径） | ✅ 已接进 gate（`scripts/check-pack-files.mjs`） |
-| 6 | `npm pack --dry-run` 人工核一遍清单（尤其 `bin/`、`lib/cli/`、`schemas/`、`cases/`、`fixtures/`、`registry/`、`templates/`、`dsh/`） | ⏳ 待做（本机运行时没有 npm；`verify:pack` 已把 `bin` 纳入必需路径推导，但 tarball 最终形态仍需人工核一眼） |
+| 6 | `npm pack --dry-run` 人工核一遍清单（尤其 `bin/`、`lib/cli/`、`schemas/`、`cases/`、`fixtures/`、`registry/`、`templates/`、`dsh/`） | ✅ **已由发布工作流核过**：`npm pack --dry-run --json`（Release run #2）清单断言通过，`npm notice` 里能看到 `bin/`、`lib/cli/`、`lib/doctor/`、`cases/TK-0004.yaml`、`src/client/console.tsx` 等条目 |
+| 6b | 清单判据本身要可单测 | ✅ `scripts/check-pack-manifest.mjs` + `tests/pack-manifest.test.mjs`（8 条）。**第一次上发布流就是它红**：`prepare` 的 stdout 污染了 `pack.json` → 已改成"诊断走 stderr"，并把解析失败改为**回显输出开头** |
 | 7 | `SECURITY.md` 里的邮箱占位换成真实可达地址 | ⏳ 待做（现在是 `security@dsh-testkit.invalid`） |
 | 8 | README 的 npm badge 指向自己的包名 | ✅ 已指向 `@supengpeng/dsh-testkit`（该包尚未发布，badge 会显示 not found，属预期） |
 | 9 | 从 registry 装进一个**隔离 profile** 做安装验证（`dsh plugin --profile tk add @supengpeng/dsh-testkit` → `/testkit list` 有输出） | ⏳ 待做（**发布成功后**才有意义；**发布前**已用 `link:` 形式在隔离 profile 上做完 §5 四步，覆盖 V1/V4） |
 | 10 | 打 tag + GitHub Release（附 `CHANGELOG` 段落与 `junit.xml` 样例） | ⏳ 待做 |
-| 11 | 带 provenance 发布（`npm publish --provenance`，由 GitHub Actions 的 OIDC 身份签发） | ✅ 工作流已就绪（`release.yml`：tag → gate → 清单断言 → `npm publish --provenance --access public`，**不需要任何 secret**）。⚠️ **npm 侧的 trusted publisher 必须先配好**（package settings → Trusted Publisher：仓库 + 工作流文件名）；首次发布若报 `ENEEDAUTH/404`，就是这个没配 |
+| 11 | 带 provenance 发布（`npm publish --provenance`，由 GitHub Actions 的 OIDC 身份签发） | ⚠️ **工作流已就绪且跑到最后一步**（Release run #2：gate ✅ → tag/版本一致 ✅ → 清单断言 ✅ → `npm publish` **`ENEEDAUTH`**）。**卡在 npm 侧**：npm 与 PyPI 不同，**必须先有包才能配 trusted publisher**，所以需要一个"首次发布" |
+
+### 11.1 首次发布怎么走（npm 侧的一次性动作）
+
+Release run #2 的结论原文就是 `npm error code ENEEDAUTH / need auth`——
+我们的 OIDC、权限、清单、tag 全对，缺的是 npm 那边没有可托管的包。
+
+**路径 A（最省事，推荐）**：先用一次 token 发布，再切到 OIDC
+
+```powershell
+cd <本仓>
+npm login                       # 或配置 granular access token（需 publish 权限、覆盖 @supengpeng scope）
+npm publish --access public     # 首次发布 0.2.0（与 v0.2.0 tag 一致）
+# 然后：npmjs.com → 该包 Settings → Trusted Publisher → GitHub Actions
+#       Organization/user: supengpeng  Repository: dsh-testkit  Workflow: release.yml
+```
+
+之后**再打新 tag**（例如 `v0.2.1`）就完全走 OIDC，不需要任何 secret。
+注意：首次用手发过 0.2.0 之后，**不要再重跑 `v0.2.0` 的那次工作流**（npm 不允许覆盖已发布版本）。
+
+**路径 B（想让 0.2.0 本身也带 provenance）**：先发一个一次性占位版本
+
+```powershell
+npm publish --access public     # 临时把 version 改成 0.0.0 发一次（占位，不带 provenance）
+# 配好 Trusted Publisher（同上）→ 把 version 改回 0.2.0 → 重跑 Release 工作流（tag 仍指 560e622）
+```
+
+这样 `0.2.0` 会带上 GitHub 签发的 attestation，代价是 registry 上多一个 `0.0.0` 占位版本。
 
 > **改名后必须重建 client 产物**：`lib/client.js` 是共享构建产物，源码改名而产物没重建会留下
 > "旧 module id"的分叉（本轮实测踩过一次，表现为 `TK-0015` / `ui-driver` 突然变红）。

@@ -447,7 +447,7 @@ CLI 侧另观察到 teammate 用 `send_message` 把结果回传给 Lead——说
 
 | 未做 | 为什么还没做 | 前置条件 |
 |---|---|---|
-| **实际发布 0.2.0**（`npm publish`） | 准备已就绪（provenance 工作流 + 清单断言 + 迁移指南），但发布前必须在**活宿主**里确认改名后的 client 模块 id 与「测试」标签渲染——**在看不到结果的情况下发布，等于把静默失败发出去** | 按 [PUBLISHING.md](PUBLISHING.md) §5 跑完 V1–V4，并把版本号从 `0.1.0` 提到 `0.2.0` |
+| **实际发布 0.2.0**（`npm publish`） | **仓库侧已全部就绪**：`0.2.0` + `v0.2.0` tag + 发布工作流跑到最后一步（gate ✅ / tag 一致 ✅ / 清单断言 ✅ / `npm publish` 报 `ENEEDAUTH`）。npm 要求**先有包才能配 trusted publisher**，所以还差一次"首次发布" | 用 npm 账号做首次发布（或发 `0.0.0` 占位）→ npmjs.com 配 Trusted Publisher → 之后新 tag 自动 OIDC。见 [PUBLISHING.md](PUBLISHING.md) §11.1 |
 | **自动 triage 的"发布侧"**（真开 issue / 真贴评论） | **生成侧已完整**（issue 草稿 / PR 评论 / owner 路由 + Action 入口）；真发请求需要 `GITHUB_TOKEN` 与一个真实仓库的 PR 流，本机无网也无此场景 | ① 至少一个真实仓库接了本包的 CI 轨；② 定下"什么条件下自动开 issue"（否则就是刷屏） |
 | **产物签名 / SBOM / CODEOWNERS 生效** | 签名要签**发布产物**（还没有发布产物）、CODEOWNERS 要仓库托管方启用、SBOM 需要额外工具链 | 完成一次真实发布后再补（[SUPPLY-CHAIN.md](SUPPLY-CHAIN.md) 已写明"我们做不到的"） |
 

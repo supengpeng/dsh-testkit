@@ -281,6 +281,9 @@
 | 16 | macOS：`watchCases` 把被监听目录自身当变更文件 | FSEvents 会上报目录自身的事件 | 过滤 `filename === basename(dir)` 与 `..` 开头的条目 |
 | 17 | Windows：shebang 断言红 | 缺 `.gitattributes`，`core.autocrlf=true` 把 `bin/dsh-testkit.mjs` 首行变成 `...node\r`——**这在 POSIX 上是真实发包缺陷**（`bad interpreter`） | 新增 `.gitattributes`（`eol=lf` + 二进制显式 `binary`）；断言比较前去掉 `\r` |
 | 18 | ubuntu/macOS：我新加的断言红 | 断言盯的是**形态**（"必须出现 `file://`"），而 POSIX 上跨树的相对形态本来合法 | 改为盯**性质**：说明符解出来必须还是 libDir |
+| 19 | **发布工作流第一次跑就红在"清单断言"**（Release run #1） | `npm pack` 会执行 `prepare`，而 `build-lock` / `build-client` 用 `console.log` 往 **stdout** 打诊断 → `pack.json` 首行是 `[build-client] …` → `JSON.parse` 抛 `Unexpected token 'b'`，报错里**完全不缺件**。判据当时内联在 YAML 里，无法单测 | ① 两个构建脚本的诊断改走 stderr；② 判据搬进可单测的 `scripts/check-pack-manifest.mjs`，解析失败**回显输出开头**；③ `tests/pack-manifest.test.mjs`（8 条，含"污染 ≠ 缺件"的语义区分）+ 静态守卫"prepare 脚本不许有 `console.log`" |
+| 20 | **活宿主四步验证抓到 A6 漏改**（V1/V2 的静默失败） | `dsh/cordis.patch.yml` 的 `name` 是 **Node 模块说明符**，改名后没同步：宿主半照常加载（bridge 一直通），**client 半静默不进启动图**（「测试」标签不出现、控制台无异常），`verify:cases`/`docs`/`pack` 全绿 | `name` 改为 `@supengpeng/dsh-testkit`；新增 `scripts/check-bundle-patch.mjs`（gate 的 `verify:bundle`，5 条测试含旧名/空 insert/重复 id 三条负向）；PUBLISHING 补 A13（改名后必须重装已安装 profile）与 §5.1 实测结果 |
+| 21 | **发布卡在 npm 侧的 `ENEEDAUTH`**（Release run #2 的最后一步） | 仓库侧全对（gate/tag/清单都过），但 npm 与 PyPI 不同：**必须先有包才能配 trusted publisher**，所以"首次发布"不能走 OIDC | 记录在 [PUBLISHING.md](docs/PUBLISHING.md) §11.1：路径 A（先用 token 发首次，再切 OIDC）或路径 B（先发 `0.0.0` 占位，让 `0.2.0` 本身也带 provenance） |
 
 最终 **run #5：6/6 全绿**（Node 22/24 × ubuntu/windows/macos）。
 
