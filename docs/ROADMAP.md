@@ -442,15 +442,13 @@ CLI 侧另观察到 teammate 用 `send_message` 把结果回传给 Lead——说
 
 ### 未做 / 推迟（连同**前置条件**，不是"没时间"）
 
-> 本表随 Phase 12 更新：原先挂在这里的 **scoped rename / step registry + 参数化模板 /
-> touchstone 三阶段 / `--redact` / 默认只读沙箱** 五项**已全部落地**（见 Phase 12），
-> 所以只剩下面三条。
+> 本表随 Phase 13 再次更新：**独立 CLI** 与**可观测性与 DX** 也已在 Phase 13 落地，
+> 因此这里只剩"发布之后才有意义"的两类。
 
 | 未做 | 为什么现在不做 | 前置条件 |
 |---|---|---|
-| **独立 CLI** | 本包**刻意没有 `bin`**（已由自举契约守住）。命令行能力目前由 `/testkit` 人类命令 + `testkit_*` 工具 + 导出轨承担。先证明"导出的 CI 用例能在真实仓库的 CI 跑通"，再决定 CLI 形状——反过来做会得到第二套与场景数据重复的命令面 | ① 导出轨在至少一个真实仓库的 CI 上跑通；② 明确 CLI **只做 `run` / `list`** 两个子命令，不造第二套引擎 |
-| **可观测性与 DX**（trace / 趋势 / 覆盖矩阵 / `--watch` / `--smoke`） | 前提是"运行数据已经足够多、值得聚合"。本版先把**数据本身**做对：选择取证 / 执行取证 / 归因 / 最小复现 / 夹具取证 / 清理取证都已进 `run.json` | ① 真实运行次数上来（有可比历史）；② 先定"趋势要回答什么问题"，否则做出来是图表不是决策依据 |
-| **供应链与治理**（产物签名 / RFC / CODEOWNERS / 贡献指南 / good first issues） | 这些机制在**发布之后**才有意义（签名要签发布产物、RFC 要有外部参与者） | 先完成一次真实发布（含活宿主验证），再按 [PUBLISHING.md](PUBLISHING.md) 的清单补齐 |
+| **供应链与治理**（产物签名 / RFC / CODEOWNERS / 贡献指南 / 行为准则 / good first issues） | 这些机制在**发布之后**才有意义（签名要签发布产物、RFC 要有外部参与者、CODEOWNERS 要有第二个维护者） | 先完成一次真实发布（含活宿主验证），再按 [PUBLISHING.md](PUBLISHING.md) 的清单补齐 |
+| **自动 triage**（失败关联 issue / 贴 PR / 按 owner 路由） | 前置是"有真实的 issue 与 PR 流"；现在接上只会产生空草稿。**数据面已就绪**：`owner` / `failureCategory` / `minimalRepro` / `selection` 都在 `run.json` 里 | ① 至少一个真实仓库在用本包的 CI 轨；② 定下"什么条件下自动开 issue"（否则就是刷屏） |
 
 ---
 
@@ -494,6 +492,41 @@ CLI 侧另观察到 teammate 用 `send_message` 把结果回传给 Lead——说
 > **它证明了什么**：把"条件从哪来（fixture）""场景怎么组合（registry）""这次该跑哪些（selection）"
 > "能不能并发（isolation）""结果给谁（touchstone）"这五件事从**自由发挥**变成**有守卫的形状**；
 > 并且把守 DSH 依赖形状的**契约**独立成一条先跑的轨——替身漂移了就不该继续跑场景。
+
+---
+
+## Phase 13 · 0.2.0 第三批：可观测性、检索与独立 CLI
+
+**目标**：把"跑完之后怎么读"补齐（trace / 趋势 / 覆盖矩阵 / 搜索 / 原因分级），
+并把**独立 CLI**加回来（此前刻意不加，前置是"导出轨先在真实 CI 跑通"——上一批已经满足）。
+本阶段**仍不新增 kind**。
+
+| # | 交付物 | 状态 |
+|---|---|---|
+| 13.1 | **步骤级 trace**：`CaseOutcome.trace` 记真实偏移（setup/act/assert/cleanup/case）；`runs/<RUN-ID>/trace.json` 自动落盘 | ✅ |
+| 13.2 | **trace 三导出 + 时间线**：`renderTraceJson` / `renderChromeTrace`（chrome://tracing、Perfetto）/ `renderOtelSpans`（OTLP JSON）/ `renderTimeline`；历史产物按步骤时长**重建**并标 `generatedFrom` | ✅ |
+| 13.3 | **结果趋势**：`collectRuns` → `buildTrend(kind/tag/owner/dshVersion)`：通过率 / flaky 率 / 平均与 p95 / 模型用量；样本不足时明说 | ✅ |
+| 13.4 | **覆盖矩阵 + 缺口报告**：每个 kind 的 active/draft/owner/tag/夹具分布 + **可行动**的缺口清单 | ✅ |
+| 13.5 | **场景搜索**：全文 + kind/tag/owner/cost/status 过滤；0 条时回显每个条件**单独**命中的数量 | ✅ |
+| 13.6 | **错误消息质量**：`probableCauses` 给"原因 / 可能性 / 依据 / 下一步"，按依据强弱排序、封顶 3 条；**没有依据就返回空数组** | ✅ |
+| 13.7 | **本地 DX**：`--owner` / `--cost`（上限含）/ `--smoke`（静态估算预算）/ `watchCases`（防抖） | ✅ |
+| 13.8 | **独立 CLI**：`bin/dsh-testkit.mjs` + `src/cli/**`（14 个子命令 + 全部选择/闸门开关 + 冻结退出码 0/1/2/3） | ✅ |
+| 13.9 | **形态翻转的连带同步**：`package.json` 的 `bin` + `files`、`tests/self-bootstrap.test.mjs` 的断言、README/CHANGELOG 的"刻意没有 bin"表述 | ✅ |
+
+### 验收
+
+| 验收点 | 证据（可复跑的命令/用例） |
+|---|---|
+| trace 是真实偏移而非累加 | `tests/trace.test.mjs`：`live` 与 `reconstructed` 两条路径都覆盖；三种格式 `JSON.parse` + 结构断言（OTel 纳秒差 = `durationMs × 1e6`） |
+| 趋势不编数据 | `tests/trend.test.mjs`：坏 `run.json` 跳过并计数；样本不足明写"别据此下结论"；跑完比对历史产物**逐字节不变** |
+| 覆盖矩阵可行动 | `tests/coverage.test.mjs`：每行计数与 registry 精确一致、`total` 之和 = 场景总数、行序 = `SCENARIO_KINDS`；缺口带 `action` |
+| 搜索解释 0 条 | `tests/search.test.mjs`：正例命中理由回显；条件互斥时回显各条件单独命中数 |
+| 原因分级有据可依 | `tests/causes.test.mjs`：判定表逐条 + **无依据 → 空数组**的反例 |
+| CLI 是一等公民 | `tests/cli.test.mjs`：真实 `execFileSync` 跑 bin，覆盖各子命令输出与 `0/1/2` 退出码；`bin` 形态（shebang + files 白名单）由自举契约守 |
+
+> **它证明了什么**：把"跑完怎么看"从**翻日志**变成**有坐标轴的数据**（trace 有真实偏移、
+> 趋势只读历史、矩阵能指出缺口、搜索能解释为什么是空的、失败能指回证据）；
+> 同时把"命令行可用"从**口头承诺**变成 `bin` + 冻结退出码 + 真实子进程测试。
 
 ---
 

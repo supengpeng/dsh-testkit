@@ -167,14 +167,38 @@ test('自举契约：对照组证明那个计数探针本身是有效的', async
   }
 })
 
-/* ---------------------------------------------------- CI 轨与包形态（无 bin） -- */
+/* ------------------------------------------------- CI 轨、包形态与 CLI（有 bin） -- */
 
-test('自举契约：本包刻意没有 bin，CI 轨由导出链路承担', () => {
-  assert.equal(
-    Object.prototype.hasOwnProperty.call(pkg, 'bin'),
-    false,
-    '本包是 DSH 插件 + 库，不是 CLI；出现 bin 说明形态漂移了',
-  )
+/**
+ * 形态决定**翻转**（0.2.0 第二批）：本包此前**刻意没有 `bin`**，
+ * 命令行能力由 `/testkit` 人类命令 + `testkit_*` 工具 + 导出轨承担。
+ * 现在加了 CLI（`bin/dsh-testkit.mjs`），于是这条契约改成守**新的形态**：
+ *   · `bin` 必须存在且**指向真实存在的文件**（指向不存在的入口 = 装出来就是坏的）；
+ *   · `bin` 必须在 `files` 白名单里（否则 `npm pack` 根本不带它）；
+ *   · 导出链路仍然必须存在（CLI 是**另一条**入口，不替代 CI 轨）。
+ *
+ * 为什么不留一条"没有 bin"的断言：契约要守的是**当前形态**，
+ * 形态变了就该改契约并在 CHANGELOG 里写明——留着旧断言只会逼人删测试。
+ */
+test('自举契约：CLI 入口存在且指向真实文件，导出链路同时保留', () => {
+  const bin = pkg.bin
+  assert.ok(bin !== undefined && typeof bin === 'object', '本包现在**应当**有 bin（CLI 入口）')
+
+  const entries = Object.entries(bin)
+  assert.ok(entries.length >= 1, 'bin 至少要有 1 个命令')
+  for (const [name, target] of entries) {
+    assert.match(name, /^[a-z][a-z0-9-]*$/, `bin 命令名应是小写短横线形态：${name}`)
+    const rel = String(target).replace(/^\.\//, '')
+    const file = join(root, rel)
+    assert.ok(existsSync(file), `bin.${name} 指向的文件必须存在：${rel}`)
+    // 入口必须是 ESM + 带 shebang（否则 `npm i -g` 后直接执行会失败）
+    const head = readFileSync(file, 'utf8').split('\n')[0] ?? ''
+    assert.match(head, /^#!.*node/, `bin.${name} 首行必须是 node shebang，实际：${head}`)
+  }
+
+  // 打包面：bin 目录必须在 files 里，否则发布出去没有 CLI
+  const files = Array.isArray(pkg.files) ? pkg.files : []
+  assert.ok(files.includes('bin'), 'files 白名单必须包含 bin（否则装出来没有 CLI）')
 
   // 导出链路的两个源：生成器与离线导出脚本（都是提交进仓库的源码）
   const generator = join(root, 'src', 'export', 'node-test.ts')

@@ -8,6 +8,7 @@
  */
 
 import { FAILURE_CATEGORY_LABEL } from '../analysis/classify.js'
+import { LIKELIHOOD_LABEL, probableCauses } from '../analysis/causes.js'
 import type { AssertionOutcome, CaseOutcome, RunSummary, StepOutcome } from '../runtime/runlog.js'
 import {
   assertionExpected,
@@ -110,6 +111,19 @@ function renderCase(c: CaseOutcome): string {
   if (c.usage) lines.push(`- 用量：${formatUsage(c.usage)}`)
   if (c.skipReason) lines.push(`- 跳过原因：${c.skipReason}`)
   if (c.error) lines.push(`- 错误：\`${c.error}\``)
+  // 错误消息质量（文档 §6.3）：只有**有依据**时才写"可能原因"。
+  // 没有证据就什么都不写——一串"可能原因"是噪声，不是帮助。
+  if (c.verdict === 'failed' || c.verdict === 'errored') {
+    const causes = probableCauses(c)
+    if (causes.length > 0) {
+      lines.push('- 可能原因：')
+      for (const cause of causes) {
+        lines.push(
+          `  ${cause.rank}. ${cause.cause}（可能性 ${LIKELIHOOD_LABEL[cause.likelihood]}）— 依据：${cause.evidence}；下一步：${cause.nextStep}`,
+        )
+      }
+    }
+  }
   if (c.releaseFailures.length > 0) {
     lines.push(`- ⚠️ 夹具释放失败 ${c.releaseFailures.length} 项（有泄漏风险）：`)
     for (const f of c.releaseFailures) lines.push(`  - \`${f.label}\`：${f.error}`)

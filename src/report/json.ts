@@ -9,6 +9,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { RunSummary } from '../runtime/runlog.js'
+import { renderTraceJson } from '../trace/index.js'
 import { renderJUnit } from './junit.js'
 import { renderMarkdown } from './markdown.js'
 import { redactSummary, type RedactionFinding } from './redact.js'
@@ -19,6 +20,12 @@ export interface RunArtifacts {
   markdownPath: string
   /** `junit.xml` 路径；这一份写失败时为 undefined（见 `writeRunArtifacts` 的 `junitError`）。 */
   junitPath?: string
+  /**
+   * `trace.json` 路径；这一份写失败时为 undefined（与 junit 同样隔离）。
+   *
+   * 只在**这次运行真的记了 trace** 时才写——空 trace 文件比没有文件更误导。
+   */
+  tracePath?: string
 }
 
 /** `writeRunArtifacts` 的选项。 */
@@ -56,6 +63,7 @@ export async function writeRunArtifacts(
   artifacts?: RunArtifacts
   error?: string
   junitError?: string
+  traceError?: string
   /** 脱敏命中（只含路径与类型，不含原文）。 */
   redaction?: { count: number; findings: RedactionFinding[] }
 }> {
@@ -69,6 +77,7 @@ export async function writeRunArtifacts(
     const jsonPath = join(dir, 'run.json')
     const markdownPath = join(dir, 'report.md')
     const junitPath = join(dir, 'junit.xml')
+    const tracePath = join(dir, 'trace.json')
     await writeFile(jsonPath, renderJson(effective), 'utf8')
     await writeFile(markdownPath, renderMarkdown(effective), 'utf8')
 
@@ -81,6 +90,20 @@ export async function writeRunArtifacts(
       junitError = error instanceof Error ? error.message : String(error)
     }
 
+    // trace.json 只在**这次运行真的记了 trace** 时才写。
+    // 给没记 trace 的运行也写一份"重建"文件，会让读者分不清
+    // "这是实测偏移"还是"这是从步骤时长反推的近似"——那比没有文件更误导。
+    let writtenTrace: string | undefined
+    let traceError: string | undefined
+    if (effective.cases.some((item) => (item.trace?.length ?? 0) > 0)) {
+      try {
+        await writeFile(tracePath, renderTraceJson(effective), 'utf8')
+        writtenTrace = tracePath
+      } catch (error) {
+        traceError = error instanceof Error ? error.message : String(error)
+      }
+    }
+
     const findings = redacted === undefined ? [] : redacted.findings
 
     return {
@@ -89,8 +112,10 @@ export async function writeRunArtifacts(
         jsonPath,
         markdownPath,
         ...(writtenJUnit === undefined ? {} : { junitPath: writtenJUnit }),
+        ...(writtenTrace === undefined ? {} : { tracePath: writtenTrace }),
       },
       ...(junitError === undefined ? {} : { junitError }),
+      ...(traceError === undefined ? {} : { traceError }),
       ...(findings.length === 0 ? {} : { redaction: { count: findings.length, findings } }),
     }
   } catch (error) {
@@ -98,5 +123,5 @@ export async function writeRunArtifacts(
   }
 }
 
-export { renderJUnit, renderMarkdown }
+export { renderJUnit, renderMarkdown, renderTraceJson }
 

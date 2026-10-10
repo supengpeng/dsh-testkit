@@ -8,18 +8,30 @@
 import { join } from 'node:path'
 
 import { FAILURE_CATEGORY_LABEL } from './analysis/classify.js'
+import { probableCauses, renderCauses } from './analysis/causes.js'
 import { packageRoot } from './config.js'
 import type { CaseFilter, CaseRegistry } from './cases/registry.js'
 import type { ScenarioKind } from './cases/types.js'
+import { applyDxFilter, suggestSmokeSet, type DxFilterOptions } from './dx/select.js'
 import { resolvePolicy, tightenLimit, type ExecutionPolicy, type PolicyOptions, type SandboxPolicy } from './executor/policy.js'
+import { buildCoverage, renderCoverage } from './insight/coverage.js'
+import { renderSearchResult, searchScenarios } from './insight/search.js'
+import { buildTrend, collectRuns, renderTrend } from './insight/trend.js'
 import type { DriverRegistry, HostFacade, ToolDefinition } from './kinds/types.js'
 import type { PipelineStore } from './pipeline/index.js'
 import { loadRegistry, expandScenario } from './registry/index.js'
 import { runScenarios, type RunProgress } from './runtime/runner.js'
+import type { RunSummary } from './runtime/runlog.js'
 import { writeRunArtifacts } from './report/json.js'
 import { renderMarkdown } from './report/markdown.js'
 import { resolveSelectionFromRaw } from './surface/selection-args.js'
 import { latestRunJson } from './surface/runs.js'
+import {
+  renderChromeTrace,
+  renderOtelSpans,
+  renderTimeline,
+  renderTraceJson,
+} from './trace/index.js'
 import { exportBugReports } from './touchstone/index.js'
 
 export interface ToolDeps {
@@ -141,6 +153,7 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
         type: 'object',
         properties: {
           ids: { type: 'array', items: { type: 'string' }, description: '指定 case id，如 TK-0001' },
+          only: { type: 'array', items: { type: 'string' }, description: '同 ids（显式点名；与其它 DX 过滤可叠加）' },
           kinds: { type: 'array', items: { type: 'string' }, description: '按场景类型选择' },
           tags: { type: 'array', items: { type: 'string' }, description: '按标签选择' },
           timeoutMs: { type: 'number', description: '覆盖默认超时' },
@@ -188,11 +201,21 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
             type: 'boolean',
             description: '写报告前脱敏（过滤 token / 私钥 / 邮箱 / 家目录路径），并在报告里写明脱敏了几处。',
           },
+          owner: { type: 'string', description: '按负责人过滤（忽略大小写与 @ 前缀）。' },
+          cost: { type: 'string', description: '按成本档过滤：none | low | high（取"最高允许档"语义）。' },
+          smoke: {
+            type: 'boolean',
+            description: '只跑冒烟集（tags 含 smoke，再按成本档与静态耗时估算补足到预算内）。',
+          },
+          smokeBudgetMs: { type: 'number', description: '冒烟集的静态估算预算（毫秒），默认 5000。' },
         },
         additionalProperties: false,
       },
       execute: async (args, exec) => {
-        const ids = asStringArray(args.ids)
+        let ids = asStringArray(args.ids)
+        // `--only` 语义：显式点名（与 ids 同义，但更贴近 CLI/DX 说法）
+        const only = asStringArray(args.only)
+        if (only !== undefined) ids = [...new Set([...(ids ?? []), ...only])]
         let filter: CaseFilter = {
           ...(ids ? { ids } : {}),
           ...(asStringArray(args.kinds) ? { kinds: asStringArray(args.kinds) as ScenarioKind[] } : {}),
@@ -210,6 +233,24 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
           registryDir: registryDir(),
         })
         if (selection.filter !== undefined) filter = selection.filter
+
+        // DX 过滤（owner / cost / smoke）：与增量选择并列的第二类"选哪些"，
+        // 优先级更高（人是显式点了 SMOKE 还是改了文件，人自己清楚）。
+        const dxArgs: DxFilterOptions = {
+          ...(ids === undefined ? {} : { only: ids }),
+          ...(typeof args.owner === 'string' && args.owner.trim() !== '' ? { owner: args.owner } : {}),
+          ...(typeof args.cost === 'string' && args.cost.trim() !== ''
+            ? { cost: args.cost.trim() as never }
+            : {}),
+          ...(args.smoke === true ? { smoke: true } : {}),
+          ...(typeof args.smokeBudgetMs === 'number' ? { smokeBudgetMs: args.smokeBudgetMs } : {}),
+        }
+        const dxUsed =
+          dxArgs.owner !== undefined || dxArgs.cost !== undefined || dxArgs.smoke === true
+        const dx = dxUsed ? applyDxFilter(registry.all, dxArgs) : undefined
+        if (dx !== undefined) {
+          filter = { ids: dx.matched.map((s) => s.id), status: ['active'] }
+        }
 
         // 闸门**总是**构造（默认 allowModel=false）；见 buildPolicy 的两条纪律。
         const policy = buildPolicy(deps, args)
@@ -251,6 +292,9 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
         if (summary.selection !== undefined) {
           lines.push(`增量判定（${summary.selection.mode}）：${summary.selection.detail}`)
         }
+        if (dx !== undefined) {
+          lines.push(`DX 过滤：${dx.reason}（命中 ${dx.matched.length} 条）`)
+        }
         lines.push(`合计 ${t.total} — ✅ ${t.passed} · ❌ ${t.failed} · ⏭️ ${t.skipped} · 💥 ${t.errored}`)
         lines.push(describePolicy(summary))
         if (summary.execution !== undefined && summary.execution.parallel !== 'off') {
@@ -282,6 +326,14 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
             }
             if (c.minimalRepro !== undefined) {
               for (const line of c.minimalRepro.split('\n')) lines.push(`  ${line}`)
+            }
+            // 错误消息质量（文档 §6.3）：给"可能原因 + 依据 + 下一步"，
+            // 但**没有依据就什么都不说**——宁可沉默，也不要给一堆"可能原因"当噪声。
+            if (c.verdict === 'failed' || c.verdict === 'errored') {
+              const causes = probableCauses(c)
+              if (causes.length > 0) {
+                for (const line of renderCauses(causes).split('\n')) lines.push(`  ${line}`)
+              }
             }
           }
         }
@@ -463,6 +515,130 @@ export function defineTestkitTools(deps: ToolDeps): ToolDefinition[] {
           }
         })
         return lines.join('\n')
+      },
+    },
+
+    {
+      name: 'testkit_trace',
+      description:
+        '查看某次运行的步骤级 trace：timeline（人看）/ json（本仓规范）/ chrome（可直接喂 chrome://tracing、Perfetto）/ otel（OTLP spans）。省略 runId 取最近一次运行。',
+      parameters: {
+        type: 'object',
+        properties: {
+          runId: { type: 'string', description: '省略 = 最近一次运行' },
+          format: { type: 'string', enum: ['timeline', 'json', 'chrome', 'otel'], description: '缺省 timeline' },
+          top: { type: 'number', description: 'timeline 里最慢 top N（缺省 5）' },
+          full: { type: 'boolean', description: '是否返回完整内容（默认截断）' },
+        },
+        additionalProperties: false,
+      },
+      execute: async (args) => {
+        const runId = typeof args.runId === 'string' && args.runId.trim() !== '' ? args.runId.trim() : undefined
+        const located = latestRunJson(deps.runsDir(), runId)
+        if (!located.ok || located.path === undefined) {
+          return `无法定位运行记录：${located.reason ?? '未知原因'}`
+        }
+        const { readFile } = await import('node:fs/promises')
+        let summary: RunSummary
+        try {
+          summary = JSON.parse(await readFile(located.path, 'utf8')) as RunSummary
+        } catch (error) {
+          return `读取 ${located.path} 失败：${error instanceof Error ? error.message : String(error)}`
+        }
+
+        const format = typeof args.format === 'string' ? args.format : 'timeline'
+        if (format === 'json') return renderTraceJson(summary)
+        if (format === 'chrome') return renderChromeTrace(summary)
+        if (format === 'otel') return renderOtelSpans(summary)
+        if (format !== 'timeline') {
+          return `不支持的格式：${format}（timeline | json | chrome | otel）`
+        }
+        const text =
+          typeof args.top === 'number'
+            ? renderTimeline(summary, { top: args.top })
+            : renderTimeline(summary)
+        return args.full === true || text.length <= 8000
+          ? text
+          : `${text.slice(0, 8000)}\n\n…（已截断，用 full: true 取全文）`
+      },
+    },
+
+    {
+      name: 'testkit_trend',
+      description:
+        '按维度聚合历史运行（kind / tag / owner / dshVersion）：通过率、flaky 率、耗时、模型用量。数据不足时会明说"别据此下结论"，样本缺失时说"未知"而不是 0。',
+      parameters: {
+        type: 'object',
+        properties: {
+          dimension: { type: 'string', enum: ['kind', 'tag', 'owner', 'dshVersion'], description: '缺省 kind' },
+          limit: { type: 'number', description: '只看最近 N 次运行' },
+        },
+        additionalProperties: false,
+      },
+      execute: (args) => {
+        const dimension = typeof args.dimension === 'string' ? args.dimension : 'kind'
+        const collected = collectRuns(
+          deps.runsDir(),
+          typeof args.limit === 'number' ? { limit: args.limit } : {},
+        )
+        if (collected.runs.length === 0) {
+          const lines = [`还没有可用的历史运行（${deps.runsDir()}）`]
+          for (const item of collected.skipped.slice(0, 5)) {
+            lines.push(`  跳过 ${item.dir}：${item.reason}`)
+          }
+          return lines.join('\n')
+        }
+        const trend = buildTrend(collected.runs, {
+          dimension: dimension as never,
+          scenarioTags: (id) => registry.all.find((s) => s.id === id)?.tags ?? [],
+        })
+        const lines = [renderTrend(trend)]
+        if (collected.skipped.length > 0) {
+          lines.push('', `⚠️ 跳过 ${collected.skipped.length} 个坏产物（不是"没问题"，是读不出来）：`)
+          for (const item of collected.skipped.slice(0, 5)) lines.push(`  ${item.dir}：${item.reason}`)
+        }
+        return lines.join('\n')
+      },
+    },
+
+    {
+      name: 'testkit_coverage',
+      description:
+        '覆盖矩阵 + 缺口报告：每个 kind 有多少场景、active/draft 分布、有没有 owner / tag / 夹具，并给出可行动的缺口清单（缺什么、怎么补）。',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+      execute: () => renderCoverage(buildCoverage(registry.all)),
+    },
+
+    {
+      name: 'testkit_search',
+      description:
+        '全文搜索场景（id / 标题 / 标签 / owner / 来源 / 步骤文本），可按 kind / tag / owner / cost / status 过滤；0 条时回显每个条件单独命中的数量，说明"为什么是空的"。',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: '全文关键词（忽略大小写）' },
+          kinds: { type: 'array', items: { type: 'string' } },
+          tags: { type: 'array', items: { type: 'string' } },
+          owner: { type: 'string', description: '忽略大小写与 @ 前缀' },
+          cost: { type: 'string', description: 'none | low | high' },
+          status: { type: 'array', items: { type: 'string' } },
+        },
+        additionalProperties: false,
+      },
+      execute: (args) => {
+        const kinds = asStringArray(args.kinds)
+        const tags = asStringArray(args.tags)
+        const status = asStringArray(args.status)
+        return renderSearchResult(
+          searchScenarios(registry.all, {
+            ...(typeof args.text === 'string' && args.text.trim() !== '' ? { text: args.text } : {}),
+            ...(kinds === undefined ? {} : { kinds }),
+            ...(tags === undefined ? {} : { tags }),
+            ...(typeof args.owner === 'string' && args.owner.trim() !== '' ? { owner: args.owner } : {}),
+            ...(typeof args.cost === 'string' && args.cost.trim() !== '' ? { cost: args.cost } : {}),
+            ...(status === undefined ? {} : { status }),
+          }),
+        )
       },
     },
 

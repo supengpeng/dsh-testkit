@@ -61,6 +61,14 @@ const addEntry = (value, what) => {
 addEntry(pkg.main, 'main')
 addEntry(pkg.types, 'types')
 
+// 1b) CLI 入口（`bin`）：**必须推导**，否则"bin 忘了进 files"这类缺件没人抓——
+//     装出来就是 `command not found`，而本地（直接 node bin/xxx.mjs）一切正常。
+if (pkg.bin !== null && typeof pkg.bin === 'object') {
+  for (const [name, target] of Object.entries(pkg.bin)) addEntry(target, `bin.${name}`)
+} else if (typeof pkg.bin === 'string') {
+  addEntry(pkg.bin, 'bin')
+}
+
 // 2) exports 里的所有目标
 const walkExports = (node) => {
   if (typeof node === 'string') {

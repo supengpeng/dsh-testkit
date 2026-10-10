@@ -118,6 +118,8 @@ export interface CaseOutcome {
   fixtures?: FixtureRef[]
   /** 清理与残留取证（见 `src/isolation/`）。 */
   cleanup?: CleanupRecord
+  /** 步骤级 trace（见 `src/trace/`）；每步一条 `act` + 一条 `assert`，外加 case 总跨度。 */
+  trace?: TraceSpan[]
 }
 
 export interface RunTotals {
@@ -158,6 +160,24 @@ export interface ExecutionRecord {
   safe: number
   /** 强制独占的场景数。 */
   exclusive: number
+}
+
+/**
+ * 一次 trace 跨度（可观测性，文档 §6.1）。
+ *
+ * 为什么记**相对偏移**而不是绝对时间戳：报告要能跨运行对比（"这一步一直是 45ms
+ * 还是忽然变成 900ms"），绝对时间戳一对比就全是噪声。
+ * 偏移基准是**本条 case 开始**（`startMs = 0` 即 case 起点）。
+ */
+export interface TraceSpan {
+  phase: 'case' | 'setup' | 'act' | 'assert' | 'cleanup'
+  /** 人类可读的名字（步骤名 / 动作标签 / 阶段名）。 */
+  name: string
+  /** 相对 case 起点的偏移（毫秒）。 */
+  startMs: number
+  durationMs: number
+  /** 有判定含义的阶段才有：`act` 是否成功、`assert` 是否通过。 */
+  ok?: boolean
 }
 
 /**

@@ -62,8 +62,10 @@
   每个 driver 的 `kind` / `description` 必须非空且自洽；
   **`llm` driver 的"零上游请求"由 headless 宿主暴露的真实适配器计数证明**
   （并配一个对照组证明那个探针有效——driver 自己数自己永远数得出想要的数）。
-- 把「本包**没有 `bin`**」这一既有事实变成显式断言：本包是插件 + 库，不是 CLI；
-  CI 轨由 `scripts/export-scenarios.mjs` + `export/scenarios.test.mjs` 承担（断言都串在 gate 里）。
+- 把「本包**没有 `bin`**」这一既有事实变成显式断言（当时的形态：插件 + 库，不是 CLI；
+  CI 轨由 `scripts/export-scenarios.mjs` + `export/scenarios.test.mjs` 承担）。
+  > ⚠️ **这条决定已在「十四」被翻转**：现在有 CLI（`bin/dsh-testkit.mjs`），
+  > 该断言改守新形态（bin 存在、指向真实文件、且在 `files` 白名单里），导出链路同时保留。
 
 ### 四、适配层守卫
 
@@ -194,6 +196,34 @@
   共享构建产物，不重建会留下"源码已改名、产物还是旧 id"的分叉（本轮实测踩过一次，
   表现为 `TK-0015` / `ui-driver` 突然变红）。gate 已保证 `build-client` 先跑。
 
+### 十四、可观测性、检索与独立 CLI（文档 §6.1–§6.5）
+
+- **trace（§6.1）**：`CaseOutcome.trace` 记**真实偏移**（`setup` / `act` / `assert` / `cleanup` /
+  `case` 五类跨度，相对 case 起点）。`runs/<RUN-ID>/trace.json` 每次运行自动落盘；
+  四种导出同源：`renderTimeline`（人看）/ `renderTraceJson`（本仓规范）/
+  `renderChromeTrace`（`chrome://tracing`、Perfetto）/ `renderOtelSpans`（OTLP JSON）。
+  历史 `run.json` 没有 trace 时按步骤时长**重建**，并如实标 `generatedFrom: 'reconstructed'`。
+- **结果趋势（§6.5）**：`collectRuns` → `buildTrend(dimension: kind|tag|owner|dshVersion)` →
+  通过率 / flaky 率（用 `rounds`）/ 平均与 p95 耗时 / 模型用量；样本不足时**明说"别据此下结论"**，
+  缺数据说"未知"而不是 0。**只读历史产物**。
+- **覆盖矩阵与缺口（§6.4）**：`buildCoverage` 输出每个 kind 的 active/draft/owner/tag/夹具分布
+  与**可行动的缺口清单**（缺什么、怎么补）。
+- **场景搜索（§6.4）**：`searchScenarios` 全文匹配 + kind/tag/owner/cost/status 过滤，
+  0 条时回显"每个条件单独命中多少"，解释为什么是空的。
+- **错误消息质量（§6.3）**：`probableCauses(outcome)` 给"原因 / 可能性 / 依据 / 下一步"，
+  按依据强弱排序并封顶 3 条；**没有依据就返回空数组**（不编）。报告与工具/命令输出都带上它。
+- **本地 DX（§6.2）**：`--owner` / `--cost`（上限含）/ `--smoke`（静态估算预算，默认 5s）/
+  `watchCases`（`fs.watch` + 防抖，供 `--watch` 用）。
+- **独立 CLI（§6.2/§8.2）**：**形态翻转** —— 新增 `bin/dsh-testkit.mjs` 与 `src/cli/**`。
+  子命令 `run / list / report / expand / export / import / trace / trend / coverage / search /
+  registry / fixtures / help / version`；`run` 支持全部选择与闸门开关。
+  **退出码冻结**：`0` 全部 passed/skipped、`1` 有 failed/errored、`2` 用法错误或选中 0 条、
+  `3` 基础设施错误。CLI 走 headless 宿主，并**如实标注**需要 subprocess/fs/sessions 的场景会 skip。
+
+> **为什么现在才加 CLI**：此前刻意不加，是因为"先在真实仓库的 CI 里跑通导出轨"这条前置没满足，
+> 早加会得到第二套与场景数据重复的命令面。现在导出轨已经进 gate 并在全新 checkout 上验证过，
+> 且 CLI 只做**同一套引擎的入口**（不重造 runner / 不重造选择器）。
+
 ### 迁移说明
 
 | 变化 | 对既有使用者的影响 | 要不要动手 |
@@ -210,6 +240,10 @@
 | 报告新增字段 | `policy` / `usage` / `failureCategory` / `minimalRepro` / `rounds` / `owner` / `fixtures` / `cleanup` / `selection` / `execution` / `redaction` **只增不改**；`schema` 仍是 `1` | 解析方按可选字段处理 |
 | 包名 `dsh-testkit` → `@supengpeng/dsh-testkit` | 插件 id 与 locale 命名空间**不变**；client 模块 id 跟随包名变化（已重建产物） | 从 git / 本地路径安装的用法不变；**改名后的活宿主渲染仍需人工验一次**（见 [docs/PUBLISHING.md](docs/PUBLISHING.md) §5） |
 | 工具面新增 `testkit_expand`；`testkit_export` 增 `target: touchstone` | 注册面从 6 个工具变 7 个 | 断言"恰好 6 个工具"的调用方需要更新（本仓的 `host-apply` 已同步） |
+| **工具面再增 4 个（第二批 ②）**：`testkit_trace` / `testkit_trend` / `testkit_coverage` / `testkit_search` | 注册面 7 → **11** 个工具 | 同上：断言工具数/名字集合的调用方需更新（本仓 `host-apply` 已同步到 11） |
+| **新增 `bin`（**形态变化**）** | 本包从"插件 + 库"变成"插件 + 库 + CLI"；`files` 增加 `bin/` | 不需要动手；`npm i -g @supengpeng/dsh-testkit` 后可直接 `dsh-testkit list`（CLI 是同一套引擎的入口，不是第二套实现） |
+| 新产物 `runs/<RUN-ID>/trace.json` | 多一个文件；**只在这次运行真的记了 trace 时才写**（不给没记 trace 的运行写"重建"文件，避免分不清实测与近似） | 不需要 |
+| 报告新增字段 `CaseOutcome.trace` | 只增不改；`schema` 仍是 `1` | 解析方按可选字段处理 |
 | `src/host-facade.ts` 的导入路径 | 内部实现，导出面不变 | 不需要 |
 
 ### 已知限界（本次交付的诚实边界）
@@ -243,9 +277,8 @@
 
 | 推迟项 | 为什么现在不做 | 解除前置条件 |
 |---|---|---|
-| **独立 CLI（`bin`）** | 本包**刻意没有 `bin`**（见「三」）：命令行能力目前由 `/testkit` 人类命令 + `testkit_*` 工具 + 导出轨承担。先证明"导出的 CI 用例能在真实仓库的 CI 里跑通"，再决定 CLI 长什么样；反过来做会得到一套与场景数据重复的命令面 | ① 导出轨在至少一个真实仓库的 CI 上跑通；② 明确 CLI 只做 `run` / `list` 两个子命令（不做第二套引擎） |
-| **可观测性与 DX（trace / 趋势 / 覆盖矩阵 / `--watch` / `--smoke`）** | 它们的前提是"运行数据已经足够多、值得聚合"；本版先把**数据本身**做对（选择取证 / 执行取证 / 归因 / 夹具取证 / 清理取证都已在 `run.json` 里） | ① 真实运行次数上来（有可比的历史）；② 先定"趋势要回答什么问题"，否则做出来的是图表而不是决策依据 |
-| **供应链与治理（产物签名 / RFC / CODEOWNERS / 贡献指南 / good first issues）** | 这些是**发布之后**才有意义的机制（签名要签发布产物、RFC 要有外部参与者） | 先完成一次真实发布（含活宿主验证），再按 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的清单补齐 |
+| **供应链与治理（产物签名 / RFC / CODEOWNERS / 贡献指南 / good first issues）** | 这些是**发布之后**才有意义的机制（签名要签发布产物、RFC 要有外部参与者、CODEOWNERS 要有第二个维护者） | 先完成一次真实发布（含活宿主验证），再按 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的清单补齐 |
+| **自动 triage（失败关联 issue / 贴 PR / 按 owner 路由）** | 前置是"有真实的 issue 与 PR 流"；现在给它接上只会产生空草稿。**数据面已就绪**：`owner` / `failureCategory` / `minimalRepro` / `selection` 都在 `run.json` 里 | ① 至少一个真实仓库在用本包的 CI 轨；② 定下"什么条件下自动开 issue"（否则就是刷屏） |
 
 ---
 

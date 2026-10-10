@@ -9,17 +9,29 @@
  */
 
 import { FAILURE_CATEGORY_LABEL } from './analysis/classify.js'
+import { probableCauses, renderCauses } from './analysis/causes.js'
 import { packageRoot } from './config.js'
 import type { CaseRegistry } from './cases/registry.js'
 import type { ScenarioKind } from './cases/types.js'
+import { applyDxFilter, type DxFilterOptions } from './dx/select.js'
 import { resolvePolicy, type PolicyOptions } from './executor/policy.js'
+import { buildCoverage, renderCoverage } from './insight/coverage.js'
+import { renderSearchResult, searchScenarios } from './insight/search.js'
+import { buildTrend, collectRuns, renderTrend } from './insight/trend.js'
 import type { CommandDefinition, CommandResultLike, DriverRegistry, HostFacade } from './kinds/types.js'
 import type { PipelineStore } from './pipeline/index.js'
 import { expandScenario, loadRegistry } from './registry/index.js'
 import { writeRunArtifacts } from './report/json.js'
 import { runScenarios } from './runtime/runner.js'
+import type { RunSummary } from './runtime/runlog.js'
 import { resolveSelection, type SelectionArgs } from './surface/selection-args.js'
 import { latestRunJson } from './surface/runs.js'
+import {
+  renderChromeTrace,
+  renderOtelSpans,
+  renderTimeline,
+  renderTraceJson,
+} from './trace/index.js'
 import { exportBugReports, parseCaseMd } from './touchstone/index.js'
 import { join } from 'node:path'
 
@@ -61,6 +73,13 @@ const USAGE = [
   '  /testkit run --dsh-version <v>   按宿主版本过滤（读 fixture 的 dsh_version 绑定）',
   '  /testkit run --parallel 4        并发度上限（只有 parallel: safe 的场景会并发）',
   '  /testkit run --redact            写报告前脱敏（token / 私钥 / 邮箱 / 家目录路径）',
+  '  /testkit run --owner @you        只跑某人的场景',
+  '  /testkit run --cost none         只跑某成本档（none | low | high）',
+  '  /testkit run --smoke             只跑冒烟集（5 秒静态估算预算，可 --smoke-budget 调）',
+  '  /testkit trace [runId]           看步骤级 trace（--format timeline|json|chrome|otel）',
+  '  /testkit trend [dimension]       按 kind / tag / owner / dshVersion 聚合历史运行',
+  '  /testkit coverage                覆盖矩阵 + 缺口报告',
+  '  /testkit search <关键词>          全文搜索场景（0 条时解释为什么是空的）',
   '  /testkit run --allow-model       本次放行 high 档（**真实模型调用**，默认拒绝）',
   '  /testkit run --allow-low-cost    本次放行 low 档（起进程 / 写文件）',
   '  /testkit expand TK-0100          把 use: 步骤展开成 flat 步骤',
@@ -102,7 +121,7 @@ export function defineTestkitCommands(deps: CommandDeps): CommandDefinition[] {
       name: 'testkit',
       description: 'dsh-testkit：列出 / 运行 / 报告 / 重载测试场景，以及 issue 提炼闸门',
       inputHint:
-        'list | run [ids] [--kind k] [--tag t] | report [runId] | export [outDir] | reload | issue <open|show|approve|reject|close>',
+        'list | run [ids] [--kind k] [--tag t] [--smoke] [--owner o] | report [runId] | trace [runId] | trend | coverage | search <词> | export [outDir] | reload | issue <open|show|approve|reject|close>',
       execute: async (rawInput, signal) => {
         const argv = tokenize(rawInput)
         const sub = argv.shift() ?? 'list'
@@ -135,11 +154,17 @@ export function defineTestkitCommands(deps: CommandDeps): CommandDefinition[] {
                     registryDir,
                   })
 
+            const dx =
+              selection.dx === undefined ? undefined : applyDxFilter(deps.registry.all, selection.dx)
+
             const summary = await runScenarios({
               registry: deps.registry,
               drivers: deps.drivers,
               host: deps.host,
-              filter: incremental.filter ?? selection.filter,
+              filter:
+                dx === undefined
+                  ? (incremental.filter ?? selection.filter)
+                  : { ids: dx.matched.map((s) => s.id), status: ['active'] },
               signal,
               policy,
               fixtures: { fixturesDir, dshVersion: deps.host.env.dshVersion },
@@ -160,6 +185,9 @@ export function defineTestkitCommands(deps: CommandDeps): CommandDefinition[] {
             if (summary.selection !== undefined) {
               lines.push(`增量判定（${summary.selection.mode}）：${summary.selection.detail}`)
             }
+            if (dx !== undefined) {
+              lines.push(`DX 过滤：${dx.reason}（命中 ${dx.matched.length} 条）`)
+            }
             if (summary.execution !== undefined && summary.execution.parallel !== 'off') {
               lines.push(
                 `并发：上限 ${summary.execution.limit}（safe ${summary.execution.safe} / exclusive ${summary.execution.exclusive}）`,
@@ -173,6 +201,13 @@ export function defineTestkitCommands(deps: CommandDeps): CommandDefinition[] {
               const category =
                 c.failureCategory === undefined ? '' : `［${FAILURE_CATEGORY_LABEL[c.failureCategory]}］`
               lines.push(`  ${c.verdict === 'skipped' ? '⏭️' : c.verdict === 'failed' ? '❌' : '💥'} ${c.id} ${c.title} — ${why}${category}`)
+              // 错误消息质量（文档 §6.3）：只有**有依据**时才给"可能原因"。
+              if (c.verdict === 'failed' || c.verdict === 'errored') {
+                const causes = probableCauses(c)
+                if (causes.length > 0) {
+                  for (const line of renderCauses(causes).split('\n')) lines.push(`    ${line}`)
+                }
+              }
             }
             lines.push(write.artifacts ? `报告：${write.artifacts.markdownPath}` : `⚠️ 报告写入失败：${write.error}`)
             return { kind: 'success', text: lines.join('\n') }
@@ -361,6 +396,64 @@ export function defineTestkitCommands(deps: CommandDeps): CommandDefinition[] {
                 kind: 'error',
                 text: `导出失败：${error instanceof Error ? error.message : String(error)}`,
               }
+            }
+          }
+
+          case 'trace': {
+            const formatIndex = argv.findIndex((a) => a === '--format')
+            const format = formatIndex >= 0 ? argv[formatIndex + 1] : 'timeline'
+            const runId = argv.find((a, i) => !a.startsWith('-') && i !== formatIndex + 1)
+            const located = latestRunJson(deps.runsDir(), runId)
+            if (!located.ok || located.path === undefined) {
+              return { kind: 'error', text: `无法定位运行记录：${located.reason ?? '未知原因'}` }
+            }
+            const { readFile } = await import('node:fs/promises')
+            let summary: RunSummary
+            try {
+              summary = JSON.parse(await readFile(located.path, 'utf8')) as RunSummary
+            } catch (error) {
+              return { kind: 'error', text: `读取失败：${error instanceof Error ? error.message : String(error)}` }
+            }
+            if (format === 'json') return { kind: 'success', text: renderTraceJson(summary) }
+            if (format === 'chrome') return { kind: 'success', text: renderChromeTrace(summary) }
+            if (format === 'otel') return { kind: 'success', text: renderOtelSpans(summary) }
+            if (format !== 'timeline') {
+              return { kind: 'error', text: `不支持的格式：${format}（timeline | json | chrome | otel）` }
+            }
+            const text = renderTimeline(summary)
+            return {
+              kind: 'success',
+              text: text.length > 6000 ? `${text.slice(0, 6000)}\n…（截断；用 /testkit trace --format json 取全量）` : text,
+            }
+          }
+
+          case 'trend': {
+            const dimension = argv.find((a) => !a.startsWith('-')) ?? 'kind'
+            const collected = collectRuns(deps.runsDir())
+            if (collected.runs.length === 0) {
+              return { kind: 'success', text: `还没有可用的历史运行（${deps.runsDir()}）` }
+            }
+            const trend = buildTrend(collected.runs, {
+              dimension: dimension as never,
+              scenarioTags: (id) => deps.registry.all.find((s) => s.id === id)?.tags ?? [],
+            })
+            const lines = [renderTrend(trend)]
+            if (collected.skipped.length > 0) {
+              lines.push('', `⚠️ 跳过 ${collected.skipped.length} 个坏产物（不是"没问题"，是读不出来）`)
+            }
+            return { kind: 'success', text: lines.join('\n') }
+          }
+
+          case 'coverage':
+            return { kind: 'success', text: renderCoverage(buildCoverage(deps.registry.all)) }
+
+          case 'search': {
+            const text = argv.filter((a) => !a.startsWith('-')).join(' ').trim()
+            return {
+              kind: 'success',
+              text: renderSearchResult(
+                searchScenarios(deps.registry.all, text === '' ? {} : { text }),
+              ),
             }
           }
 
@@ -558,6 +651,8 @@ interface SelectionResult {
   redact?: boolean
   /** `--parallel <n>`：并发度上限。 */
   parallelLimit?: number
+  /** DX 过滤（`--owner` / `--cost` / `--smoke`）。 */
+  dx?: DxFilterOptions
   error?: string
 }
 
@@ -568,6 +663,7 @@ function parseSelection(argv: string[]): SelectionResult {
   const affectedBy: string[] = []
   const overrides: { allowModel?: boolean; allowLowCost?: boolean } = {}
   const incremental: SelectionArgs = {}
+  const dx: DxFilterOptions = {}
   let redact: boolean | undefined
   let parallelLimit: number | undefined
 
@@ -615,6 +711,26 @@ function parseSelection(argv: string[]): SelectionResult {
       i += 1
     } else if (token === '--redact') {
       redact = true
+    } else if (token === '--owner') {
+      const value = needValue('--owner', argv[i + 1])
+      if (!value) return { filter: { status: ['active'] }, error: '--owner 需要一个值' }
+      dx.owner = value
+      i += 1
+    } else if (token === '--cost') {
+      const value = needValue('--cost', argv[i + 1])
+      if (!value) return { filter: { status: ['active'] }, error: '--cost 需要一个档位：none | low | high' }
+      dx.cost = value as never
+      i += 1
+    } else if (token === '--smoke') {
+      dx.smoke = true
+    } else if (token === '--smoke-budget') {
+      const value = needValue('--smoke-budget', argv[i + 1])
+      const parsed = value === undefined ? Number.NaN : Number(value)
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        return { filter: { status: ['active'] }, error: '--smoke-budget 需要一个正整数（毫秒）' }
+      }
+      dx.smokeBudgetMs = parsed
+      i += 1
     } else if (token === '--allow-model') {
       overrides.allowModel = true
     } else if (token === '--allow-low-cost') {
@@ -633,6 +749,8 @@ function parseSelection(argv: string[]): SelectionResult {
     incremental.affectedBy !== undefined ||
     incremental.dshVersion !== undefined
 
+  const hasDx = dx.owner !== undefined || dx.cost !== undefined || dx.smoke === true
+
   return {
     filter: {
       ...(ids.length > 0 ? { ids } : {}),
@@ -642,6 +760,7 @@ function parseSelection(argv: string[]): SelectionResult {
     },
     ...(Object.keys(overrides).length === 0 ? {} : { overrides }),
     ...(hasIncremental ? { incremental } : {}),
+    ...(hasDx ? { dx } : {}),
     ...(redact === undefined ? {} : { redact }),
     ...(parallelLimit === undefined ? {} : { parallelLimit }),
   }

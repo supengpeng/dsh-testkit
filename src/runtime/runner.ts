@@ -67,6 +67,7 @@ import {
   type RunSummary,
   type SelectionRecord,
   type StepOutcome,
+  type TraceSpan,
 } from './runlog.js'
 
 export interface RunRequest {
@@ -391,13 +392,32 @@ async function runOne(scenarioInput: Scenario, deps: RunOneDeps): Promise<CaseOu
   const releasedNotes: string[] = []
   /** 场景跑完后检测到的残留（临时目录 / 端口 / 进程；探针没给就不猜）。 */
   let leftovers: string[] | undefined
+  /**
+   * 步骤级 trace（文档 §6.1）。
+   *
+   * 记**真实偏移**（相对 case 起点），不是"把各步耗时加起来"——后者会把
+   * setup / teardown / 断言之间的空档全部抹掉，而那些空档恰恰是排查
+   * "为什么这条场景突然慢了 300ms"的唯一线索。
+   */
+  const spans: TraceSpan[] = []
+  const mark = (phase: TraceSpan['phase'], name: string, from: number, ok?: boolean): void => {
+    spans.push({
+      phase,
+      name,
+      startMs: Math.max(0, from - t0),
+      durationMs: Math.max(0, Date.now() - from),
+      ...(ok === undefined ? {} : { ok }),
+    })
+  }
   let budgetError: BudgetExceeded | undefined
 
   try {
     for (let round = 1; round <= repeat; round += 1) {
       // 按 SCENARIO_KINDS 的固定顺序 setup，保证可复现（不依赖对象键顺序）
       for (const d of setupDrivers) {
+        const tSetup = Date.now()
         await d.setup(ctx, scenario)
+        mark('setup', `setup:${d.kind}`, tSetup)
         if (controller.signal.aborted) throw new Error('aborted')
       }
 
@@ -408,6 +428,7 @@ async function runOne(scenarioInput: Scenario, deps: RunOneDeps): Promise<CaseOu
         deps.host,
         usage === undefined ? undefined : { usage, limits },
         releasedNotes,
+        { caseStart: t0, spans },
       )
       const roundSteps = roundResult.steps
 
@@ -461,6 +482,8 @@ async function runOne(scenarioInput: Scenario, deps: RunOneDeps): Promise<CaseOu
     clearTimeout(timer)
     deps.signal?.removeEventListener('abort', onExternalAbort)
 
+    const tCleanup = Date.now()
+
     // 兜底释放（setup 中途失败时尚未释放；release 幂等）
     const tail = await fixture.release()
     if (tail.failures.length > 0) releaseFailures = releaseFailures.concat(tail.failures)
@@ -482,7 +505,19 @@ async function runOne(scenarioInput: Scenario, deps: RunOneDeps): Promise<CaseOu
       leftovers = detectLeftovers(isolation).leftovers
       await disposeIsolationContext(isolation)
     }
+
+    mark('cleanup', 'release+teardown', tCleanup, (leftovers?.length ?? 0) === 0)
   }
+
+  // case 总跨度兜底收尾：trace 里始终有一条 `phase: 'case'` 的整条跨度，
+  // 时间线才能拿它当坐标轴（各阶段跨度都相对它定位）。
+  spans.push({
+    phase: 'case',
+    name: scenario.id,
+    startMs: 0,
+    durationMs: Math.max(0, Date.now() - t0),
+    ...(verdict === 'skipped' ? {} : { ok: verdict === 'passed' }),
+  })
 
   const outcome: CaseOutcome = {
     id: scenario.id,
@@ -499,6 +534,7 @@ async function runOne(scenarioInput: Scenario, deps: RunOneDeps): Promise<CaseOu
     ...(scenario.owner === undefined ? {} : { owner: scenario.owner }),
     ...(fixtureRefs === undefined ? {} : { fixtures: fixtureRefs }),
     ...(rounds.length > 1 ? { rounds } : {}),
+    ...(spans.length === 0 ? {} : { trace: spans }),
     ...(decision === undefined ? {} : { policy: decision }),
     ...(usage === undefined ? {} : { usage: usage.snapshot() }),
     // 清理取证：只在"确实做了点什么"时写，避免每份报告都被空记录淹没。
@@ -616,8 +652,19 @@ async function runSteps(
   host: HostFacade,
   budget?: BudgetGuard,
   cleanupSink?: string[],
+  trace?: { caseStart: number; spans: TraceSpan[] },
 ): Promise<RoundSteps> {
   const out: StepOutcome[] = []
+  const markSpan = (phase: TraceSpan['phase'], name: string, from: number, ok?: boolean): void => {
+    if (trace === undefined) return
+    trace.spans.push({
+      phase,
+      name,
+      startMs: Math.max(0, from - trace.caseStart),
+      durationMs: Math.max(0, Date.now() - from),
+      ...(ok === undefined ? {} : { ok }),
+    })
+  }
 
   for (const [i, step] of ctx.scenario.steps.entries()) {
     const t0 = Date.now()
@@ -631,6 +678,7 @@ async function runSteps(
     const notesBefore = { ...ctx.fixture.snapshot() }
 
     if (step.act) {
+      const tAct = Date.now()
       try {
         await performAction(step.act, drivers, ctx, host)
         outcome.action = { kind: actionKind(step.act), ok: true }
@@ -641,8 +689,10 @@ async function runSteps(
           detail: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
         }
       }
+      markSpan('act', actionKind(step.act), tAct, outcome.action.ok)
     }
 
+    const tAssert = Date.now()
     for (const assertion of step.expect ?? []) {
       const resolved = resolveRef(assertion.ref, {
         fixture: ctx.fixture,
@@ -658,6 +708,16 @@ async function runSteps(
         soft: assertion.soft === true,
       }
       outcome.assertions.push(entry)
+    }
+    if ((step.expect ?? []).length > 0) {
+      // 断言阶段只有"有断言可判"时才记跨度：空 expect 的步骤记一条 0ms 的
+      // 假跨度，会让时间线上出现一堆无意义的碎片。
+      markSpan(
+        'assert',
+        `assert:${outcome.name}`,
+        tAssert,
+        !outcome.assertions.some((a) => !a.ok && !a.soft),
+      )
     }
 
     // 该步的取证**增量**：只记新出现或值变化的 key。

@@ -43,9 +43,22 @@ $DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 npm install -D @supengpeng/dsh-testkit
 ```
 
-> 本包**刻意没有 `bin`**（不是 CLI）。"命令行可用"这件事由 DSH 的
-> `/testkit` 人类命令与导出的 `node:test` 用例承担，见
-> [docs/PUBLISHING.md](docs/PUBLISHING.md) 与 [docs/ROADMAP.md](docs/ROADMAP.md)。
+> 本包现在**有 CLI**：`dsh-testkit <子命令>`（`bin/dsh-testkit.mjs`）。
+> 它与 `/testkit` 人类命令、`testkit_*` 工具**共用同一套引擎**（不重造 runner / 选择器）。
+>
+> ```bash
+> dsh-testkit list                    # 列场景
+> dsh-testkit run                     # 跑全部 active（默认拒绝真实模型调用）
+> dsh-testkit run --changed           # 只跑受工作区改动影响的场景
+> dsh-testkit run --smoke             # 冒烟集（5 秒静态估算预算）
+> dsh-testkit coverage                # 覆盖矩阵 + 可行动的缺口
+> dsh-testkit trace --format chrome   # 步骤级 trace（可直接喂 chrome://tracing / Perfetto）
+> dsh-testkit trend                   # 历史趋势（通过率 / flaky 率 / 耗时）
+> ```
+>
+> **退出码**：`0` 全部通过（含 skipped）· `1` 有 failed/errored · `2` 用法错误或选中 0 条 ·
+> `3` 基础设施错误。CLI 走 **headless 宿主**，因此需要 `subprocess` / `fs` / `sessions`
+> 能力的场景会**如实 skip**（它不假装自己跑过）。
 
 ---
 
@@ -74,11 +87,15 @@ npm install -D @supengpeng/dsh-testkit
 | **报告标准化** | ✅ `runs/<RUN-ID>/junit.xml`（CI 消费）＋ `schemas/run-report.schema.json`（结构契约）＋ 失败归因与最小复现（`src/analysis/`）；md / json / junit 三种格式**同源** |
 | **CI 与自举契约** | ✅ `.github/workflows/ci.yml`：Node 22/24 × ubuntu/windows/macos 共 9 组，唯一入口 `pnpm run gate`（不另拼一套，避免假绿） |
 | **适配层守卫** | ✅ `src/adapters/dsh/` 是全仓**唯一**允许依赖 `@deepseek-ai/dsh-*` 的目录，由 `scripts/check-adapter-boundary.mjs` 机器守卫（注释里的包名不算） |
-| 验证 | ✅ `pnpm run gate`：**538 测试** ＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
+| **增量选择 / 夹具 / 契约 / 并发（0.2.0 第二批）** | ✅ `--changed`/`--since`/`--affected-by`（git 不可用则**退回全量**）· `fixtures/` 声明式夹具（CI 轨与插件面**同一条链**）· `tests/contracts/**` 65 条契约（含反安慰剂）· `parallel: safe` 并发隔离 + 残留检测 |
+| **组合系统** | ✅ `registry/steps/**` 片段 + `use:`/`with:` 展开 + `templates/**` 参数化（一键展平成 flat 步骤，禁控制流与场景级 include） |
+| **沙箱与隐私** | ✅ **shell 默认只读**（写命令与解释器默认拒）+ 禁止任意网络 + `--redact` 脱敏（findings 只记位置不记原文）+ `check-secrets` 门禁 |
+| **可观测性（0.2.0 第三批）** | ✅ 步骤级 **trace**（真实偏移；`trace.json` + 时间线 / Chrome Trace / OTLP 三种导出）· 结果**趋势**（kind/tag/owner/DSH 版本）· **覆盖矩阵**与可行动缺口 · 全文**搜索**（0 条时解释为什么）· 失败**原因分级**（有据才说） |
+| **独立 CLI** | ✅ `dsh-testkit <子命令>`（`bin/`）：14 个子命令 + 全部选择/闸门开关；退出码冻结 `0/1/2/3`；与 `/testkit`、`testkit_*` **共用同一套引擎** |
+| 验证 | ✅ `pnpm run gate`：**630 测试**（含契约轨 65）＋ 导出的 **26 条场景**（gate 默认排除 7 条 `fixture` 场景——它们测的是外部被测对象） |
 
-> 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（6 个模型工具 / 6 个子命令 /
-> 12 个 kind / 17 个断言词 / 约 238 个取证字段 / 4 个质量守卫 / 4 个检查器），
-> 只列**已实现并实测**的能力。
+> 📋 **完整功能清单见 [docs/FEATURES.md](docs/FEATURES.md)**（11 个模型工具 / 14 个 CLI 子命令 /
+> 12 个 kind / 17 个断言词 / 约 241 个取证字段 / 8 个质量守卫），只列**已实现并实测**的能力。
 | **真实 DSH 验证（host 半）** | ✅ **14 通过 / 0 失败 / 2 跳过 / 0 错误**——独立 headless profile 实测，未改动 desktop profile |
 | **真实 DSH 验证（client 半 + HTTP bridge）** | ✅ 独立 web profile 实测：「测试」标签渲染、控制台显示 16 条场景 |
 

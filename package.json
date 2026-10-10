@@ -16,6 +16,7 @@
   },
   "files": [
     "lib",
+    "bin",
     "src",
     "cases",
     "docs",
@@ -39,6 +40,9 @@
     "regression"
   ],
   "license": "MIT",
+  "bin": {
+    "dsh-testkit": "./bin/dsh-testkit.mjs"
+  },
   "engines": {
     "node": ">=22.19"
   },
