@@ -280,7 +280,13 @@ test('watchCases：连续写入被防抖合并成一次回调；close() 之后�
   )
   assert.ok(['change', 'rename'].includes(first.type), `事件类型应如实：${first.type}`)
   for (const name of first.files) {
-    assert.match(name, /^TK-000\d\.yaml$/, `文件名应来自本次写入：${name}`)
+    // 这条断言在 macOS 上真的红过：FSEvents 会把**被监听目录自身**也报上来，
+    // 于是 files 里出现 `dsh-testkit-watch-xxxx`（目录名），调用方会去解析一个目录。
+    assert.match(
+      name,
+      /^TK-000\d\.yaml$/,
+      `文件名应来自本次写入（目录自身的事件不该进 files）：${name}`,
+    )
   }
 
   // 再等一个完整窗口：合并后不该出现"一波接一波"（回调次数必须少于写入次数）

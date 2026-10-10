@@ -45,7 +45,7 @@ import {
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
@@ -560,16 +560,19 @@ test('阶段三：复跑脚本与结果解析（纯函数）', () => {
   assert.deepEqual(payload, { ok: true, runId: 'R1', totals: { total: 1 } })
   assert.equal(parseRerunPayload('没有标记'), undefined)
 
-  // 跨盘符（相对说明符会算成 `./C:\...`）必须明确报错，而不是生成一个跑不起来的脚本
-  assert.throws(
-    () =>
-      generateRerunScript({
-        libDir: 'Z:\\elsewhere\\lib',
-        casesDir: join(WORKSPACE, 'cases'),
-        caseIds: ['TK-0020'],
-        outDir: join(WORKSPACE, 'export'),
-      }),
-    /同一盘符/,
+  // 与包不在同一棵树（Windows 上可能连盘符都不同）：说明符必须仍然**解得到** libDir。
+  // 相对形态做不到时退回绝对 `file://` URL —— 生成一个跑不起来的脚本才是真的糟。
+  const farLib = process.platform === 'win32' ? 'Z:\\elsewhere\\lib' : '/elsewhere/lib'
+  const farScript = generateRerunScript({
+    libDir: farLib,
+    casesDir: join(WORKSPACE, 'cases'),
+    caseIds: ['TK-0020'],
+    outDir: join(WORKSPACE, 'export'),
+  })
+  assert.match(farScript, /file:\/\//, '解不回去时必须退回 file:// URL，而不是生成相对垃圾')
+  assert.ok(
+    farScript.includes(`${pathToFileURL(farLib).href}/cases/registry.js`),
+    '回退后的每条 import 都应指向真实的 libDir',
   )
 })
 

@@ -8,9 +8,9 @@
  */
 
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
@@ -133,6 +133,39 @@ test('toLibSpecifier：包外目录 → 相对上跳', () => {
 test('toLibSpecifier：同一目录 → ./', () => {
   const root = join('C:', 'pkg')
   assert.equal(toLibSpecifier(root, root), './')
+})
+
+test('toLibSpecifier：绝对路径解不回去时退回 file:// URL（macOS 的 /var ↔ /private/var 真踩过）', () => {
+  // 造一对"绝对但命名不一致"的目录：一边 realpath、一边原样。
+  // macOS 上 `/var/folders/...` 的真实路径是 `/private/var/folders/...`，
+  // 只 realpath 一边，relative() 就会算出爬出根目录的路径
+  // （解析后落在一个不存在的 `private/<home>` 前缀上）。
+  const base = mkdtempSync(join(tmpdir(), 'dsh-testkit-libspec-'))
+  try {
+    const realBase = realpathSync.native(base)
+    const libDir = join(base, 'lib')
+    const outDir = join(realBase, 'rerun')
+    mkdirSync(libDir, { recursive: true })
+    mkdirSync(outDir, { recursive: true })
+
+    const spec = toLibSpecifier(outDir, libDir)
+    // 无论走相对还是 file://，**解出来必须还是 libDir**（这才是模块解析真正要的性质）
+    const resolved = spec.startsWith('file:')
+      ? fileURLToPath(spec.replace(/\/$/, ''))
+      : resolve(outDir, spec)
+    assert.equal(
+      realpathSync.native(resolved).replace(/\\/g, '/'),
+      realpathSync.native(libDir).replace(/\\/g, '/'),
+      `说明符必须解回 libDir，实际算成了 ${spec}`,
+    )
+    // 而且不能出现"爬出根目录再进 private/..."这种只存在于 macOS 的错误形态
+    assert.ok(
+      spec.startsWith('file:') || !spec.includes('/private/'),
+      `解不回去的相对形态必须被拦下，实际：${spec}`,
+    )
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
 })
 
 /* ---------------------------------------------------------- 落盘（有副作用） -- */

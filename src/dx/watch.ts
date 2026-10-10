@@ -21,6 +21,7 @@
  */
 
 import { statSync, watch as fsWatch, type FSWatcher } from 'node:fs'
+import { basename } from 'node:path'
 
 /** 默认防抖窗口（与 `src/index.ts` 的内联 watcher 一致）。 */
 export const DEFAULT_DEBOUNCE_MS = 250
@@ -98,11 +99,16 @@ export function watchCases(
       if (closed) return
       const type: CasesChange['type'] = eventType === 'rename' ? 'rename' : 'change'
       const name = filename === null || filename === undefined ? '' : String(filename)
+      // macOS 的 FSEvents 会把**被监听的目录自身**也报上来（filename = 目录名）。
+      // 那不是"某个场景文件变了"：把它当条目交给调用方，人家会去解析一个目录
+      // （CI 上就是这么红的）。它的事件数照记，但不进 files。
+      const isSelf = name !== '' && name === basename(dir)
+      const isEntry = name !== '' && !isSelf && !name.startsWith('..')
       if (pending === undefined) pending = { type, files: [], events: 0 }
       // 窗口内以最后一次事件类型为准，但事件数全部计入（自证"合并了几个"）
       pending.type = type
       pending.events += 1
-      if (name !== '' && !pending.files.includes(name)) pending.files.push(name)
+      if (isEntry && !pending.files.includes(name)) pending.files.push(name)
       if (timer !== undefined) clearTimeout(timer)
       timer = setTimeout(flush, debounceMs)
     })

@@ -28,7 +28,9 @@
  * 这样"导出结果长什么样"可以被单测穷举，而不必真的写盘再读回来。
  */
 
-import { dirname, join, relative } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { realpathSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 
 import type { Scenario } from '../cases/types.js'
 
@@ -201,9 +203,52 @@ const IMPORT_SYMBOLS: Record<string, string> = {
  *
  * 生成的文件可能被放到包内、包外的 CI 目录、甚至别的仓库里，
  * 所以不能写死 `../lib/`——必须相对导出位置算。
+ *
+ * ## 为什么需要"解回去"校验（macOS CI 真踩过）
+ *
+ * `relative()` 只是字符串运算，它假设两边是**同一套命名**。而 `os.tmpdir()` 在 macOS 上
+ * 返回 `/var/folders/...`，其真实路径是 `/private/var/folders/...`——同一个目录的两个名字。
+ * 只要一边被 realpath 过、另一边没有，`relative()` 就会算出爬出根目录的路径：
+ *
+ *   从 `/private/var/.../rerun` 到 `/Users/runner/work/pkg/lib`
+ *   → `../../../../Users/runner/work/pkg/lib` → 解析成 `/private/Users/runner/...`
+ *   → `ERR_MODULE_NOT_FOUND`（那个目录根本不存在）
+ *
+ * 所以绝对路径输入一律做**往返校验**：把说明符解回去必须还是 libDir。
+ * 解不回去（realpath 不一致、跨盘符）就退回绝对 `file://` URL——
+ * 可搬性差一点，但**永远解得到**；生成一个跑不起来的脚本才是真的糟。
  */
 export function toLibSpecifier(exportDir: string, libDir: string): string {
-  const rel = relative(exportDir, libDir).replace(/\\/g, '/')
+  const from = realpathOrSelf(exportDir)
+  const to = realpathOrSelf(libDir)
+  const rel = relative(from, to).replace(/\\/g, '/')
+
   if (rel === '') return './'
-  return rel.startsWith('.') ? `${rel}/` : `./${rel}/`
+  const candidate = rel.startsWith('.') ? `${rel}/` : `./${rel}/`
+
+  // 输入不是绝对路径（库调用方给的相对形态）：没有 realpath 问题可言，保持原样。
+  if (!isAbsolute(from)) return candidate
+
+  // 纯相对（不是 `Z:/...` 这种被 relative() 原样吐回来的绝对路径）+ 能解回 libDir。
+  const pureRelative = !/^[A-Za-z]:/.test(rel) && !rel.startsWith('/')
+  if (pureRelative && samePath(resolve(from, candidate), to)) return candidate
+
+  return `${pathToFileURL(to).href}/`
+}
+
+/** 解析真实路径；路径不存在（或平台不支持）时原样返回，不因此中断导出。 */
+function realpathOrSelf(path: string): string {
+  try {
+    return realpathSync.native(path)
+  } catch {
+    return path
+  }
+}
+
+/** 路径等价判定（Windows 大小写不敏感、分隔符归一）。 */
+function samePath(a: string, b: string): boolean {
+  const norm = (value: string): string => resolve(value).replace(/\\/g, '/').replace(/\/+$/, '')
+  const left = norm(a)
+  const right = norm(b)
+  return process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right
 }

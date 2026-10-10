@@ -263,12 +263,11 @@ export interface RerunScriptOptions {
  */
 export function generateRerunScript(options: RerunScriptOptions): string {
   const lib = toLibSpecifier(options.outDir, options.libDir)
-  if (lib.includes(':')) {
-    throw new Error(
-      `复跑需要 worktree 与主仓 lib/ 在同一盘符下（相对 import 说明符算成了 ${lib}）。` +
-        `请把 tempRoot 指到同一盘符，或改用包内临时目录。`,
-    )
-  }
+  // `toLibSpecifier` 保证说明符**一定解得到** libDir：相对形态做过往返校验，
+  // 解不回去（跨盘符、macOS 的 `/var` ↔ `/private/var`）会退回绝对 `file://` URL。
+  // 早先这里靠"说明符里有没有 ':'"来挡跨盘符，那种写法既挡不住 macOS 的
+  // realpath 不一致（没有冒号，照样 ERR_MODULE_NOT_FOUND），又会把现在这种
+  // 合法回退当成错误。
   const perCase = options.perCaseTimeoutMs ?? 30_000
   const generatedAt = options.generatedAt ?? new Date().toISOString()
 
