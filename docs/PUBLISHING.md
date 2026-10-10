@@ -126,13 +126,14 @@ git grep --untracked -c "dsh-testkit" -- . ':(exclude)lib' ':(exclude)export' \
 | A3 | `src/index.ts:26` | `export const name = 'dsh-testkit'` | host 半插件注册名 |
 | A4 | `src/client/index.ts:17` | `export const name = 'dsh-testkit'` | client 半插件注册名 |
 | A5 | `src/client/dict.ts:5` | `export const NS = 'dsh-testkit'` | locale 命名空间（词典按它挂载） |
-| A6 | `dsh/cordis.patch.yml:18-19` | `- id: dsh-testkit` / `name: dsh-testkit` | profile roster 的行 id；重复 id 会让加载器起不来 |
+| A6 | `dsh/cordis.patch.yml` | `- id: dsh-testkit`（**不变**，插件身份）/ `name:`（**必须**改成 A1 的包名） | ⚠️ **这条真的漏过一次**：文件里曾留着 `name: dsh-testkit` 且注释还写着"不用跟着改"。活宿主实测（§5）证明：`name` 是 **Node 模块说明符**，写旧名不会报错，但 **client 半静默不进启动图**（「测试」标签不出现、控制台无异常） |
 | A7 | `src/http.ts:38` | `BRIDGE_PREFIX = '/api/dsh-testkit'` | host 侧路由前缀 |
 | A8 | `src/client/bridge.ts:18` | `BRIDGE_PREFIX = '/api/dsh-testkit'` | client 侧**必须与 A7 逐字符一致**，否则 bridge 全 404 |
 | A9 | `cases/TK-0015.yaml:26,35,40,48` | `expectLocaleNamespaces` / `fx.uiModuleId` / `fx.uiName` 期望值 | ui 场景的**判据**就是这些名字；不改则场景红 |
 | A10 | `tests/ui-driver.test.mjs`（8 处：20,25,48,49,59,146,147,154） | bundle `id` / `name` / locale NS 的断言 | 同上 |
 | A11 | `tests/host-apply.test.mjs:109-112` | 4 条 bridge 路由 path 断言 | 跟随 A7 |
 | A12 | `tests/export.test.mjs:59,65` | `@scope/dsh-testkit/lib/` 示例 specifier | 导出物的 lib specifier 命名 |
+| A13 | **已安装的 profile**（如 `~/.dsh/profiles/tkweb`） | `package.json` 的 `dependencies` 与 `dsh.profile.bundles` 里都写着包名 | 改名后必须重装：`dsh plugin --profile <p> remove <旧名>` + `add <本目录>`。只改本仓不会让旧 profile 跟着变（实测：旧 profile 里 `bundles` 仍是旧名，宿主按旧名解析） |
 
 ### B 类 · 应该改（不改不会坏，但会长期留着两个名字）
 
@@ -180,7 +181,37 @@ $DSH = 'D:\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
 | V1 | **标签是否渲染** | 打开该 profile 的页面，看会话视图环 | 「测试」标签出现在「对话 / 轨迹」旁 |
 | V2 | **bundle 是否被组合进启动图** | DevTools → Network 过滤旧名/新名，看 `index.html` | **combo URL 里出现 `<新名>/client.js`**（旧名消失） |
 | V3 | **`__ModuleLoader__.load` 的 id 是否匹配** | 直接取 bundle（带 token）搜 `__ModuleLoader__.load` | `id: "<新名>"`，且与 V2 的 combo 名一致 |
-| V4 | **bridge 是否通** | `Invoke-RestMethod -Uri http://127.0.0.1:<port>/api/<新名>/list -Method POST -Body '{}'` | 200 + 场景列表；页面控制台也真的渲染出表格 |
+| V4 | **bridge 是否通** | `Invoke-RestMethod -Uri http://127.0.0.1:<port>/api/dsh-testkit/list -Method POST -Body '{}'` | 200 + 场景列表；页面控制台也真的渲染出表格 |
+
+> V4 的路径是**固定常量** `/api/dsh-testkit`（`src/http.ts` 的 `BRIDGE_PREFIX`，client 侧同一常量），
+> **不随包名变**——写成 `/api/@supengpeng/dsh-testkit/list` 会 401（scope 里的 `/` 会被当成路径分隔）。
+
+### 5.1 实测结果（2026-10-10，隔离 profile `tkweb`）
+
+```powershell
+& $DSH plugin --profile tkweb remove dsh-testkit            # 旧名条目先摘掉
+& $DSH plugin --profile tkweb add <本仓绝对路径>            # 按新名重装（link:）
+& $DSH --profile tkweb --port 19403 --no-open               # 独立端口，不动 desktop(19387)
+```
+
+| # | 结论 | 证据 |
+|---|---|---|
+| V1 | ✅ **可得的最强证据**（真 bundle 跑进真实 slot 系统） | `TK-0015`（`ui` driver）在隔离 vm 里加载**产物** `lib/client.js`（11916 B）：`uiLoadCalls=1`、`uiModuleId=@supengpeng/dsh-testkit`、`uiHasApply=true`、`uiInjectedSlots=[conversation.view]`、`uiRegisteredSlotNames=[conversation.view]`、`uiRendererProvided=true`、`uiLocaleNamespaces=[dsh-testkit]` → **verdict passed**。⚠️ **真实浏览器里的视觉渲染仍需人眼确认**（见下方"没做到的那一步"） |
+| V2 | ✅ | 首页（`/?token=…`）里出现 `plugins/??…,@supengpeng/dsh-testkit/client.js&amp;rev=f4aeacfac0d0`，且**全页搜不到**裸名 `dsh-testkit/client.js` |
+| V3 | ✅ | 取该 combo（401547 B）→ `__ModuleLoader__.load({ id: "@supengpeng/dsh-testkit" })`，与 V2 的 combo 名**逐字符一致**；bundle 内含 `conversation.view` 与 `dsh-testkit` 词典命名空间 |
+| V4 | ✅ | `POST /api/dsh-testkit/list` → **200**（6463 B 场景列表）；再 `POST /api/dsh-testkit/run {"ids":["TK-0001"]}` → **200**、`total=1 passed=1`、`runId=2026-10-10T02-07-24_9nj1`、报告落盘 |
+
+**这一步真的抓到了东西**：修复前，首页里**完全没有** `dsh-testkit` 的 client 模块——
+`dsh/cordis.patch.yml` 的 `name` 还写着旧名（`dsh-testkit`），宿主半照常加载
+（bridge 一直通），但 client 半**静默地不进启动图**。
+改成 `name: "@supengpeng/dsh-testkit"` 后，V2/V3 立刻通过。
+这条已固化成 `scripts/check-bundle-patch.mjs`（gate 内的 `verify:bundle`，
+带 5 条回归测试，含"旧名 / 空 insert / 重复 id"三条负向）。
+
+**没做到的那一步（如实声明）**：V1 的"打开页面看「测试」标签出现"需要一个**开着 GUI 的浏览器**。
+本会话能拿到的是"产物被真实宿主加载 + slot/词典真的注册了 + combo 与模块 id 一致"，
+**看不到像素**。所以最后一步请你在浏览器里确认一次：
+打开 `http://127.0.0.1:<port>/?token=<启动日志里的 token>`，会话视图环里应出现「测试」标签。
 
 > V2 与 V3 是**两条独立的证据**：combo URL 对了只能说明静态清单改了，
 > bundle 内的 `id` 才是宿主模块表查表用的键——两者不一致时，页面**不报错**，只是没反应。

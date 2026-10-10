@@ -9,15 +9,26 @@
 #       ~/.dsh/profiles/<name>/cordis.patch.yml 手动 insert 同一个 id
 #       （重复 id 会让加载器报错起不来）。
 #
+#       ⚠️ 包名改过（scoped rename）之后，**必须**对已安装的 profile 重新
+#       `dsh plugin --profile <p> remove <旧名>` + `add <本目录>`：
+#       profile 的 package.json 与 `dsh.profile.bundles` 里都写着包名，
+#       只改本仓不会让旧 profile 跟着变。
+#
 # 本行默认不启用任何配置；需要覆盖时改 profile 的 cordis.patch.yml：
 #   - id: dsh-testkit
 #     config:
 #       casesDir: 'C:/Users/<user>/Documents/deepseek-harness/default-workspace/dsh-testkit/cases'
 #       autoload: true
 #
-# ⚠️ 这里的 `id` 是**插件身份**（对应 src/index.ts 的 `export const name`），
-#    与 npm 包名是**两件事**：包名已改 scoped（见 docs/PUBLISHING.md），
-#    插件身份仍是产品名 `dsh-testkit`，所以这行**不用**跟着改。
+# ⚠️ 下面两个字段是**两件事**，但都必须与包名对齐（活宿主实测踩过）：
+#   · `id`   = 插件身份（对应 src/index.ts 的 `export const name`），可以继续叫 dsh-testkit；
+#   · `name` = **Node 模块说明符**，由宿主在 profile 的 node_modules 里解析，
+#              **必须**写成 package.json 的 name（`@supengpeng/dsh-testkit`）。
+#
+#   写旧名**不会报错**：宿主半照样加载（HTTP bridge 还是通的），但 client 半会
+#   **静默地不进启动图**——页面里搜不到 `<name>/client.js`，浏览器控制台无异常，
+#   「测试」标签就是不出现。这正是 docs/PUBLISHING.md §5 第四条要抓的静默失败。
+#   该判据已由 scripts/check-bundle-patch.mjs（gate 内的 `verify:bundle`）守卫。
 - insert:
     - id: dsh-testkit
-      name: dsh-testkit
+      name: "@supengpeng/dsh-testkit"
